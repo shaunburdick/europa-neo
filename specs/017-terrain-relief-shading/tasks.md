@@ -98,8 +98,10 @@ the `relief: false` control render (AC-001); (b) a tile with four non-land neigh
 every edge-band pixel matching its control within `tolerance 8`, and the two retired
 fills are absent (AC-004); (c) the neighbour-absent, water-only, off-board, `|Δ| = 0`
 cases are neutral and the (absent, water@0, water@255) pair paints byte-identical edge
-bands (AC-003); (d) relief-on leaves every pixel of every neighbouring tile byte-identical
-to relief-off (AC-003 confinement); (e) repeated paints are byte-identical and a `MapView`
+bands (AC-003); (d) every pixel at which the relief render differs from the relief-free
+control lies inside a band rect belonging to the tile that paints it — asserted globally
+and per tile, each with a positive difference count so neither passes vacuously (AC-003
+confinement); (e) repeated paints are byte-identical and a `MapView`
 whose `cells` were inserted in reversed order paints byte-identically (AC-008); (f) a
 96 px-zoom confinement case.
 **Traces**: FR-001, FR-002, FR-004, FR-005, FR-010 · AC-001, AC-003, AC-004, AC-008.
@@ -149,22 +151,25 @@ green.
 ## T008 — `Q-P05` 48×48 relief perf bench (AC-010, NFR-001)
 
 **Files**: `packages/console/tests/integration/perf.test.ts`.
-**Do**: add the 48×48 relief-enabled all-land fixture (2,304 cells, elevations
-`(x*7 + y*13) % 256`, deltas non-zero across all four zones) and
-`Q-P05: paintFrame(48×48 relief-enabled full board)` using the existing `benchmark()` and
-`PAINT_BUDGET_MS * readPaintBudgetFactor()`; run it **before** deciding whether the
-optimisation is needed. If min-of-round-medians ≥ 8 ms, apply plan D7's fallback — a
-per-`MapCanvas` memo of `reliefBandColor` keyed `zone:sign:delta` — and re-measure; **that
-path also adds a unit assertion in `relief.test.ts` that a memoised call returns the
-identical string to a direct call for the same key**, and re-runs AC-008's repeat-paint
-byte identity. Also run `test:determinism` to confirm
-the golden hash is unchanged. The `reliefBandColor` memo in the paragraph above was superseded by an
-explicit user decision (plan D7 "Superseded, then measured"): the fix is the sub-pass 1d painter
-redesign (per-direction, one `fill()` per distinct colour over a path of `rect`s), and the memo was
-not added.
+**Do**: add the representative all-land 48×48 fixture — 2,304 cells, elevations
+`(x*97 + y*193 + x*x*29 + y*y*61 + x*y*113) % 256` (250 distinct non-zero `|Δ|`, 822
+distinct band colours) — and `Q-P05`, which gates relief's **attributable addition**, not
+an absolute frame: the min-of-round-medians paint with relief enabled **minus** the same
+figure with `relief: false`, both through the existing `benchmark()` harness (warmup 25,
+rounds 5, samples 40) on the identical `MapView`; assert the fixture's variety against the
+pinned floors (`distinct |Δ| ≥ 200`, `distinct band colours ≥ 500` — the retired
+`(x*7 + y*13) % 256` yielded 4 and 20), so a degenerate fixture that flatters the addition
+cannot pass. Bound the addition at `RELIEF_ADDITION_BUDGET_MS = 6` with the same
+`readPaintBudgetFactor()` treatment `PAINT_BUDGET_MS` gets; the absolute frame is not
+gated. Keep the painter's whole-sub-pass colour batch in sub-pass 1d — every band of the
+sub-pass collected into one map keyed by colour, one `fill()` per distinct colour over one
+path of `rect`s, colours iterated in sorted key order — rather than buying the addition
+down by quantising the mapping, which FR-003 forbids. Also run `test:determinism` to
+confirm the golden hash is unchanged.
 **Traces**: NFR-001, FR-010 · AC-008, AC-010.
-**Done when**: `test:perf` green with Q-P01 unchanged and Q-P05 under budget, with the
-`[perf]` line captured for the PR body; `test:determinism` green, hash unchanged.
+**Done when**: `test:perf` green with Q-P01 unchanged, Q-P05's addition under its 6 ms
+bound, and both variety floors met, with the `[perf]` line captured for the PR body;
+`test:determinism` green, hash unchanged.
 
 ## T009 — `[P]` Token-reading contrast test + A-05
 

@@ -553,11 +553,11 @@ removes unused components from the production bundle (guarded by G-10 and the bu
 
 Every pairing states its **measured** contrast ratio and its WCAG target. Ratios are computed from the
 canonical hex values in § 1.1 using the WCAG relative-luminance formula (`(L1 + 0.05) / (L2 + 0.05)`),
-rounded to two decimals. The claim is pinned by an automated computed-style check that renders a
-fixture importing the shared stylesheet, reads the resolved colors, and recomputes the ratio — G-07,
-not a comment. Rows that record their own guard gap are the exception: G-07 is deferred per spec 012's
-Scope Note, so those ratios are recorded computations no runner reads. Every other row below is at or
-above its stated target.
+rounded to two decimals. G-07, the computed-style check that would render a fixture and read resolved
+colors, is deferred per spec 012's Scope Note — no row is guarded that way, and each `G-07` cell below
+names the pairing's intended prover, not a check that runs. The rows the 017 A-03 sweep enumerates (the
+Peaks ceiling and the pipe-slope fills) are asserted by `palette.test.ts`'s token-reading block, which
+recomputes them from the § 1.1 values; every other row is an unguarded computation.
 
 | Foreground | Background | Measured ratio | WCAG target | Where asserted |
 | --- | --- | --- | --- | --- |
@@ -586,7 +586,7 @@ above its stated target.
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.surface` `#111827` | ≈ 17.74:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — `*:focus-visible` / `.europa-focus-ring` outline on a plate |
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.pageBg` `#0b0f19` | ≈ 19.15:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the page column |
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.voidBg` `#1a2233` | ≈ 15.90:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the board / `.europa-lobby__row` |
-| Shipped Peaks ceiling `hsl(200 15% 95%)` (= zone 3 `lightnessMax`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 14.26:1 | AA 1.4.11 non-text ≥ 3:1 | Recorded computation over the token value (§ 3's formula), not a running guard: G-07 is deferred per spec 012's Scope Note. The earlier `hsl(220 8% 78%)` is not a shipped colour and its ≈ 4.57:1 does not reproduce; the painted 1c light end (L=88) measures ≈ 12.16:1. Terrain identity redundantly encoded by elevation shading, chip labels, and minimap |
+| Shipped Peaks ceiling `hsl(200 15% 95%)` (= zone 3 `lightnessMax`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 14.26:1 | AA 1.4.11 non-text ≥ 3:1 | `palette.test.ts` token-reading block (A-03 sweep); no rendered computed-style check — G-07 is deferred per spec 012's Scope Note. The earlier `hsl(220 8% 78%)` is not a shipped colour and its ≈ 4.57:1 does not reproduce; the painted 1c light end (L=88) measures ≈ 12.16:1. Terrain identity redundantly encoded by elevation shading, chip labels, and minimap |
 | Pipe slope fills — downhill `#059669` / flat `#f59e0b` / uphill `#dc2626` / stalled `#9ca3af` (reuse of `TOKENS.color.green` / `TOKENS.color.accent` / `TOKENS.color.red` / `TOKENS.color.textMuted`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 4.22:1 / 7.40:1 / 3.29:1 / 6.26:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — pipe slope indicators over fog void (005 FR-013); the § 1.1 pairings over the dark biome zones are below target for all four fills (note N-4, issue #199), where the dark outline composites to ≈ 2.91–3.40:1 and triangle shape + cell-edge position carry the mark (spec 024 FR-010) |
 | `TOKENS.color.textLink` `#f59e0b` | `TOKENS.color.pageBg` `#0b0f19` | ≈ 8.92:1 | AA 1.4.3 normal ≥ 4.5:1 | G-07 computed-style pair — `.europa-link` text on the page background |
 | `TOKENS.color.textLink` `#f59e0b` | `TOKENS.color.surface` `#111827` | ≈ 8.26:1 | AA 1.4.3 normal ≥ 4.5:1 | G-07 computed-style pair — `.europa-link` text on a card/plate surface |
@@ -604,7 +604,8 @@ above its stated target.
 spec 012 and its contract (`≈ 15:1`, `≈ 13.5:1`, `≈ 6.6:1`, `≈ 16:1`). The deltas are
 estimate-versus-computation, not behavior changes: every critical chrome pairing named by FR-016
 (page text, HUD text, chip text, muted lines, banner text, focus ring) still clears its AA target.
-`DESIGN.md` is authoritative, so the numbers above are the ones G-07 asserts.
+`DESIGN.md` is authoritative, so the numbers above are the ones a G-07 computed-style check must assert
+when it lands.
 
 **N-1 — focus-ring adjacency.** The ring is painted *outside* the control with a 2px gap, so the color
 adjacent to the ring on both sides is the surrounding surface, which is what the table measures. That
