@@ -17,7 +17,7 @@
 
 import type { MatchId } from '@europa/networking';
 
-import type { MatchStatus } from '../contracts/match-types';
+import type { MatchStatus } from './contracts/match-types';
 
 /**
  * Emitted on every lifecycle transition (FR-012). `from` is `null`

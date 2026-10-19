@@ -28,8 +28,8 @@
 
 import type { PlayerId } from '@europa/core';
 import type { SessionToken } from '@europa/networking';
-import type { PlayerSessionId, SeatIndex } from '../../contracts/match-types';
 import type { GuestPlayerId } from '../contracts/lobby-types';
+import type { PlayerSessionId, SeatIndex } from '../contracts/match-types';
 
 /**
  * One occupied seat. `playerId` is the seat holder's universal

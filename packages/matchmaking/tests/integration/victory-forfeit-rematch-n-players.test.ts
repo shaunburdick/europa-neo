@@ -36,7 +36,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { MatchId, MatchVisibility, SeatAssignment } from '../../contracts/match-types';
+import type { MatchId, MatchVisibility, SeatAssignment } from '../../src/contracts/match-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 

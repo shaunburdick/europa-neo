@@ -22,7 +22,7 @@
 import type { GuestPlayerId, PlayerId, RandomBytesSource } from '@europa/core';
 import { DEFAULT_PLAYER_ID_MAX_ATTEMPTS, generatePlayerId, parseGuestPlayerId } from '@europa/core';
 import type { MatchId } from '@europa/networking';
-import type { PlayerSessionId } from '../contracts/match-types';
+import type { PlayerSessionId } from './contracts/match-types';
 import { getRandomValues, randomUUID } from './crypto';
 
 /**

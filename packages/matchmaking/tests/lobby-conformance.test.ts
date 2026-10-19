@@ -81,14 +81,14 @@ import type {
 // feature-010 wire mirror must stay identical to (see (d) below).
 import type { GenerationSettings } from '@europa/terrain';
 import { describe, expect, it } from 'vitest';
-// Feature-006 canonical shapes the lobby contracts build on.
-import type { MatchSettings, SeatAssignment } from '../contracts/match-types';
 // Type-only namespace over the BUILT package root (erased at runtime;
 // resolved against dist/index.d.ts by the tsc conformance program).
 import type * as LobbyBarrel from '../dist/index';
 // Type-only namespace imports (erased at runtime; checked by the tsc program).
 import type * as LobbyApi from '../src/contracts/lobby-api';
 import type * as LobbyTypes from '../src/contracts/lobby-types';
+// Feature-006 canonical shapes the lobby contracts build on.
+import type { MatchSettings, SeatAssignment } from '../src/contracts/match-types';
 
 // ---------------------------------------------------------------------------
 // Witness helpers (same conditional forms as the console precedent)

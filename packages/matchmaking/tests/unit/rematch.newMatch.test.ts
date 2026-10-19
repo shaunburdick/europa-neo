@@ -22,7 +22,7 @@
 import type { PlayerId } from '@europa/engine';
 import { DEFAULT_GENERATION_SETTINGS } from '@europa/terrain';
 import { describe, expect, it } from 'vitest';
-import type { MatchId, PlayerSessionId, SessionToken } from '../../contracts/match-types';
+import type { MatchId, PlayerSessionId, SessionToken } from '../../src/contracts/match-types';
 
 import { createMatchRecord } from '../../src/internal/matchRecord';
 import type { PlayerSession } from '../../src/internal/playerSession';

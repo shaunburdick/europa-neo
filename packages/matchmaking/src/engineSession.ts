@@ -32,7 +32,7 @@
 import type { PlayerId } from '@europa/core';
 import type { Board, MatchConfig, Order, World } from '@europa/engine';
 import { applyCommand, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
-import type { EngineSession, MatchSettings } from '../contracts/match-types';
+import type { EngineSession, MatchSettings } from './contracts/match-types';
 
 /**
  * Build the engine `MatchConfig` for a starting match: player-facing

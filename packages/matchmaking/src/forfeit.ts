@@ -30,7 +30,7 @@
 import type { PlayerId } from '@europa/engine';
 import type { Logger, Server } from '@europa/networking';
 
-import type { MatchId, SessionToken } from '../contracts/match-types';
+import type { MatchId, SessionToken } from './contracts/match-types';
 import type { MatchRecord } from './internal/matchRecord';
 import type { SeatRecord } from './internal/seatRecord';
 import type { StatusEmitter } from './matchLifecycle';

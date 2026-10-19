@@ -5,8 +5,8 @@
  * **Phase 2 (Foundational) barrel** — exposes the tunable constants,
  * the error factory, the identity generators/validators, the in-memory
  * store, and the full public type surface (re-exported from the
- * byte-identical contract mirror at `../contracts/match-types.ts`, so
- * the host binary has one import path).
+ * contract module at `src/contracts/match-types.ts`, so the host
+ * binary has one import path).
  *
  * Feature 010 (Public Lobby & Match Browser) adds its server API/event
  * contract artifacts under the same type-only discipline: the lobby
@@ -21,13 +21,18 @@
  * `createMatchmaker` and the `Matchmaker` runtime land in Phase 3
  * (US1 Quick Match); this intermediate barrel compiles standalone.
  *
- * Type-only contract re-exports: the barrel deliberately re-exports no
- * *values* from `../contracts/` — that keeps the compiled bundle free
- * of any runtime import of `@europa/engine` / `@europa/terrain` /
- * `@europa/networking` (research.md §9: zero runtime deps). Contract
- * constants (`MATCHMAKING_API_VERSION`, `DEFAULT_MATCH_SETTINGS`,
- * `DEFAULT_GENERATION_SETTINGS`) remain available via the
- * `@europa/matchmaking/contracts/*` export path.
+ * Contract re-exports: the barrel deliberately re-exports no
+ * *runtime-bearing* values from `./contracts/` — that keeps the
+ * compiled bundle free of any runtime import of `@europa/engine` /
+ * `@europa/terrain` / `@europa/networking` (research.md §9: zero
+ * runtime deps). The ONE exception is `MATCHMAKING_API_VERSION`, a
+ * pure local `const` with no upstream imports — it is re-exported so
+ * in-repo consumers pin the shipped value through the public surface
+ * (spec 008 v1.4 plan-gate-parity §5.2; the dist grep drill keeps the
+ * zero-runtime-import claim honest). Other contract constants
+ * (`DEFAULT_MATCH_SETTINGS`, `DEFAULT_GENERATION_SETTINGS`) stay
+ * type/module-internal and are imported from the package source by
+ * in-repo callers.
  *
  * Consumers:
  *   - `packages/server` (host)  → wires the matchmaker against
@@ -39,6 +44,52 @@
  * is pure or identity-only; no wall-clock, no unseeded randomness.
  */
 
+export {
+    BOARD_SIZE_DEFAULTS,
+    MATCHMAKING_CONSTANTS,
+    MATCHMAKING_DEFAULT_CONFIG,
+} from './constants';
+/**
+ * Feature 010 (Public Lobby & Match Browser): the server API/event
+ * contract artifacts, exported from `src/contracts/` per plan.md §1
+ * (the package's ONE contract directory since issue #145's unification
+ * — spec 006 v1.10 FR-027). Type-only like every contract re-export
+ * above — the barrel deliberately re-exports no runtime-bearing
+ * *values* from contract modules, keeping the compiled bundle free of
+ * runtime upstream imports (research.md §9: zero runtime deps). The
+ * lobby shapes are the canonical source of truth, documented in
+ * `specs/010-public-lobby-match-browser/spec.md`.
+ * Networking's wire mirrors are structurally compatible by design, but
+ * THESE declarations are the server-side source of truth consumers
+ * should import. The lobby RUNTIME (identity registry, facade
+ * implementation, transport wiring) lands with later tasks and will be
+ * exported here when it exists.
+ */
+export type {
+    LobbyService,
+    MatchJoinTarget,
+    Result,
+    SpectatorTarget,
+} from './contracts/lobby-api';
+export type {
+    GuestIdentityClaim,
+    GuestPlayerId,
+    IdentityState,
+    LobbyActionId,
+    LobbyError,
+    LobbyErrorCode,
+    LobbyEvent,
+    LobbyRevision,
+    LobbySnapshot,
+    LobbyStatus,
+    PublicLobbyEntry,
+    RosterChange,
+    RosterDelta,
+    RosterEntry,
+    RosterRevision,
+    RosterSnapshot,
+    RosterStatus,
+} from './contracts/lobby-types';
 export type {
     AcceptRematchRequest,
     AcceptRematchResult,
@@ -96,61 +147,19 @@ export type {
     UiBoardSize,
     ValidationError,
     World,
-} from '../contracts/match-types';
+} from './contracts/match-types';
+/**
+ * The single additive value export from the contract modules: a pure
+ * local `const` (no upstream imports), re-exported so consumers pin
+ * the shipped API version through the public barrel. Everything else
+ * from `./contracts/` stays type-only (see the header note).
+ */
+export { MATCHMAKING_API_VERSION } from './contracts/match-types';
 export type {
     Matchmaker,
     MatchmakerConfig,
     MatchmakerDeps,
-} from '../contracts/matchmaking-api';
-
-export {
-    BOARD_SIZE_DEFAULTS,
-    MATCHMAKING_CONSTANTS,
-    MATCHMAKING_DEFAULT_CONFIG,
-} from './constants';
-
-/**
- * Feature 010 (Public Lobby & Match Browser): the server API/event
- * contract artifacts, exported from `src/contracts/` per plan.md §1
- * (the package-root `contracts/` directory remains the feature-006
- * spec-mirror surface exposed via the
- * `@europa/matchmaking/contracts/*` export path). Type-only like every
- * contract re-export above — the barrel deliberately re-exports no
- * *values* from contract modules, keeping the compiled bundle free of
- * runtime upstream imports (research.md §9: zero runtime deps). The
- * lobby shapes are the canonical source of truth, documented in
- * `specs/010-public-lobby-match-browser/spec.md`.
- * Networking's wire mirrors are structurally compatible by design, but
- * THESE declarations are the server-side source of truth consumers
- * should import. The lobby RUNTIME (identity registry, facade
- * implementation, transport wiring) lands with later tasks and will be
- * exported here when it exists.
- */
-export type {
-    LobbyService,
-    MatchJoinTarget,
-    Result,
-    SpectatorTarget,
-} from './contracts/lobby-api';
-export type {
-    GuestIdentityClaim,
-    GuestPlayerId,
-    IdentityState,
-    LobbyActionId,
-    LobbyError,
-    LobbyErrorCode,
-    LobbyEvent,
-    LobbyRevision,
-    LobbySnapshot,
-    LobbyStatus,
-    PublicLobbyEntry,
-    RosterChange,
-    RosterDelta,
-    RosterEntry,
-    RosterRevision,
-    RosterSnapshot,
-    RosterStatus,
-} from './contracts/lobby-types';
+} from './contracts/matchmaking-api';
 
 export { makeError } from './errors';
 

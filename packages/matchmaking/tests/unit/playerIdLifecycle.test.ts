@@ -22,9 +22,8 @@ import type { PlayerId } from '@europa/core';
 import { PlayerIdCollisionError } from '@europa/core';
 import type { MatchId, SessionToken } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
-
-import type { Matchmaker } from '../../contracts/matchmaking-api';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
+import type { Matchmaker } from '../../src/contracts/matchmaking-api';
 import { createIdentityRegistry } from '../../src/internal/identityRegistry';
 import type { MatchmakerCompositionSeam } from '../../src/matchmaker';
 import { createMatchmaker } from '../../src/matchmaker';

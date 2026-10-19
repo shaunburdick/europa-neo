@@ -21,7 +21,7 @@
 
 import type { World } from '@europa/engine';
 import type { MatchId } from '@europa/networking';
-import type { MatchResultsRecord } from '../contracts/match-types';
+import type { MatchResultsRecord } from './contracts/match-types';
 import type { SeatRecord } from './internal/seatRecord';
 
 /** FNV-1a 32-bit offset basis and prime. */
