@@ -24,7 +24,7 @@
 
 import { filterEffectsForMotion } from '../qol/reduced-motion';
 import { coordKey, destinationCoord } from '../state/build-map-view';
-import type { CellRenderInfo, Direction, MapEffect, MapView } from '../state/types';
+import type { CellRenderInfo, MapEffect, MapView } from '../state/types';
 import { drawMapLabels } from './label-overlay';
 import {
     CAPTURE_EFFECT_COLOR,
@@ -51,14 +51,8 @@ import {
     waterDepthForCell,
 } from './palette';
 import type { PipeSlope } from './pipe-slope';
-import {
-    linearTriple,
-    RELIEF_DIRECTIONS,
-    RELIEF_HIGHLIGHT_IS_DOWNHILL,
-    reliefBandColor,
-    reliefBandThickness,
-    reliefFraction,
-} from './relief';
+import { RELIEF_SIDES, reliefBandWidth, reliefSideIsLit, reliefStep, reliefToneColours } from './relief';
+import { type ReliefBand, reliefGeometry } from './relief-caps';
 
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
@@ -83,28 +77,46 @@ function pipeSlopeColor(slope: PipeSlope): string {
     }
 }
 
-/** One relief band's rect, in board-pixel space. */
-interface BandRect {
-    readonly x: number;
-    readonly y: number;
-    readonly w: number;
-    readonly h: number;
-}
-
 /**
- * The band rect for one edge direction, always inside the tile's own
- * rect (plan D3): N/S span the full width, W/E the full height.
+ * Fill one phase's flat colour runs. Colours are iterated in sorted key
+ * order, so the paint sequence is a pure function of the colour set
+ * rather than of cell insertion order (AC-008).
  */
-function bandRect(direction: Direction, x: number, y: number, zoom: number, thickness: number): BandRect {
-    switch (direction) {
-        case 'N':
-            return { x, y, w: zoom, h: thickness };
-        case 'S':
-            return { x, y: y + zoom - thickness, w: zoom, h: thickness };
-        case 'W':
-            return { x, y, w: thickness, h: zoom };
-        case 'E':
-            return { x: x + zoom - thickness, y, w: thickness, h: zoom };
+function fillBuckets(
+    ctx: CanvasRenderingContext2D,
+    buckets: ReadonlyMap<string, readonly number[]>,
+    stride: 6 | 8,
+): void {
+    for (const colour of [...buckets.keys()].sort()) {
+        const run = buckets.get(colour);
+        if (run === undefined) continue;
+        ctx.fillStyle = colour;
+        ctx.beginPath();
+        for (let index = 0; index < run.length; index += stride) {
+            // Almost every band is an axis-aligned rect; `rect()` is far
+            // cheaper than four line segments, so detect that form.
+            if (
+                stride === 8 &&
+                run[index] === run[index + 6] &&
+                run[index + 1] === run[index + 3] &&
+                run[index + 2] === run[index + 4] &&
+                run[index + 5] === run[index + 7]
+            ) {
+                ctx.rect(
+                    run[index] ?? 0,
+                    run[index + 1] ?? 0,
+                    (run[index + 2] ?? 0) - (run[index] ?? 0),
+                    (run[index + 5] ?? 0) - (run[index + 1] ?? 0),
+                );
+                continue;
+            }
+            ctx.moveTo(run[index] ?? 0, run[index + 1] ?? 0);
+            for (let point = index + 2; point < index + stride; point += 2) {
+                ctx.lineTo(run[point] ?? 0, run[point + 1] ?? 0);
+            }
+            ctx.closePath();
+        }
+        ctx.fill();
     }
 }
 
@@ -178,14 +190,11 @@ export class MapCanvas {
         // Restructured into batched sub-passes that pre-compute colors once,
         // batch all strokes into single paths, and minimize state operations.
 
-        // Pre-compute once: cached land band colors and their dark variants
-        // eliminate ~5000 adjustBrightness regex calls per frame.
+        // Pre-compute once: cached land band colors eliminate the per-tile
+        // hue lookups (and the retired gradient's brightness calls).
         const landBandColors = new Map<number, string>();
-        const landBandDarkColors = new Map<number, string>();
         for (let b = 0; b < LAND_BAND_COUNT; b++) {
-            const color = landBandColor(b);
-            landBandColors.set(b, color);
-            landBandDarkColors.set(b, this.adjustBrightness(color, -15));
+            landBandColors.set(b, landBandColor(b));
         }
 
         // Pre-compute once: water gradient stop color variants per depth tier.
@@ -245,84 +254,67 @@ export class MapCanvas {
         }
         ctx.stroke();
 
-        // Sub-pass 1c: land directional gradients (per-cell — gradients
-        // are position-dependent, but band colors are pre-cached).
+        // Sub-pass 1c: flat land faces — one colour per biome zone. The
+        // face is never lit; all depth comes from 1d's bevels (FR-005).
         for (const info of mapView.cells.values()) {
             if (info.terrain !== 'land') continue;
             const x = info.coord.x * zoom;
             const y = info.coord.y * zoom;
             const band = landBandIndex(info.elevation);
-            const bandColor = landBandColors.get(band) ?? landBandColor(band);
-            const darkColor = landBandDarkColors.get(band) ?? this.adjustBrightness(bandColor, -15);
-            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
-            grad.addColorStop(0, bandColor);
-            grad.addColorStop(1, darkColor);
-            ctx.fillStyle = grad;
+            ctx.fillStyle = landBandColors.get(band) ?? landBandColor(band);
             ctx.fillRect(x, y, zoom, zoom);
         }
 
-        // Sub-pass 1d: delta-based edge relief (FR-001). Per tile and
-        // direction, an opaque band inside the tile's own rect whose colour
-        // encodes the sign and magnitude of the elevation delta against the
-        // visible land neighbour's elevation (FR-002/FR-003).
-        //
-        // Bands are collected into one map keyed by colour over the whole
-        // sub-pass and filled one path per colour (T008): a tile's bands never
-        // leave its own rect (FR-010 confinement), so the only pixels the fill
-        // order can move are the t×t corners where two of a tile's own bands
-        // overlap. Iterating the colours in sorted order makes that order a
-        // pure function of the colour set, not of cell insertion order (AC-008).
+        // Sub-pass 1d: relief bevels (FR-001). A bevel exists only where
+        // this tile is strictly higher than a visible land neighbour; its
+        // width and tone step with that drop, its tone side with the NW
+        // light (FR-002/FR-003). Bands are mitred trapezoids inside the
+        // tile, then vertex caps close the taper where ends meet.
         if (relief) {
-            const thickness = reliefBandThickness(zoom);
-            const bandsByColour = new Map<string, BandRect[]>();
-            // Each zone's two gradient ends as linear-light triples — relief's
-            // own base (D5). Built here so the relief-free control never pays
-            // for them, and held per zone as locals so the band loop needs no
-            // keyed lookup.
+            const bands: ReliefBand[] = [];
+            // Per zone, the three lit and three shaded tones, so no band
+            // re-parses an hsl() string.
+            const tonesByZone = new Map<number, ReturnType<typeof reliefToneColours>>();
             for (let band = 0; band < LAND_BAND_COUNT; band++) {
-                const lightEnd = linearTriple(landBandColor(band));
-                const darkEnd = linearTriple(this.adjustBrightness(landBandColor(band), -15));
-                for (const info of mapView.cells.values()) {
-                    if (info.terrain !== 'land' || landBandIndex(info.elevation) !== band) continue;
-                    const x = info.coord.x * zoom;
-                    const y = info.coord.y * zoom;
-                    for (const direction of RELIEF_DIRECTIONS) {
-                        const dst = destinationCoord(info.coord, direction);
-                        // Off-board, absent (fog-hidden), water, and zero-delta
-                        // neighbours are all neutral (FR-004): no band, no
-                        // synthesized neighbour elevation.
-                        if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
-                        const neighbour = mapView.cells.get(coordKey(dst));
-                        if (neighbour === undefined || neighbour.terrain !== 'land') continue;
-                        if (neighbour.elevation === info.elevation) continue;
-                        const downhill = neighbour.elevation < info.elevation;
-                        const highlight = downhill === RELIEF_HIGHLIGHT_IS_DOWNHILL;
-                        const colour = reliefBandColor(
-                            highlight ? lightEnd : darkEnd,
-                            reliefFraction(neighbour.elevation - info.elevation),
-                            highlight,
-                        );
-                        const rect = bandRect(direction, x, y, zoom, thickness);
-                        const existing = bandsByColour.get(colour);
-                        if (existing === undefined) {
-                            bandsByColour.set(colour, [rect]);
-                        } else {
-                            existing.push(rect);
-                        }
-                    }
+                tonesByZone.set(band, reliefToneColours(landBandColor(band)));
+            }
+            for (const info of mapView.cells.values()) {
+                if (info.terrain !== 'land') continue;
+                const x = info.coord.x * zoom;
+                const y = info.coord.y * zoom;
+                const zone = landBandIndex(info.elevation);
+                const tones = tonesByZone.get(zone);
+                if (tones === undefined) continue;
+                for (const side of RELIEF_SIDES) {
+                    const dst = destinationCoord(info.coord, side);
+                    // Off-board, absent (fog-hidden), water, and equal-height
+                    // neighbours are all neutral (FR-004): no bevel, no
+                    // synthesized neighbour elevation.
+                    if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
+                    const neighbour = mapView.cells.get(coordKey(dst));
+                    if (neighbour === undefined || neighbour.terrain !== 'land') continue;
+                    const delta = info.elevation - neighbour.elevation;
+                    if (delta <= 0) continue;
+                    bands.push({
+                        x,
+                        y,
+                        size: zoom,
+                        side,
+                        width: reliefBandWidth(zoom, delta),
+                        colour: (reliefSideIsLit(side) ? tones.lit : tones.shaded)[reliefStep(delta) - 1] ?? '',
+                    });
                 }
             }
-            // Within one colour every rect is disjoint from the others of a
-            // different tile, and same-colour overlaps are immaterial, so the
-            // sorted-colour order alone fixes the result.
-            for (const [colour, rects] of [...bandsByColour].sort((first, second) => (first[0] < second[0] ? -1 : 1))) {
-                ctx.fillStyle = colour;
-                ctx.beginPath();
-                for (const rect of rects) {
-                    ctx.rect(rect.x, rect.y, rect.w, rect.h);
-                }
-                ctx.fill();
-            }
+
+            // Bands, cap squares and cap triangles are each filled one path
+            // per colour, colours in sorted key order, so the fill sequence
+            // is a pure function of the colour set rather than of cell
+            // insertion order (AC-008). Phase order matters: a cap square
+            // rebases a corner, then its triangle restores the other half.
+            const geometry = reliefGeometry(bands);
+            fillBuckets(ctx, geometry.bands, 8);
+            fillBuckets(ctx, geometry.squares, 8);
+            fillBuckets(ctx, geometry.caps, 6);
         }
 
         // Sub-pass 1e: batched contour hints — ALL contour diagonal lines

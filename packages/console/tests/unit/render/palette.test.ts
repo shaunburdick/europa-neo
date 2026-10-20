@@ -527,22 +527,22 @@ describe('documented terrain contrast figures (A-03 sweep)', () => {
         expect(rounded(ratio(waterRgb, PEAKS_CEILING_RGB), 2), 'water vs the land ceiling hsl(200 15% 95%)').toBe(6.01);
     });
 
-    test('N-3 water and darkest-biome figures', () => {
+    test('N-3 water and darkest painted face figures', () => {
+        // Sub-pass 1c paints the flat midpoint only; the retired gradient's
+        // L=26 shade is no longer painted (017 v1.9 FR-005).
         const zone1 = TOKENS.color.biomeZones[1];
-        const zone1Darkest = hslToRgb(zone1.hue, zone1.saturationPct, zone1.lightnessMin);
-        expect(rounded(ratio(zoneMidpointRgb(zone1), voidRgb), 2), 'zone 1 midpoint (L=33) vs void-bg').toBe(3.43);
-        expect(rounded(ratio(zone1Darkest, voidRgb), 2), 'zone 1 darkest shade (L=26) vs void-bg').toBe(2.38);
+        expect(rounded(ratio(zoneMidpointRgb(zone1), voidRgb), 2), 'zone 1 flat face (L=33) vs void-bg').toBe(3.43);
     });
 
     test('the § 3 Peaks ceiling row states which shade it measures', () => {
         expect(rounded(ratio(PEAKS_CEILING_RGB, voidRgb), 2), 'shipped Peaks ceiling (L=95) vs void-bg').toBe(14.26);
-        expect(rounded(ratio(peaksLightEndRgb, voidRgb), 2), 'painted 1c light end (L=88) vs void-bg').toBe(12.16);
+        expect(rounded(ratio(peaksLightEndRgb, voidRgb), 2), 'painted flat Peaks face (L=88) vs void-bg').toBe(12.16);
     });
 
     test('the pipe outline against the painted land range', () => {
         expect(
             rounded(compositedRatio(TOKENS.color.pipeOutline, peaksLightEndRgb), 2),
-            'outline over the lightest painted land tile (Peaks light end, L=88)',
+            'outline over the lightest painted land tile (Peaks flat face, L=88)',
         ).toBe(7.49);
         expect(
             DARK_ZONES.map((zone) => rounded(compositedRatio(TOKENS.color.pipeOutline, zoneMidpointRgb(zone)), 2)),

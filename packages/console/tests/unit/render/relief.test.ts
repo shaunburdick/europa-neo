@@ -1,27 +1,28 @@
 /**
- * Unit tests: the pure relief mapping (spec 017 T003; FR-002, FR-003,
- * FR-010). Everything here runs against the pure functions — the
- * realised pixels are the browser readback suite's half.
+ * Unit tests: the pure relief mapping (spec 017; FR-002, FR-003, FR-010).
+ * The realised pixels are the browser readback suite's half.
  */
 
 import { describe, expect, test } from 'vitest';
-import { landBandColor, RELIEF_HIGHLIGHT_COLOR, RELIEF_SHADOW_COLOR } from '../../../src/render/palette';
+import { landBandColor } from '../../../src/render/palette';
 import {
-    linearTriple,
+    RELIEF_TONE_MIXES,
+    RELIEF_WIDTH_RATIOS,
     relativeLuminance,
-    reliefBandColor,
-    reliefFraction,
-    reliefTargetLuminance,
+    reliefBandWidth,
+    reliefSideIsLit,
+    reliefStep,
+    reliefToneColor,
+    reliefToneColours,
+    reliefToneMix,
+    reliefWidthRatio,
 } from '../../../src/render/relief';
-
-/** `|Δ|` sampled by AC-002's sweep — 1 and 2 both sampled, so a floored mapping fails. */
-const SAMPLED_DELTAS = [1, 2, 16, 64, 128, 192, 255];
 
 /** Biome zone indices, in elevation order. */
 const ZONES = [0, 1, 2, 3];
 
-/** Both delta signs, as the `highlight` flag `reliefBandColor` takes. */
-const SIGNS = [true, false];
+/** The width ladder's deltas: one per step, plus two that must cap at Δ3. */
+const WIDTH_DELTAS = [1, 2, 3, 9, 255];
 
 /** Parse `hsl(H, S%, L%)` to sRGB bytes — the browser's own conversion. */
 function hslToRgb(hsl: string): readonly [number, number, number] {
@@ -66,141 +67,112 @@ function hexToRgb(hex: string): readonly [number, number, number] {
     return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
 }
 
-/** Format three sRGB bytes as `#rrggbb`. */
-function rgbToHex(rgb: readonly [number, number, number]): string {
+/** WCAG contrast ratio between two colours, lighter first. */
+function contrastOf(first: string, second: string): number {
+    const a = relativeLuminance(hexToRgb(first));
+    const b = relativeLuminance(hexToRgb(second));
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+/** The face's colour as `#rrggbb`, for contrast against the tones. */
+function faceHex(zone: number): string {
+    const [red, green, blue] = hslToRgb(landBandColor(zone));
     const byte = (value: number): string => value.toString(16).padStart(2, '0');
-    return `#${byte(rgb[0])}${byte(rgb[1])}${byte(rgb[2])}`;
+    return `#${byte(red)}${byte(green)}${byte(blue)}`;
 }
 
-/** WCAG contrast ratio between two relative luminances, lighter first. */
-function contrastOf(luminanceA: number, luminanceB: number): number {
-    return (Math.max(luminanceA, luminanceB) + 0.05) / (Math.min(luminanceA, luminanceB) + 0.05);
-}
-
-/** The relative luminance of a zone's gradient end, as 1c paints it. */
-function zoneLuminance(zone: number): number {
-    return relativeLuminance(hslToRgb(landBandColor(zone)));
-}
-
-/** Assert each value rises (or falls) strictly from the one before it. */
-function expectStrictlyOrdered(values: readonly number[], direction: 'rising' | 'falling'): void {
-    let previous: number | undefined;
-    for (const value of values) {
-        if (previous !== undefined) {
-            if (direction === 'rising') {
-                expect(value).toBeGreaterThan(previous);
-            } else {
-                expect(value).toBeLessThan(previous);
-            }
+describe('reliefStep, width and tone ladder (FR-003)', () => {
+    test('the width ladder is 4 / 7 / 10 % and caps at 10 %', () => {
+        expect(RELIEF_WIDTH_RATIOS).toEqual([0.04, 0.07, 0.1]);
+        for (const delta of WIDTH_DELTAS) {
+            expect(reliefStep(delta)).toBe(Math.min(3, delta));
         }
-        previous = value;
-    }
-}
-
-describe('reliefFraction (FR-003)', () => {
-    test('is 0 at Δ = 0, linear in |Δ|, clamped at the 255 normaliser', () => {
-        expect(reliefFraction(0)).toBe(0);
-        for (const delta of SAMPLED_DELTAS) {
-            expect(reliefFraction(delta)).toBe(delta / 255);
+        expect(reliefWidthRatio(0)).toBe(0);
+        expect(reliefWidthRatio(1)).toBe(0.04);
+        expect(reliefWidthRatio(2)).toBe(0.07);
+        expect(reliefWidthRatio(3)).toBe(0.1);
+        expect(reliefWidthRatio(9)).toBe(0.1);
+        expect(reliefWidthRatio(255)).toBe(0.1);
+        for (const delta of WIDTH_DELTAS) {
+            expect(reliefBandWidth(96, delta)).toBeCloseTo(96 * reliefWidthRatio(delta), 12);
         }
-        expect(reliefFraction(255)).toBe(1);
-        expect(reliefFraction(510)).toBe(1);
-        expect(reliefFraction(-64)).toBe(64 / 255);
+    });
+
+    test('the tone ladder rises with Δ and saturates at Δ3', () => {
+        expect(RELIEF_TONE_MIXES).toEqual([0.74, 0.79, 0.84]);
+        expect(reliefToneMix(0)).toBe(0);
+        expect(reliefToneMix(1)).toBe(0.74);
+        expect(reliefToneMix(2)).toBe(0.79);
+        expect(reliefToneMix(3)).toBe(0.84);
+        expect(reliefToneMix(9)).toBe(0.84);
     });
 });
 
-describe('reliefTargetLuminance (AC-002, pure function)', () => {
-    test('is strictly monotone across the sampled sweep and keeps 255 above each sampled quarter', () => {
+describe('tone depends on orientation alone (FR-002)', () => {
+    test('north and west are lit; south and east are shaded', () => {
+        expect(reliefSideIsLit('N')).toBe(true);
+        expect(reliefSideIsLit('W')).toBe(true);
+        expect(reliefSideIsLit('S')).toBe(false);
+        expect(reliefSideIsLit('E')).toBe(false);
+    });
+
+    test('opposite sides of one drop share their tone, independent of the delta', () => {
         for (const zone of ZONES) {
-            const baseLuminance = zoneLuminance(zone);
-            for (const highlight of SIGNS) {
-                const luminances: number[] = [];
-                const samples: { delta: number; magnitude: number }[] = [];
-                for (const delta of SAMPLED_DELTAS) {
-                    const luminance = reliefTargetLuminance(baseLuminance, reliefFraction(delta), highlight);
-                    luminances.push(luminance);
-                    samples.push({ delta, magnitude: contrastOf(luminance, baseLuminance) });
-                }
-                // Toward white the band brightens, toward black it darkens;
-                // either way the treatment against the control grows.
-                expectStrictlyOrdered(luminances, highlight ? 'rising' : 'falling');
-                expectStrictlyOrdered(
-                    samples.map(({ magnitude }) => magnitude),
-                    'rising',
-                );
-                const top = samples.find(({ delta }) => delta === 255);
-                expect(top).toBeDefined();
-                for (const sample of samples) {
-                    if (top !== undefined && sample.delta !== 255) {
-                        expect(top.magnitude).toBeGreaterThan(sample.magnitude);
-                    }
-                }
-            }
+            const face = landBandColor(zone);
+            expect(reliefToneColor(face, 5, 'N')).toBe(reliefToneColor(face, 5, 'W'));
+            expect(reliefToneColor(face, 5, 'S')).toBe(reliefToneColor(face, 5, 'E'));
+            // The tone is a function of the step, never of the raw drop.
+            expect(reliefToneColor(face, 3, 'N')).toBe(reliefToneColor(face, 255, 'N'));
+            expect(reliefToneColor(face, 3, 'S')).toBe(reliefToneColor(face, 255, 'S'));
+        }
+    });
+
+    test('the ladder brightens a lit bevel and darkens a shaded one, still at Δ3', () => {
+        for (const zone of ZONES) {
+            const tones = reliefToneColours(landBandColor(zone));
+            const lit = tones.lit.map((colour) => relativeLuminance(hexToRgb(colour)));
+            const shaded = tones.shaded.map((colour) => relativeLuminance(hexToRgb(colour)));
+            expect(lit[1]).toBeGreaterThan(lit[0] ?? 0);
+            expect(lit[2]).toBeGreaterThan(lit[1] ?? 0);
+            expect(shaded[1]).toBeLessThan(shaded[0] ?? 0);
+            expect(shaded[2]).toBeLessThan(shaded[1] ?? 0);
         }
     });
 });
 
-describe('reliefTargetLuminance fraction identity (AC-002 zone invariance)', () => {
-    test('reaches the same fraction of each base\u2019s maximum treatment, exactly', () => {
+describe('bevel visibility and distinguishability per zone (FR-006)', () => {
+    test('lit and shaded bevels are ≥ 3:1 apart at Δ1 in every zone', () => {
         for (const zone of ZONES) {
-            const baseLuminance = zoneLuminance(zone);
-            for (const highlight of SIGNS) {
-                const cap = contrastOf(baseLuminance, reliefTargetLuminance(baseLuminance, 1, highlight));
-                for (const delta of [1, 2, 64, 160, 255]) {
-                    const fraction = reliefFraction(delta);
-                    const band = contrastOf(baseLuminance, reliefTargetLuminance(baseLuminance, fraction, highlight));
-                    // Algebraic, so the only error is floating point noise
-                    // (the ratio is a quotient of rounded sums) — not a
-                    // measurement allowance.
-                    expect((band - 1) / (cap - 1)).toBeCloseTo(fraction, 12);
-                }
-            }
+            const tones = reliefToneColours(landBandColor(zone));
+            expect(contrastOf(tones.lit[0], tones.shaded[0])).toBeGreaterThanOrEqual(3);
+        }
+    });
+
+    test('each Δ1 bevel is ≥ 1.2:1 against its zone face', () => {
+        for (const zone of ZONES) {
+            const face = faceHex(zone);
+            const tones = reliefToneColours(landBandColor(zone));
+            expect(contrastOf(face, tones.lit[0])).toBeGreaterThanOrEqual(1.2);
+            expect(contrastOf(face, tones.shaded[0])).toBeGreaterThanOrEqual(1.2);
+        }
+    });
+
+    test('a zero or negative drop returns the face colour', () => {
+        for (const zone of ZONES) {
+            const face = landBandColor(zone);
+            expect(reliefToneColor(face, 0, 'N')).toBe(faceHex(zone));
+            expect(reliefToneColor(face, -4, 'S')).toBe(faceHex(zone));
         }
     });
 });
 
-describe('reliefBandColor (FR-002, FR-003)', () => {
-    test('rounds a band to within half an 8-bit step of its modelled luminance (Peaks light base)', () => {
-        const baseLinear = linearTriple(landBandColor(3));
-        const baseLuminance = zoneLuminance(3);
-        for (const highlight of SIGNS) {
-            for (const fraction of [0.05, 0.5, 0.82, 1]) {
-                const painted = relativeLuminance(hexToRgb(reliefBandColor(baseLinear, fraction, highlight)));
-                const modelled = reliefTargetLuminance(baseLuminance, fraction, highlight);
-                expect(Math.abs(painted - modelled)).toBeLessThanOrEqual(0.0045);
-            }
-        }
-    });
-
-    test('is the base colour at |Δ| = 0 and each sign\u2019s token extreme at |Δ| = 255', () => {
+describe('purity (FR-010)', () => {
+    test('identical inputs give identical colours', () => {
         for (const zone of ZONES) {
-            const baseLinear = linearTriple(landBandColor(zone));
-            const baseHex = rgbToHex(hslToRgb(landBandColor(zone)));
-            for (const highlight of SIGNS) {
-                expect(reliefBandColor(baseLinear, reliefFraction(0), highlight)).toBe(baseHex);
-                expect(reliefBandColor(baseLinear, reliefFraction(255), highlight)).toBe(
-                    highlight ? RELIEF_HIGHLIGHT_COLOR : RELIEF_SHADOW_COLOR,
-                );
-            }
-        }
-    });
-});
-
-describe('neutral edges (FR-004)', () => {
-    test('a zero delta and every non-land neighbour yield no treatment', () => {
-        // Δ = 0 is the only neutral input the module sees: water, an
-        // absent neighbour, and off-board are skipped by the caller's
-        // guard before the call (plan D1), and the readback suite
-        // asserts those three on pixels.
-        for (const zone of ZONES) {
-            const baseLinear = linearTriple(landBandColor(zone));
-            const baseHex = rgbToHex(hslToRgb(landBandColor(zone)));
-            const baseLuminance = zoneLuminance(zone);
-            expect(reliefFraction(0)).toBe(0);
-            for (const highlight of SIGNS) {
-                const band = reliefBandColor(baseLinear, reliefFraction(0), highlight);
-                expect(band).toBe(baseHex);
-                expect(contrastOf(relativeLuminance(hexToRgb(band)), baseLuminance)).toBeCloseTo(1, 10);
+            const face = landBandColor(zone);
+            expect(reliefToneColours(face)).toEqual(reliefToneColours(face));
+            for (const side of ['N', 'E', 'S', 'W'] as const) {
+                expect(reliefToneColor(face, 7, side)).toBe(reliefToneColor(face, 7, side));
             }
         }
     });

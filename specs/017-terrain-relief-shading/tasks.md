@@ -1,8 +1,8 @@
 # Tasks: Terrain Relief Shading (Delta-Based Edge Bevels)
 
-**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.7) · **Plan**: `plan.md`
+**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.9) · **Plan**: `plan.md`
 **Branch**: `issue-182-tile-shading`
-**Tasks**: 13 (T001–T013). `[P]` marks tasks safe to run in parallel with the immediately
+**Tasks**: 14 (T001–T014; T014 revises the v1.9 model). `[P]` marks tasks safe to run in parallel with the immediately
 preceding task (different files, no shared edit). One engineer pass; no orchestration.
 
 Every task is one sitting. Tests ship in the same task group as the code they prove.
@@ -262,6 +262,21 @@ reviewer.
 
 ---
 
+## T014 — Settled flat-face / per-side bevel model (spec v1.9)
+
+**Files**: `packages/console/src/render/relief.ts`,
+`packages/console/src/render/relief-caps.ts` (new),
+`packages/console/src/render/canvas.ts`,
+`packages/console/tests/unit/render/relief.test.ts`,
+`packages/console/tests/unit/render/canvas-terrain.test.ts`,
+`packages/console/tests/component/render/relief.test.tsx`,
+`packages/console/tests/integration/perf.test.ts`.
+**Do**: replace the v1.0–v1.8 sign-based luminance mapping with the product-owner-settled model — flat biome face, a bevel only on a strict positive drop, 4 / 7 / 10 % width and 0.74 / 0.79 / 0.84 tone ladders capped/saturated at Δ3, tone from the side alone (N/W lit, S/E shaded under one NW light), mitred trapezoids with vertex caps (two or more ends fill every cut triangle; one keeps the taper). Keep the model pure and order-independent; keep 1e and `PaintOptions.relief`.
+**Traces**: FR-001, FR-002, FR-003, FR-005, FR-006, FR-010 · AC-001–AC-005, AC-008, AC-010.
+**Done when**: `test:unit`, the relief `test:component` suite and `test:perf` are green; Q-P05's addition stays under 6 ms; `bash scripts/verify.sh` is green.
+
+---
+
 ## Coverage table
 
 | Spec item | Tasks |
@@ -324,4 +339,5 @@ Status record for T001–T013 on `issue-182-tile-shading`, with the commit each 
 - **T010** — done (`3319399`).
 - **T011** — done (`5c9bfe4`).
 - **T012** — done (`7ec4b19`).
-- **T013** — done (this commit): `bash scripts/verify.sh` green, agent-browser smoke against `pnpm host`.
+- **T013** — done (`7ec4b19`): `bash scripts/verify.sh` green, agent-browser smoke against `pnpm host`.
+- **T014** — done (this change set): the settled v1.9 model supersedes T002–T008's sign-based band mapping and rect geometry. `relief.ts` now holds the width/tone ladders and NW-light constant; `relief-caps.ts` builds rectangle-first band shapes plus the two-tone corner split; 1c is a flat zone face. Tests rewritten for per-side tone, the width ladder, cap/no-cap by vertex occupancy, unseen/equal/edge silence, and order independence. Q-P05 measures a **4.05–4.20 ms** addition (relief-on 4.90 ms, relief-off 0.70 ms) against the unchanged **6 ms** bound, with 250 distinct positive `|Δ|` and 22 tone colours asserted. Spec v1.9, plan D3/D4/D5/D7, `DESIGN.md` N-5, the manual and the legend updated in the same change set.

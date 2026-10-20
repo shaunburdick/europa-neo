@@ -9,11 +9,9 @@
 
 import { describe, expect, test, vi } from 'vitest';
 import { MapCanvas } from '../../../src/render/canvas';
-import { PIPE_OUTLINE_COLOR, PIPE_STALLED_COLOR } from '../../../src/render/palette';
+import { landBandColor, PIPE_OUTLINE_COLOR, PIPE_STALLED_COLOR } from '../../../src/render/palette';
+import { reliefToneColours } from '../../../src/render/relief';
 import type { CellRenderInfo, MapView } from '../../../src/state/types';
-
-/** Band thickness at zoom 32: `max(2, round(32 · 0.08))` (spec 017 plan D3). */
-const BAND_THICKNESS = 3;
 
 /** Tile size the mock board paints at (`makeMapView`'s camera zoom). */
 const TILE_PX = 32;
@@ -34,26 +32,35 @@ interface RecordedFill {
     readonly fillStyle: unknown;
 }
 
+/** One filled path polygon the mock recorded. */
+interface RecordedPolygon {
+    readonly points: readonly number[];
+    readonly fillStyle: unknown;
+}
+
 /** A mock 2D context plus every fill it recorded. */
 interface RecordingMockCtx {
     readonly ctx: CanvasRenderingContext2D;
     readonly fills: RecordedFill[];
+    readonly polygons: RecordedPolygon[];
 }
 
 /**
- * Build a mock context that records each `fillRect` together with the
- * `fillStyle` in effect, so a test can assert a fill's colour and rect
- * as the painter set them.
+ * Build a mock context that records each `fillRect` and each filled path
+ * polygon together with the `fillStyle` in effect, so a test can assert
+ * a fill's colour and shape as the painter set them.
  */
 function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
     const mocks = new Map<string | symbol, ReturnType<typeof vi.fn>>();
     const props = new Map<string | symbol, unknown>();
     const fills: RecordedFill[] = [];
-    // Sub-pass 1d batches relief bands into one path per distinct colour
-    // (T008), so a recorded fill can arrive either as `fillRect` or as
-    // `rect` calls flushed by `fill`. Track the open path so both land in
-    // `fills` with the same shape.
+    const polygons: RecordedPolygon[] = [];
+    // Sub-pass 1d batches relief bands into one path per distinct colour,
+    // so a fill arrives as one or more `moveTo`/`lineTo` subpaths flushed
+    // by `fill`.
     const pathRects: { x: number; y: number; width: number; height: number }[] = [];
+    const pathPolygons: number[][] = [];
+    let currentPoints: number[] = [];
     const gradient = {
         addColorStop: vi.fn(),
     };
@@ -91,21 +98,48 @@ function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
                             pathRects.push({ x, y, width: fillWidth, height: fillHeight });
                         }),
                     );
+                } else if (prop === 'moveTo') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number) => {
+                            if (currentPoints.length > 0) {
+                                pathPolygons.push(currentPoints);
+                            }
+                            currentPoints = [x, y];
+                        }),
+                    );
+                } else if (prop === 'lineTo') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number) => {
+                            currentPoints.push(x, y);
+                        }),
+                    );
                 } else if (prop === 'beginPath') {
                     mocks.set(
                         prop,
                         vi.fn(() => {
                             pathRects.length = 0;
+                            pathPolygons.length = 0;
+                            currentPoints = [];
                         }),
                     );
                 } else if (prop === 'fill') {
                     mocks.set(
                         prop,
                         vi.fn(() => {
+                            if (currentPoints.length > 0) {
+                                pathPolygons.push(currentPoints);
+                                currentPoints = [];
+                            }
                             for (const rect of pathRects) {
                                 fills.push({ ...rect, fillStyle: props.get('fillStyle') });
                             }
+                            for (const points of pathPolygons) {
+                                polygons.push({ points, fillStyle: props.get('fillStyle') });
+                            }
                             pathRects.length = 0;
+                            pathPolygons.length = 0;
                         }),
                     );
                 } else {
@@ -120,25 +154,12 @@ function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
         },
     };
 
-    return { ctx: new Proxy({} as CanvasRenderingContext2D, handler), fills };
+    return { ctx: new Proxy({} as CanvasRenderingContext2D, handler), fills, polygons };
 }
 
 /** Build a minimal mock CanvasRenderingContext2D with tracked calls. */
 function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
     return createRecordingCtx(width, height).ctx;
-}
-
-/** True when `fills` holds a fill of exactly `rect` in exactly `color`. */
-function hasFill(
-    fills: readonly RecordedFill[],
-    rect: readonly [number, number, number, number],
-    color: string,
-): boolean {
-    const [x, y, width, height] = rect;
-    return fills.some(
-        (fill) =>
-            fill.fillStyle === color && fill.x === x && fill.y === y && fill.width === width && fill.height === height,
-    );
 }
 
 /** Build a minimal MapView with the given cells. */
@@ -223,54 +244,61 @@ describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
         expect(ctx.createLinearGradient).toHaveBeenCalled();
     });
 
-    test('land cells use directional gradient (top-left to bottom-right)', () => {
+    test('land cells paint a flat zone face, not a gradient', () => {
         const ctx = createMockCtx();
         const canvas = new MapCanvas();
         const view = makeMapView([makeLandCell(0, 0, 128)]);
         canvas.paint(view, ctx);
 
-        // Verify createLinearGradient was called (land directional gradient).
-        expect(ctx.createLinearGradient).toHaveBeenCalled();
+        // 1c is a flat fill of the zone's configured midpoint; the retired
+        // directional gradient is gone (017 FR-005).
+        expect(ctx.createLinearGradient).not.toHaveBeenCalled();
+        expect(ctx.fillRect).toHaveBeenCalled();
     });
 
-    test('land tiles paint delta-based edge relief, not the retired inner shadow (017 FR-005, AC-004)', () => {
-        // The Peaks reference fixture of spec 017 FR-006 (plan D5/D8): own
-        // elevation 209, lower neighbour (0) on the N side, higher (255) on
-        // the S side, so the tight |Δ| = 209 highlight and the |Δ| = 46
-        // shadow are both painted here.
-        const { ctx, fills } = createRecordingCtx();
+    test('land tiles paint relief bevels only where they are higher (017 FR-001, AC-004)', () => {
         const canvas = new MapCanvas();
-        const view = makeMapView([makeLandCell(0, 1, 209), makeLandCell(0, 0, 0), makeLandCell(0, 2, 255)]);
-        canvas.paint(view, ctx);
 
-        // Both band colours are pinned byte-exactly: the mapping is
-        // continuous (FR-003), so an implementation that floors it, or
-        // picks the wrong gradient end for either sign, changes them.
-        expect(hasFill(fills, [0, TILE_PX, TILE_PX, BAND_THICKNESS], '#f9fafb')).toBe(true);
-        expect(hasFill(fills, [0, 2 * TILE_PX - BAND_THICKNESS, TILE_PX, BAND_THICKNESS], '#646c70')).toBe(true);
+        // A Peaks tile (own 209) with a lower N neighbour (0): one lit bevel
+        // at Δ ≥ 3 and no shaded bevel anywhere, since no tile is higher
+        // than a neighbour on a shaded side.
+        const { ctx, fills, polygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 1, 209), makeLandCell(0, 0, 0)]), ctx);
+        const tones = reliefToneColours(landBandColor(3));
+        expect(polygons.some((polygon) => polygon.fillStyle === tones.lit[2])).toBe(true);
+        expect(polygons.some((polygon) => polygon.fillStyle === tones.shaded[2])).toBe(false);
+        // The N band is the full-width top strip, tapering into the tile.
+        expect(
+            polygons.some(
+                (polygon) =>
+                    polygon.fillStyle === tones.lit[2] &&
+                    polygon.points[0] === 0 &&
+                    polygon.points[1] === TILE_PX &&
+                    polygon.points[2] === TILE_PX,
+            ),
+        ).toBe(true);
 
-        // That these two assertions track the sub-pass is checked against
-        // the same fixture painted with it skipped (D2's `relief: false`,
-        // exactly what the removed sub-pass would paint): neither band
-        // colour appears, so the pins above fail if 1d goes away.
-        const { ctx: reliefFreeCtx, fills: reliefFreeFills } = createRecordingCtx();
-        canvas.paint(view, reliefFreeCtx, { relief: false });
-        expect(hasFill(reliefFreeFills, [0, TILE_PX, TILE_PX, BAND_THICKNESS], '#f9fafb')).toBe(false);
-        expect(hasFill(reliefFreeFills, [0, 2 * TILE_PX - BAND_THICKNESS, TILE_PX, BAND_THICKNESS], '#646c70')).toBe(
-            false,
-        );
+        // A lower S neighbour paints the shaded tone instead: tone follows
+        // the side, never the drop alone (FR-002).
+        const { ctx: shadedCtx, polygons: shadedPolygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 0, 209), makeLandCell(0, 1, 0)]), shadedCtx);
+        expect(shadedPolygons.some((polygon) => polygon.fillStyle === tones.shaded[2])).toBe(true);
+        expect(shadedPolygons.some((polygon) => polygon.fillStyle === tones.lit[2])).toBe(false);
 
-        // A land tile whose four neighbours are all non-land (absent from
-        // the view here) carries no relief at all: every fill on that
-        // board is a gradient — the void backdrop and the tile's own 1c
-        // gradient — and a relief band is the only thing 1d fills a rect
-        // with a plain colour string.
-        const { ctx: isolatedCtx, fills: isolatedFills } = createRecordingCtx();
-        canvas.paint(makeMapView([makeLandCell(0, 0, 128)]), isolatedCtx);
-        expect(isolatedFills.some((fill) => typeof fill.fillStyle === 'string')).toBe(false);
+        // Equal heights are neutral: no bevel path, and the only land fill
+        // left is the flat face.
+        const { ctx: equalCtx, fills: equalFills, polygons: equalPolygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 0, 209), makeLandCell(0, 1, 209)]), equalCtx);
+        expect(equalPolygons).toHaveLength(0);
+        expect(equalFills.some((fill) => fill.fillStyle === landBandColor(3))).toBe(true);
+
+        // `relief: false` paints the control: same face, no bevel paths.
+        const { ctx: controlCtx, polygons: controlPolygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 1, 209), makeLandCell(0, 0, 0)]), controlCtx, { relief: false });
+        expect(controlPolygons).toHaveLength(0);
 
         // And the retired uniform inner shadow is gone from every paint.
-        for (const recorded of [fills, isolatedFills]) {
+        for (const recorded of [fills, equalFills]) {
             expect(
                 RETIRED_INNER_SHADOW_FILLS.filter((literal) => recorded.some((fill) => fill.fillStyle === literal)),
             ).toEqual([]);

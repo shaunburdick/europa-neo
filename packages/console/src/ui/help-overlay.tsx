@@ -59,12 +59,12 @@ const SYMBOL_LEGEND: ReadonlyArray<{ readonly symbol: string; readonly descripti
     { symbol: '░░░ Fog', description: 'Unknown area (not in horizon)' },
     {
         symbol: '██ Elevation',
-        description: 'Absolute terrain height (colour family) — the highest ground renders lightest',
+        description: 'Absolute terrain height (colour family) — four hue bands, the highest ground lightest',
     },
     {
-        symbol: '▚ Edges',
+        symbol: '▚ Bevels',
         description:
-            'Relative edge relief (luminance) — a lighter edge faces lower ground, a darker edge higher ground',
+            'A bevel marks a drop to a lower neighbour; north/west bevels are lit, south/east shaded — no bevel on flat ground',
     },
     { symbol: '70% Reserves', description: 'Reserve percentage on cell' },
     { symbol: '⚡ Combat', description: 'Battle or capture in progress' },

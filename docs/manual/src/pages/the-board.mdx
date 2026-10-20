@@ -23,7 +23,7 @@ Every cell is one of two terrain types: **land** or **water**. Troops, cities, p
 
 ## Elevation shading
 
-Land cells carry two elevation signals. **Colour** tells you how high a cell is: the ground runs from deep blue at the lowest elevations through teal and orange to the palest ground at the peaks. **Edge shading** tells you how a cell compares with the land around it: an edge facing a lower neighbour is shaded lighter, and an edge facing a higher neighbour is shaded darker, so ridges, drops, and gentle slopes are visible on the board before any pipe exists. Edges next to water, fog, or the board's edge carry no shading. Elevation is not decoration — it drives pipe flow:
+Land cells carry two elevation signals. **Colour** tells you how high a cell is: one flat colour per terrain zone, running from deep blue at the lowest elevations through teal and orange to the palest ground at the peaks. **Edge shading** tells you where the ground drops away: a tile that is higher than the visible land beside it carries a bevel on that side, wider for a bigger drop. The map is lit from its north-west corner, so north- and west-facing bevels catch the light and south- and east-facing ones are in shade — you are looking at the side of a step, not at a slope running downhill. Flat ground joins seamlessly, and edges next to water, fog, or the board's edge carry no bevel. Elevation is not decoration — it drives pipe flow:
 
 - **Downhill** pipes (toward lower cells) get a bonus: the steeper the drop, the faster the flow. <EuropaElevationSwatch elevation="20"></EuropaElevationSwatch>
 - **Flat** pipes (equal elevation) flow steadily at the base rate. <EuropaElevationSwatch elevation="50"></EuropaElevationSwatch>

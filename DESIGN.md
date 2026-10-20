@@ -67,7 +67,7 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `info-bg` | `--europa-color-info-bg` | `TOKENS.color.infoBg` | `#302311` | Info background surface (panels, cards) — very low contrast with `surface` ≈ 1.16:1; non-text fill only |
 | `info-border` | `--europa-color-info-border` | `TOKENS.color.infoBorder` | `#5b461d` | Info border for panels/cards — non-text; paired with `info-bg` as a decorative boundary |
 | `info-hover` | `--europa-color-info-hover` | `TOKENS.color.infoHover` | `#e8c35e` | Hover state for info buttons — bg/border use only |
-| `biome-zones` | (array, no CSS variable) | `TOKENS.color.biomeZones` | `[{elevationMax:80, hue:210, saturationPct:65, lightnessMin:38, lightnessMax:52}, ...]` | 4 biome zone configs replacing the retired 6-band land shading (spec 024 FR-001/FR-031). Each zone maps a contiguous elevation range to a distinct hue family aligned with pipe flow transitions. Ice Plains (0–80, blue 210°), Fractured Ice (81–160, teal 170°), Rocky Outcrops (161–208, orange 30°), Peaks (209–255, pale blue 200°). Sub-pass 1c paints each zone's configured midpoint, whose lightness is 45 / 33 / 36 / 88 for zones 0–3. Not a CSS variable — consumed only by TS palette/canvas logic |
+| `biome-zones` | (array, no CSS variable) | `TOKENS.color.biomeZones` | `[{elevationMax:80, hue:210, saturationPct:65, lightnessMin:38, lightnessMax:52}, ...]` | 4 biome zone configs replacing the retired 6-band land shading (spec 024 FR-001/FR-031). Each zone maps a contiguous elevation range to a distinct hue family aligned with pipe flow transitions. Ice Plains (0–80, blue 210°), Fractured Ice (81–160, teal 170°), Rocky Outcrops (161–208, orange 30°), Peaks (209–255, pale blue 200°). Sub-pass 1c paints each zone's configured midpoint as a flat face (the per-tile gradient is retired; relief bevels carry depth), whose lightness is 45 / 33 / 36 / 88 for zones 0–3. Not a CSS variable — consumed only by TS palette/canvas logic |
 | `overlay-soft` | `--europa-color-overlay-soft` | `TOKENS.color.overlaySoft` | `rgba(26, 34, 51, 0.6)` | Translucent veil over board/plates — non-text; text drawn above it uses `text-primary`/`text-secondary` on the composited surface |
 | `overlay-strong` | `--europa-color-overlay-strong` | `TOKENS.color.overlayStrong` | `rgba(26, 34, 51, 0.75)` | Modal backdrop veil (`.europa-modal-backdrop`) — non-text; dialog contents sit on `surface` |
 | `page-bg` | `--europa-color-page-bg` | `TOKENS.color.pageBg` | `#0b0f19` | `text-secondary` `#e5e7eb` on this bg ≈ 15.47:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-muted` ≈ 7.54:1; `text-primary` ≈ 18.33:1 |
@@ -81,8 +81,8 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `player-3` | `--europa-color-player-3` | `TOKENS.color.playerColor3` | `#059669` | Player 3 ownership — reuses `green`. On `surface` `#111827` ≈ 4.71:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `player-4` | `--europa-color-player-4` | `TOKENS.color.playerColor4` | `#d97706` | Player 4 ownership — reuses `amber`. On `surface` `#111827` ≈ 5.57:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `red` | `--europa-color-red` | `TOKENS.color.red` | `#dc2626` | On `surface`: ≈ 3.67:1 — AA 1.4.3 large (≥ 3:1) / 1.4.11 non-text (≥ 3:1): meets; normal-size text: does NOT meet, use `error-text` |
-| `relief-highlight` | `--europa-color-relief-highlight` | `TOKENS.color.reliefHighlight` | `#ffffff` | Canvas-only relief mix extreme (spec 017 FR-009): the light end a land-tile edge band facing a *lower* neighbour mixes toward — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
-| `relief-shadow` | `--europa-color-relief-shadow` | `TOKENS.color.reliefShadow` | `#000000` | Canvas-only relief mix extreme (spec 017 FR-009): the dark end a land-tile edge band facing a *higher* neighbour mixes toward — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
+| `relief-highlight` | `--europa-color-relief-highlight` | `TOKENS.color.reliefHighlight` | `#ffffff` | Canvas-only relief mix extreme (spec 017 FR-009): the lit end a north- or west-facing bevel mixes toward — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
+| `relief-shadow` | `--europa-color-relief-shadow` | `TOKENS.color.reliefShadow` | `#000000` | Canvas-only relief mix extreme (spec 017 FR-009): the shaded end a south- or east-facing bevel mixes toward — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
 | `surface` | `--europa-color-surface` | `TOKENS.color.surface` | `#111827` | `text-primary` `#f9fafb` on this fill ≈ 16.98:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-secondary` ≈ 14.33:1; `text-muted` ≈ 6.99:1 |
 | `surface-raised` | `--europa-color-surface-raised` | `TOKENS.color.surfaceRaised` | `#1f2937` | `text-primary` `#f9fafb` on this fill ≈ 14.05:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `success` | `--europa-color-success` | `TOKENS.color.success` | `#059669` | `surface` `#111827` on this fill ≈ 4.71:1 — AA 1.4.3 normal (≥ 4.5:1): meets. Reuses `green`. Semantic success state fill for buttons/indicators |
@@ -586,7 +586,7 @@ recomputes them from the § 1.1 values; every other row is an unguarded computat
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.surface` `#111827` | ≈ 17.74:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — `*:focus-visible` / `.europa-focus-ring` outline on a plate |
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.pageBg` `#0b0f19` | ≈ 19.15:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the page column |
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.voidBg` `#1a2233` | ≈ 15.90:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the board / `.europa-lobby__row` |
-| Shipped Peaks ceiling `hsl(200 15% 95%)` (= zone 3 `lightnessMax`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 14.26:1 | AA 1.4.11 non-text ≥ 3:1 | `palette.test.ts` token-reading block (A-03 sweep); no rendered computed-style check — G-07 is deferred per spec 012's Scope Note. The earlier `hsl(220 8% 78%)` is not a shipped colour and its ≈ 4.57:1 does not reproduce; the painted 1c light end (L=88) measures ≈ 12.16:1. Terrain identity redundantly encoded by elevation shading, chip labels, and minimap |
+| Shipped Peaks ceiling `hsl(200 15% 95%)` (= zone 3 `lightnessMax`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 14.26:1 | AA 1.4.11 non-text ≥ 3:1 | `palette.test.ts` token-reading block (A-03 sweep); no rendered computed-style check — G-07 is deferred per spec 012's Scope Note. The earlier `hsl(220 8% 78%)` is not a shipped colour and its ≈ 4.57:1 does not reproduce; the painted flat Peaks face (L=88) measures ≈ 12.16:1. Terrain identity redundantly encoded by elevation shading, chip labels, and minimap |
 | Pipe slope fills — downhill `#059669` / flat `#f59e0b` / uphill `#dc2626` / stalled `#9ca3af` (reuse of `TOKENS.color.green` / `TOKENS.color.accent` / `TOKENS.color.red` / `TOKENS.color.textMuted`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 4.22:1 / 7.40:1 / 3.29:1 / 6.26:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — pipe slope indicators over fog void (005 FR-013); the § 1.1 pairings over the dark biome zones are below target for all four fills (note N-4, issue #199), where the dark outline composites to ≈ 2.91–3.40:1 and triangle shape + cell-edge position carry the mark (spec 024 FR-010) |
 | `TOKENS.color.textLink` `#f59e0b` | `TOKENS.color.pageBg` `#0b0f19` | ≈ 8.92:1 | AA 1.4.3 normal ≥ 4.5:1 | G-07 computed-style pair — `.europa-link` text on the page background |
 | `TOKENS.color.textLink` `#f59e0b` | `TOKENS.color.surface` `#111827` | ≈ 8.26:1 | AA 1.4.3 normal ≥ 4.5:1 | G-07 computed-style pair — `.europa-link` text on a card/plate surface |
@@ -620,8 +620,8 @@ boundary. Do not build a component whose only cue is this border. Where a real n
 needed, use the accent edge (≈ 8.26:1) or the focus ring (≈ 17.74:1).
 
 **N-3 — Canvas terrain fills.** Water against the fog void measures ≈ 2.37:1, and the darkest biome
-shade painted on the board (Fractured Ice, L=26) measures ≈ 2.38:1 there — both below 3:1; that zone's
-midpoint (L=33) measures ≈ 3.43:1. These are Canvas tile fills, not text and not UI-component
+face painted on the board (Fractured Ice, L=33) measures ≈ 3.43:1 there. Sub-pass 1c paints one flat
+face per zone, so the retired gradient's L=26 shade is no longer painted at all. These are Canvas tile fills, not text and not UI-component
 boundaries, and terrain identity is redundantly encoded: biome zones span distinct hue families
 (blue 210° / teal 170° / orange 30° / pale blue 200°), and tiles are further identified by troop chips,
 city markers, and the minimap. This is the inherited console rendering codified as tokens, not a new
@@ -644,29 +644,27 @@ decision (no intensity scaling); the stalled state is redundantly encoded by a h
 distinct from the filled flowing triangles. The outline approach is simpler than recoloring pipe
 indicators per biome zone and does not require amending spec 005.
 
-**N-5 — Relief edge pairing (delta-dependent, canvas-painted).** Feature 017
-(`specs/017-terrain-relief-shading/spec.md`) shades each land tile's edges by the elevation delta to the
-visible land tile beside it: an edge toward a *lower* neighbour renders lighter, toward a *higher* one
-darker, one fixed sign constant for all tiles and zones (its FR-002; which direction is forced, not
-chosen). The band colour is a per-channel linear-light mix of that zone's 1c gradient end toward the
-`relief-highlight`/`relief-shadow` extremes, with magnitude proportional to `|Δelevation|`. The two
-closed forms of `reliefTargetLuminance` (feature 017 plan D5) are its provenance: they make one `|Δ|` the
-same fraction of every zone's reachable treatment, so there is no per-zone magnitude constant and no
-bucket table (its FR-003). Measured figures: on the Peaks reference fixture — the tightest of the four
-zones — the two bands stand 5.13:1 apart (FR-006a's ≥ 3:1 floor), the single floor against the tile's
-relief-free control is 1.2:1, and a painted band is measured against the model with one allowance,
-`0.0045` absolute in relative luminance (8-bit channel rounding, plan D5.2). The pairing has **no § 3
-row**: § 3's preamble defines every row as a measured pairing over a rendered CSS fixture, and a
-delta-dependent canvas colour cannot be expressed by one; G-07 — itself deferred per spec 012's Scope
-Note — could not read canvas pixels anyway. What asserts the pairing is the 017 readback suite,
-`packages/console/tests/component/render/relief.test.tsx`, with
-`packages/console/tests/unit/render/relief.test.ts` pinning the pure mapping; § 1.1's
-`pipe-downhill`/`pipe-uphill` rows are the precedent for recording a luminance-weak but perceptually
-distinct board mark with its redundant encoding. The two tokens are not redundant with `focus-ring` and
-black despite duplicating their values: FR-009 requires every colour relief paints to be a token, and
-G-04 would *not* have required them — its patterns match `#`-hex and `rgb(`/`rgba(` only, so a numeric
-mix extreme would have passed it — so nobody should credit the guard with the tokens or delete them as
-duplicates.
+**N-5 — Relief bevels (orientation- and delta-stepped, canvas-painted).** Feature 017
+(`specs/017-terrain-relief-shading/spec.md`) paints land-tile faces flat — one colour per biome zone,
+no gradient — and adds a bevel only where a tile is strictly higher than a visible land neighbour:
+width is 4 / 7 / 10 % of the cell for Δ = 1 / 2 / 3+ (capped at 10 %), and tone follows one light at
+the map's NW corner — north/west bevels lit, south/east shaded — with a 0.74 / 0.79 / 0.84 mix toward
+the `relief-highlight` / `relief-shadow` extremes that saturates at Δ3. The mitred trapezoids' cut
+corners are closed at a shared vertex by the cap rule (two or more ends fill each cut triangle in its
+band's own colour; one end keeps its taper). Equal heights, water, fog-absent and off-board neighbours
+paint nothing. Per zone on feature 017's Δ1 reference fixture the two tones measure ≥ 3:1 apart and
+each ≥ 1.2:1 against the flat face — floors at their stated values, one constant for every zone, never
+a per-zone threshold table.
+
+The pairing has **no § 3 row**: § 3's preamble defines every row as a measured pairing over a rendered
+CSS fixture, and an orientation- and delta-stepped canvas colour cannot be expressed by one; G-07 —
+itself deferred per spec 012's Scope Note — could not read canvas pixels anyway. What asserts the
+pairing is the 017 readback suite, `packages/console/tests/component/render/relief.test.tsx`, with
+`packages/console/tests/unit/render/relief.test.ts` pinning the pure mapping. The two tokens are not
+redundant with `focus-ring` and black despite duplicating their values: FR-009 requires every colour
+relief paints to be a token, and G-04 would *not* have required them — its patterns match `#`-hex and
+`rgb(`/`rgba(` only, so a numeric mix extreme would have passed it — so nobody should credit the guard
+with the tokens or delete them as duplicates.
 
 **Motion (WCAG 2.3.3).** Decorative animation is gated twice: the stylesheet's
 `@media (prefers-reduced-motion: reduce)` block collapses animation and transition durations globally,
@@ -736,18 +734,17 @@ a CSS custom property synchronously (§ 4.1). The count is the invariant; the li
 this version and nothing guards them, so re-locate the markers with the searchable marker string
 `design-exception: canvas fallback` in this file if a refactor moves them:
 
-- `packages/console/src/render/canvas.ts:233` — sub-pass 1b's batched water-wave stroke
-  (`rgba(255, 255, 255, 0.04)` on `:234`).
-- `packages/console/src/render/canvas.ts:332` — sub-pass 1e's zone 2–3 contour stroke
-  (`rgba(0, 0, 0, 0.10)` on `:333`; absorbed `024-FR-012`).
-- `packages/console/src/render/canvas.ts:365` — the city-glow gradient's transparent stop
-  (`rgba(255, 68, 68, 0)` on `:366`).
-- `packages/console/src/render/canvas.ts:422` — the hover-highlight fill
-  (`rgba(255,255,255,0.45)` on `:423`).
+- `packages/console/src/render/canvas.ts:242` — sub-pass 1b's batched water-wave stroke
+  (`rgba(255, 255, 255, 0.04)` on `:243`).
+- `packages/console/src/render/canvas.ts:324` — sub-pass 1e's zone 2–3 contour stroke
+  (`rgba(0, 0, 0, 0.10)` on `:325`; absorbed `024-FR-012`).
+- `packages/console/src/render/canvas.ts:357` — the city-glow gradient's transparent stop
+  (`rgba(255, 68, 68, 0)` on `:358`).
+- `packages/console/src/render/canvas.ts:414` — the hover-highlight fill
+  (`rgba(255,255,255,0.45)` on `:415`).
 
 Feature 017 retired the two sub-pass 1d inner-shadow markers this section used to list with their
-`rgba(0, 0, 0, 0.25)` / `rgba(255, 255, 255, 0.15)` fills, and adds none: relief's band colour is a
-computed `#rrggbb` assembled from token values, which G-04's patterns do not match (note N-5).
+`rgba(0, 0, 0, 0.25)` / `rgba(255, 255, 255, 0.15)` fills, and adds none: relief's bevel tones are computed `#rrggbb` values assembled from token colours, which G-04's patterns do not match (note N-5).
 
 ---
 

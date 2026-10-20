@@ -40,13 +40,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_CAMERA } from '../../src/config';
 import { MapCanvas } from '../../src/render/canvas';
 import { LAND_BAND_COUNT, landBandColor, landBandIndex } from '../../src/render/palette';
-import {
-    linearTriple,
-    RELIEF_DIRECTIONS,
-    RELIEF_HIGHLIGHT_IS_DOWNHILL,
-    reliefBandColor,
-    reliefFraction,
-} from '../../src/render/relief';
+import { RELIEF_SIDES, reliefSideIsLit, reliefStep, reliefToneColours } from '../../src/render/relief';
 import { buildMapView, coordKey, destinationCoord } from '../../src/state/build-map-view';
 import { localPreflightOrder } from '../../src/state/local-preflight';
 import { INITIAL_CONSOLE_STATE, reduce } from '../../src/state/reducer';
@@ -293,9 +287,9 @@ const RELIEF_PERF_BOARD = 48;
  * the relief-enabled min-of-round-medians minus the relief-disabled
  * figure on the identical 48×48 board must stay under this. The absolute
  * frame is deliberately NOT gated — a full-board paint's base cost is
- * unrelated to this feature (relief-off ≈3.4 ms; a decorated board
- * ≈40–50 ms with relief off). Pinned at 6.0 ms against a measured
- * ≈3.6–4.3 ms addition (≈39 % margin over the 4.30 ms worst of ten runs).
+ * unrelated to this feature (flat-face relief-off ≈0.7 ms; a decorated
+ * board ≈40–50 ms with relief off). Pinned at 6.0 ms against a measured
+ * 4.05–4.20 ms addition (≈30 % margin over the 4.20 ms worst observed).
  * Locally `scripts/verify.sh` runs `test:perf` with no factor, so this
  * pinned bound is the binding one; CI sets the factor to 2.
  */
@@ -303,33 +297,13 @@ const RELIEF_ADDITION_BUDGET_MS = 6;
 
 /**
  * Q-P05's pinned fixture-variety floors (NFR-001(b), AC-010). The adopted
- * fixture measures 250 distinct non-zero `|Δ|` and 822 distinct band
- * colours; the retired degenerate `(x*7 + y*13) % 256` yielded 4 and 20.
- * Both floors sit between the two, so the retired fixture cannot pass.
+ * fixture measures 250 distinct positive `|Δ|` and 22 of the 24 possible
+ * zone × step × orientation tone colours; the retired degenerate
+ * `(x*7 + y*13) % 256` yielded 4 deltas. Both floors sit between the two,
+ * so the retired fixture cannot pass.
  */
 const MIN_DISTINCT_DELTAS = 200;
-const MIN_DISTINCT_BAND_COLOURS = 500;
-
-/** The painter's 1c darkening step: `adjustBrightness(landBandColor(zone), -15)`. */
-const GRADIENT_DARKENING = -15;
-
-/**
- * The dark end of `zone`'s 1c gradient, as `canvas.ts` builds it — the
- * `landBandColor` HSL string with its lightness stepped by
- * {@link GRADIENT_DARKENING}. The painter keeps that step private, so the
- * count mirrors it rather than deriving a zone colour of its own.
- *
- * @param zone Biome zone index 0–3.
- */
-function darkGradientEnd(zone: number): string {
-    const light = landBandColor(zone);
-    const match = /^hsl\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)$/.exec(light);
-    if (match === null) {
-        throw new Error(`not an "hsl(H, S%, L%)" colour: ${light}`);
-    }
-    const lightness = Math.max(0, Math.min(100, Math.round(Number(match[3]) + GRADIENT_DARKENING)));
-    return `hsl(${match[1]}, ${match[2]}%, ${lightness}%)`;
-}
+const MIN_DISTINCT_BAND_COLOURS = 20;
 
 /**
  * The Q-P05 fixture's representative elevation field — a quadratic form
@@ -345,8 +319,8 @@ function representativeElevation(x: number, y: number): number {
 /**
  * Full-visibility, all-land 48×48 `PlayerView` for Q-P05 (NFR-001): the
  * representative formula mixes both coordinates and their squares, so
- * every zone carries a non-zero delta and the distribution is varied
- * (250 distinct non-zero `|Δ|`, 822 band colours) rather than the retired
+ * every zone carries a positive drop and the distribution is varied
+ * (250 distinct positive `|Δ|`, 22 of the 24 tone colours) rather than the retired
  * degenerate `(x*7 + y*13) % 256` (4 distinct `|Δ|`) that flattered the
  * number. The board is deliberately bare (no units, pipes, or cities —
  * those are Q-P01's layers); plan D7 records what this gate does and does
@@ -483,29 +457,26 @@ describe('perf budgets (T091 / SC-003)', () => {
         const mapView = buildReliefBoardMapView();
         // NFR-001's fixture contract: a representative delta distribution,
         // so the gate cannot silently regress to the retired degenerate
-        // fixture (measured: 250 distinct non-zero |Δ|, 822 band colours).
+        // fixture (measured: 250 distinct positive |Δ|, 22 tone colours).
         const distinctDeltas = new Set<number>();
         const distinctBandColours = new Set<string>();
         const zonesWithDelta = new Set<number>();
         for (const info of mapView.cells.values()) {
             const zone = landBandIndex(info.elevation);
-            for (const direction of RELIEF_DIRECTIONS) {
-                const neighbour = mapView.cells.get(coordKey(destinationCoord(info.coord, direction)));
-                if (neighbour === undefined || neighbour.elevation === info.elevation) {
+            const tones = reliefToneColours(landBandColor(zone));
+            for (const side of RELIEF_SIDES) {
+                const neighbour = mapView.cells.get(coordKey(destinationCoord(info.coord, side)));
+                if (neighbour === undefined || neighbour.terrain !== 'land') {
                     continue;
                 }
-                const delta = neighbour.elevation - info.elevation;
-                distinctDeltas.add(Math.abs(delta));
+                const delta = info.elevation - neighbour.elevation;
+                if (delta <= 0) {
+                    continue;
+                }
+                distinctDeltas.add(delta);
                 zonesWithDelta.add(zone);
-                const downhill = delta < 0;
-                const highlight = downhill === RELIEF_HIGHLIGHT_IS_DOWNHILL;
-                distinctBandColours.add(
-                    reliefBandColor(
-                        linearTriple(highlight ? landBandColor(zone) : darkGradientEnd(zone)),
-                        reliefFraction(delta),
-                        highlight,
-                    ),
-                );
+                const step = reliefStep(delta);
+                distinctBandColours.add((reliefSideIsLit(side) ? tones.lit : tones.shaded)[step - 1] ?? '');
             }
         }
         expect(distinctDeltas.size).toBeGreaterThanOrEqual(MIN_DISTINCT_DELTAS);

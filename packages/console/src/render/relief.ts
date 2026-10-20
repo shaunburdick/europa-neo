@@ -1,45 +1,117 @@
 /**
- * Delta-based terrain relief bands — feature 017 (T002). Pure mapping
- * from an edge's elevation delta to the band colour that sub-pass 1d in
- * `canvas.ts` paints: no clock, no randomness, no zone table (FR-003)
- * and no knowledge of the view (FR-010).
+ * Land-tile relief bevels — feature 017. Pure mapping from one tile side
+ * to its bevel: the face is flat, one light stands at the map's NW
+ * corner, so tone comes from the side alone and width from how far this
+ * tile rises above the neighbour. No clock, no randomness, no view
+ * knowledge (FR-010).
  */
 
 import { RELIEF_HIGHLIGHT_COLOR, RELIEF_SHADOW_COLOR } from './palette';
 
-/**
- * FR-002's fixed sign constant: `true` puts the highlight (lighter)
- * treatment on an edge toward a *lower* neighbour, so a higher
- * neighbour always renders darker. Forced, not chosen: on Peaks' light
- * gradient end white caps a highlight at 1.31:1, under FR-006b's floor.
- */
-export const RELIEF_HIGHLIGHT_IS_DOWNHILL = true;
+/** Bevel width as a fraction of the tile size for Δ = 1, 2, 3+ (capped at 10 %). */
+export const RELIEF_WIDTH_RATIOS = [0.04, 0.07, 0.1] as const;
 
-/** FR-003's normaliser — the largest possible `|Δelevation|`. */
-export const RELIEF_MAX_DELTA = 255;
+/** Tone mix toward the lit/shaded token per Δ step; saturates with the width. */
+export const RELIEF_TONE_MIXES = [0.74, 0.79, 0.84] as const;
 
-/** Band thickness as a fraction of the cell size (3 px at zoom 32). */
-export const RELIEF_BAND_RATIO = 0.08;
+/** The four tile sides, in paint order. */
+export const RELIEF_SIDES = ['N', 'E', 'S', 'W'] as const;
 
-/** Floor that keeps the band measurable at the smallest zoom step. */
-export const RELIEF_MIN_BAND_PX = 2;
+/** One tile side. */
+export type ReliefSide = (typeof RELIEF_SIDES)[number];
 
-/**
- * Fixed paint order of the four edges. Bands are opaque and stay inside
- * their own tile, so this order only resolves the corner overlaps
- * between one tile's own bands.
- */
-export const RELIEF_DIRECTIONS = ['N', 'E', 'S', 'W'] as const;
+/** Δ at which both width and tone stop growing. */
+export const RELIEF_MAX_STEP = RELIEF_WIDTH_RATIOS.length;
+
+/** The lit (north/west) and shaded (south/east) extremes, as sRGB bytes. */
+const LIT_TARGET = hexToBytes(RELIEF_HIGHLIGHT_COLOR);
+const SHADED_TARGET = hexToBytes(RELIEF_SHADOW_COLOR);
 
 /**
- * Edge band thickness in CSS px at `zoom`: proportional to the cell size
- * with a floor, so a band stays visible at the 32 px minimum (005
- * FR-017).
+ * The Δ ladder step: 0 for no positive delta, otherwise 1, 2 or 3+.
  *
- * @param zoom Cell size in CSS px.
+ * @param delta Positive elevation drop (`own − neighbour`).
  */
-export function reliefBandThickness(zoom: number): number {
-    return Math.max(RELIEF_MIN_BAND_PX, Math.round(zoom * RELIEF_BAND_RATIO));
+export function reliefStep(delta: number): number {
+    return Math.max(0, Math.min(RELIEF_MAX_STEP, Math.trunc(delta)));
+}
+
+/**
+ * Bevel width as a fraction of the tile size; 0 when there is no drop.
+ *
+ * @param delta Positive elevation drop (`own − neighbour`).
+ */
+export function reliefWidthRatio(delta: number): number {
+    const step = reliefStep(delta);
+    return step === 0 ? 0 : (RELIEF_WIDTH_RATIOS[step - 1] ?? 0);
+}
+
+/**
+ * Bevel width in CSS px for a tile of `size` px.
+ *
+ * @param size Tile side length in CSS px.
+ * @param delta Positive elevation drop (`own − neighbour`).
+ */
+export function reliefBandWidth(size: number, delta: number): number {
+    return size * reliefWidthRatio(delta);
+}
+
+/**
+ * The tone's mix toward its token extreme; 0 when there is no drop.
+ *
+ * @param delta Positive elevation drop (`own − neighbour`).
+ */
+export function reliefToneMix(delta: number): number {
+    const step = reliefStep(delta);
+    return step === 0 ? 0 : (RELIEF_TONE_MIXES[step - 1] ?? 0);
+}
+
+/**
+ * The single light stands at the NW corner: a north- or west-facing
+ * bevel is lit, a south- or east-facing one is shaded.
+ *
+ * @param side Tile side the bevel faces.
+ */
+export function reliefSideIsLit(side: ReliefSide): boolean {
+    return side === 'N' || side === 'W';
+}
+
+/**
+ * The three lit and three shaded bevel colours for one flat face — the
+ * per-zone pre-computation the painter uses, so no band re-parses an
+ * `hsl()` string.
+ *
+ * @param faceHsl The flat zone face as `hsl(H, S%, L%)`.
+ */
+export function reliefToneColours(faceHsl: string): {
+    readonly lit: readonly [string, string, string];
+    readonly shaded: readonly [string, string, string];
+} {
+    const face = hslToBytes(faceHsl);
+    const litTone = (mix: number): string => mixedHex(face, LIT_TARGET, mix);
+    const shadedTone = (mix: number): string => mixedHex(face, SHADED_TARGET, mix);
+    return {
+        lit: [litTone(RELIEF_TONE_MIXES[0]), litTone(RELIEF_TONE_MIXES[1]), litTone(RELIEF_TONE_MIXES[2])],
+        shaded: [shadedTone(RELIEF_TONE_MIXES[0]), shadedTone(RELIEF_TONE_MIXES[1]), shadedTone(RELIEF_TONE_MIXES[2])],
+    };
+}
+
+/**
+ * The bevel colour for one side at one positive delta: the face mixed
+ * toward the lit or shaded token by the Δ step's factor. Orientation
+ * alone chooses the tone; the drop only sets its strength (FR-002/003).
+ *
+ * @param faceHsl The flat zone face as `hsl(H, S%, L%)`.
+ * @param delta Positive elevation drop (`own − neighbour`).
+ * @param side Tile side the bevel faces.
+ */
+export function reliefToneColor(faceHsl: string, delta: number, side: ReliefSide): string {
+    const step = reliefStep(delta);
+    if (step === 0) {
+        return mixedHex(hslToBytes(faceHsl), hslToBytes(faceHsl), 0);
+    }
+    const tones = reliefToneColours(faceHsl);
+    return (reliefSideIsLit(side) ? tones.lit : tones.shaded)[step - 1] ?? faceHsl;
 }
 
 /** One sRGB channel byte (0–255) as a linear-light value (0–1). */
@@ -48,144 +120,66 @@ export function srgbToLinear(channelByte: number): number {
     return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
-/**
- * The mix extremes, read from the tokens the bands mix toward (FR-009):
- * white's luminance is 1.0 and black's is 0.0, which is what makes
- * {@link reliefTargetLuminance}'s fraction identity exact.
- */
-const HIGHLIGHT_EXTREME_LINEAR = hexToLinearTriple(RELIEF_HIGHLIGHT_COLOR);
-const SHADOW_EXTREME_LINEAR = hexToLinearTriple(RELIEF_SHADOW_COLOR);
-
 /** WCAG 2.x relative luminance of an sRGB byte triple. */
 export function relativeLuminance(rgb: readonly [number, number, number]): number {
     return 0.2126 * srgbToLinear(rgb[0]) + 0.7152 * srgbToLinear(rgb[1]) + 0.0722 * srgbToLinear(rgb[2]);
 }
 
-/** WCAG 2.x relative luminance of an already-linear-light triple. */
-function linearLuminance(linear: readonly [number, number, number]): number {
-    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
-}
-
-/**
- * The linear-light triple of one of the painter's own `hsl(H, S%, L%)`
- * gradient ends — the per-zone base of FR-002. Throws on any other form:
- * the only callers pass the painter's own gradient ends.
- *
- * @param hslColor Colour string as `landBandColor` emits it.
- */
-export function linearTriple(hslColor: string): readonly [number, number, number] {
-    const match = /^hsl\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)$/i.exec(hslColor.trim());
-    if (match === null) {
-        throw new Error(`relief: expected an "hsl(H, S%, L%)" colour, received "${hslColor}"`);
-    }
-    const [red, green, blue] = hslToBytes(Number(match[1]), Number(match[2]), Number(match[3]));
-    return [srgbToLinear(red), srgbToLinear(green), srgbToLinear(blue)];
-}
-
-/**
- * The delta's magnitude as a fraction of {@link RELIEF_MAX_DELTA},
- * clamped to 0–1.
- *
- * @param delta Signed elevation delta; the sign is handled by the caller.
- */
-export function reliefFraction(delta: number): number {
-    return Math.min(Math.abs(delta), RELIEF_MAX_DELTA) / RELIEF_MAX_DELTA;
-}
-
-/**
- * The relative luminance a band at `fraction` of `baseLuminance`
- * reaches: `L + f·(1 − L)` toward white, `L·(1 − f)/(1 + 20·f·L)`
- * toward black. Both are normalised by that base's reachable maximum,
- * so one `|Δ|` is the same fraction of every zone's treatment (FR-003)
- * without a per-zone magnitude constant.
- *
- * @param baseLuminance Relative luminance of the zone's gradient end.
- * @param fraction Magnitude as a fraction of {@link RELIEF_MAX_DELTA}.
- * @param highlight `true` for the highlight (toward white) treatment.
- */
-export function reliefTargetLuminance(baseLuminance: number, fraction: number, highlight: boolean): number {
-    const f = Math.max(0, Math.min(1, fraction));
-    return highlight
-        ? baseLuminance + f * (1 - baseLuminance)
-        : (baseLuminance * (1 - f)) / (1 + 20 * f * baseLuminance);
-}
-
-/**
- * The band colour: `baseLinear` mixed per channel toward the sign's token
- * extreme, returned as a computed `#rrggbb`. The mix factor lands the
- * luminance exactly on {@link reliefTargetLuminance}, so the only drift
- * is the channels' 8-bit rounding.
- *
- * @param baseLinear Linear-light triple of the zone's gradient end.
- * @param fraction Magnitude as a fraction of {@link RELIEF_MAX_DELTA}.
- * @param highlight `true` for the highlight (toward white) treatment.
- */
-export function reliefBandColor(
-    baseLinear: readonly [number, number, number],
-    fraction: number,
-    highlight: boolean,
+/** Per-channel sRGB mix of `base` toward `target` by `mix`, as `#rrggbb`. */
+function mixedHex(
+    base: readonly [number, number, number],
+    target: readonly [number, number, number],
+    mix: number,
 ): string {
-    const f = Math.max(0, Math.min(1, fraction));
-    const baseLuminance = linearLuminance(baseLinear);
-    const k = highlight ? f : (f * (1 + 20 * baseLuminance)) / (1 + 20 * f * baseLuminance);
-    const extreme = highlight ? HIGHLIGHT_EXTREME_LINEAR : SHADOW_EXTREME_LINEAR;
-    return hexColor(
-        linearToChannel((1 - k) * baseLinear[0] + k * extreme[0]),
-        linearToChannel((1 - k) * baseLinear[1] + k * extreme[1]),
-        linearToChannel((1 - k) * baseLinear[2] + k * extreme[2]),
-    );
+    const channel = (index: 0 | 1 | 2): string =>
+        Math.round(base[index] + (target[index] - base[index]) * mix)
+            .toString(16)
+            .padStart(2, '0');
+    return `#${channel(0)}${channel(1)}${channel(2)}`;
 }
 
-/** Parse a `#rrggbb` token value to its linear-light triple. */
-function hexToLinearTriple(hex: string): readonly [number, number, number] {
+/** Parse a `#rrggbb` token value to sRGB bytes. */
+function hexToBytes(hex: string): readonly [number, number, number] {
     const value = Number.parseInt(hex.replace('#', ''), 16);
-    return [srgbToLinear((value >> 16) & 0xff), srgbToLinear((value >> 8) & 0xff), srgbToLinear(value & 0xff)];
+    return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
 }
 
 /**
  * An `hsl(H, S%, L%)` triple as sRGB bytes — the conversion the browser
- * applies to the gradient end strings 1c paints.
+ * applies to the flat face strings the painter emits.
  */
-function hslToBytes(hue: number, saturationPct: number, lightnessPct: number): readonly [number, number, number] {
-    const s = saturationPct / 100;
-    const l = lightnessPct / 100;
-    const c = (1 - Math.abs(2 * l - 1)) * s;
-    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-    const m = l - c / 2;
+function hslToBytes(hslColor: string): readonly [number, number, number] {
+    const match = /^hsl\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)$/i.exec(hslColor.trim());
+    if (match === null) {
+        throw new Error(`relief: expected an "hsl(H, S%, L%)" colour, received "${hslColor}"`);
+    }
+    const hue = Number(match[1]);
+    const saturation = Number(match[2]) / 100;
+    const lightness = Number(match[3]) / 100;
+    const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+    const second = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const offset = lightness - chroma / 2;
     let red = 0;
     let green = 0;
     let blue = 0;
     if (hue < 60) {
-        red = c;
-        green = x;
+        red = chroma;
+        green = second;
     } else if (hue < 120) {
-        red = x;
-        green = c;
+        red = second;
+        green = chroma;
     } else if (hue < 180) {
-        green = c;
-        blue = x;
+        green = chroma;
+        blue = second;
     } else if (hue < 240) {
-        green = x;
-        blue = c;
+        green = second;
+        blue = chroma;
     } else if (hue < 300) {
-        red = x;
-        blue = c;
+        red = second;
+        blue = chroma;
     } else {
-        red = c;
-        blue = x;
+        red = chroma;
+        blue = second;
     }
-    return [Math.round((red + m) * 255), Math.round((green + m) * 255), Math.round((blue + m) * 255)];
-}
-
-/** A linear-light channel back to its sRGB byte, clamped and rounded. */
-function linearToChannel(linear: number): number {
-    const c = Math.max(0, Math.min(1, linear));
-    const s = c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
-    return Math.round(s * 255);
-}
-
-/** Format three sRGB bytes as a `#rrggbb` string. */
-function hexColor(red: number, green: number, blue: number): string {
-    const byte = (value: number): string => value.toString(16).padStart(2, '0');
-    return `#${byte(red)}${byte(green)}${byte(blue)}`;
+    return [Math.round((red + offset) * 255), Math.round((green + offset) * 255), Math.round((blue + offset) * 255)];
 }
