@@ -66,6 +66,7 @@ import {
     LAND_FACE_GRAIN_OFFSETS,
     landFaceGrainOffset,
     SEAM_WIDTH_PX,
+    snappedLineStart,
 } from './surface';
 
 /** Fraction of the cell size used as the troop-disc radius. */
@@ -403,9 +404,19 @@ export class MapCanvas {
                         if (side !== 'E' && side !== 'S') continue;
                         if (!contourCrosses(info.elevation, neighbour.elevation)) continue;
                         if (side === 'E') {
-                            contours.push(x + zoom - CONTOUR_WIDTH_PX, y, CONTOUR_WIDTH_PX, zoom);
+                            contours.push(
+                                snappedLineStart(x + zoom, viewportOffset.x, CONTOUR_WIDTH_PX),
+                                y,
+                                CONTOUR_WIDTH_PX,
+                                zoom,
+                            );
                         } else {
-                            contours.push(x, y + zoom - CONTOUR_WIDTH_PX, zoom, CONTOUR_WIDTH_PX);
+                            contours.push(
+                                x,
+                                snappedLineStart(y + zoom, viewportOffset.y, CONTOUR_WIDTH_PX),
+                                zoom,
+                                CONTOUR_WIDTH_PX,
+                            );
                         }
                         continue;
                     }
@@ -517,8 +528,8 @@ export class MapCanvas {
         // Sub-pass 1e2: zone seams (018 FR-002). One CSS pixel on the
         // shared edge of two visible land cells in different zones,
         // painted over 1c's grain and 1d's bevels. Only E and S are
-        // tested so each edge is visited once; the unantialiased column
-        // sits on the lower-coordinate side of the boundary.
+        // tested so each edge is visited once; the snapped column sits on
+        // the boundary at every zoom.
         if (surface) {
             const seams: number[] = [];
             for (const info of mapView.cells.values()) {
@@ -533,9 +544,9 @@ export class MapCanvas {
                     if (neighbour === undefined || neighbour.terrain !== 'land') continue;
                     if (landBandIndex(neighbour.elevation) === zone) continue;
                     if (side === 'E') {
-                        seams.push(x + zoom - SEAM_WIDTH_PX, y, SEAM_WIDTH_PX, zoom);
+                        seams.push(snappedLineStart(x + zoom, viewportOffset.x, SEAM_WIDTH_PX), y, SEAM_WIDTH_PX, zoom);
                     } else {
-                        seams.push(x, y + zoom - SEAM_WIDTH_PX, zoom, SEAM_WIDTH_PX);
+                        seams.push(x, snappedLineStart(y + zoom, viewportOffset.y, SEAM_WIDTH_PX), zoom, SEAM_WIDTH_PX);
                     }
                 }
             }

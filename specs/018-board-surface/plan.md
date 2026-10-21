@@ -79,15 +79,21 @@ elevation is read only by 1a's water gradient, never by the coast pass.
 ### D3 — Zone seam: one token, one pixel column, after contours
 **Decision.** Sub-pass 1e2 (after 1c2's contours and 1d's bevels, before 1f's city glow)
 collects the shared edges of visible land neighbours in different zones. To visit each edge
-once, only a tile's E and S sides are tested. Geometry: vertical `(edgeX − 1, y, 1, S)`,
-horizontal `(x, edgeY − 1, S, 1)` — the same column/row a contour uses, so the seam simply
-paints over one rather than doubling the line.
+once, only a tile's E and S sides are tested. Geometry: vertical
+`(snappedLineStart(edgeX, originX, 1), y, 1, S)`, horizontal
+`(x, snappedLineStart(edgeY, originY, 1), S, 1)` — the same column/row a contour uses, so the seam
+simply paints over one rather than doubling the line.
 
-**Why `−1`.** A 1 CSS px column cannot be centred on an integer pixel boundary without
-antialiasing two half-covered columns, which blends the token with 50 % face and halves the
-measured contrast. Snapping the whole column to the lower-coordinate side keeps it opaque,
-exactly 1 px at 32 px and 96 px zoom, and half a pixel off the mathematical boundary — the
-closest an unantialiased device-pixel line can sit.
+**Why snap.** A 1 CSS px column cannot be centred on a pixel boundary without antialiasing two
+half-covered columns, which blends the token with 50 % face and halves the measured contrast.
+The snap is taken in the bitmap's frame — `round(edge − origin) + origin − 1`, the paint's
+viewport translate removed — because the origin itself is fractional at a fractional zoom;
+rounding in board space alone still spread the line over two columns in the readback (367 and
+368 with an origin of 0.4). Deriving the far edge from the width keeps the line exactly 1 px at
+every zoom: at 32 px and 96 px it is the lower-coordinate cell's own last column; at a fractional
+zoom it is the column nearest the boundary, covering the face fills' own antialiased cell-edge
+column instead of leaving it beside the line. Rounding both edges independently would let the
+line collapse to 0 px or grow to 2 px.
 
 **Colour.** `SEAM_COLOR = TOKENS.color.textMuted` (`#9ca3af`). No new token: the worst
 measured pairing is 1.373:1 against zone 3's shaded Δ1 bevel; against every adjoining face's
@@ -134,7 +140,8 @@ restates FR-005's contour clause, FR-006's sampling exclusion and AC-005's refer
 painter folds it into 1c2. The loop already looks up each land neighbour for the coast, so a
 contour costs two `Math.floor` comparisons and one rect push: no second walk of the cells, no
 new `coordKey` allocation. Only E and S sides are tested so each edge is visited once, and the
-line takes the same `edge − 1` column/row as the seam (a whole device pixel, no antialiasing).
+line takes the same `snappedLineStart(edge, origin, 1)` column/row as the seam (a whole bitmap
+pixel, no antialiasing at any zoom).
 One flat array, one `beginPath`, one `fill` for the whole board.
 
 **Interval.** Measured over 50 generated boards (32 and 48, 25 seeds, 142,940 land–land edges):

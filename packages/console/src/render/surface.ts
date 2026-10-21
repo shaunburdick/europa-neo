@@ -57,6 +57,22 @@ export const CONTOUR_INTERVAL = 28;
 export const CONTOUR_WIDTH_PX = 1;
 
 /**
+ * Start coordinate of a `width` px line whose trailing edge marks `edge`
+ * (FR-002, FR-004), snapped so the line covers whole bitmap pixels.
+ * `offset` is the paint's viewport translate: the snap happens in the
+ * bitmap's frame, because a fractional translate would spread the line
+ * over two columns again. The canvas bitmap is 1:1 with CSS px, so a
+ * whole bitmap pixel is an integer there.
+ *
+ * @param edge Cell-boundary coordinate in board px.
+ * @param offset Board-space origin of the paint's translate.
+ * @param width Line width in px.
+ */
+export function snappedLineStart(edge: number, offset: number, width: number): number {
+    return Math.round(edge - offset) + offset - width;
+}
+
+/**
  * The contour band an elevation falls in; two neighbours are separated by
  * a contour line exactly when their bands differ (FR-004).
  *

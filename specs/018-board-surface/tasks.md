@@ -21,6 +21,7 @@
 - [x] T-015 Unit and readback coverage (AC-006, AC-007)
 - [x] T-016 v1.2 docs: spec, plan, 017/005 amendments, DESIGN, manual, AGENTS
 - [x] T-017 Interval measurement, before/after screenshots, perf and verify tail
+- [x] T-018 Review fix (PR #204): snap the contour and the seam to one whole pixel column (v1.3)
 
 ## Evidence (2026-10-20)
 
@@ -73,6 +74,47 @@ Reported to the dispatcher at T-001.
 - **Verify tail:** `bash scripts/verify.sh` green (exit 0): all 13 phases, console node
   1,057 tests / browser component 315 / a11y 74, perf 4, determinism 1, E2E 60, plus the
 design package's 381 and the spec/documentation guards.
+
+## Evidence (2026-10-21, v1.3 — hairlines on the raster grid)
+
+- **Defect (PR #204 review, P2 `canvas.ts:406`).** Both lines were built as
+  `x + zoom − 1`, which is fractional whenever the wheel has been used. At 73.75 px/cell the
+  shared edge sits at 368.75, so the 1 px rect spans `[367.75, 368.75]` and Canvas covers two
+  columns at partial alpha. Readback at row 110: contour column 367 `(32,110,97)`, 368
+  `(28,100,88)` against control `(34,116,102)`/`(34,118,104)` — 25 % and 75 % ink, neither at
+  full strength; seam columns `(65,116,167)` and `(135,152,167)` instead of the opaque token
+  `(156,163,175)`.
+- **Fix.** `snappedLineStart(edge, origin, width) = round(edge − origin) + origin − width` in
+  `surface.ts`, used by the contour (1c2) and the seam (1e2): the edge is rounded in the bitmap's
+  frame — the paint's viewport translate removed — and the width derived from it, never two
+  independent roundings, which could yield a 0 or 2 px line. Rounding in board space instead
+  (`round(edge) − width`) leaves the line crisp only when the origin is whole; at 73.75 px with an
+  origin of 0.4 it still covered columns 367 and 368, which the fractional-translate readback
+  asserts against. After the fix: contour column 368 `(27,94,83)` = `contour-ink` at full coverage
+  over its own control pixel, seam column 368 `(156,163,175)` exactly, and every neighbouring
+  column byte-identical to the control.
+- **Residual.** When the edge fraction rounds down (221.25 at the same zoom) the line takes the
+  lower column and the face fills' own 25 %/75 % blend column stays visible beside it: at most
+  one column, at most half the face delta. Rounding up covers that blend column under the line.
+  Snapping the cell grid is a larger change and was not attempted.
+- **Same pattern elsewhere?** The coast band is a ≥ 1.28 px area fill whose inner edge is
+  antialiased by design, and the bevels are wider area fills — both out of scope. The only other
+  hairline in the render path is the minimap's 1 px viewport rectangle
+  (`qol/minimap.tsx`: `viewportRect` returns fractional `x`/`y`, then the stroke adds 0.5),
+  which antialiases the same way; the minimap is outside 018's scope (Non-goals) and is left
+  unchanged.
+- **Tests.** New fractional-zoom readback (AC-003/AC-006): `tests/component/render/surface.test.tsx`
+  › "hairlines snap to the raster grid" asserts exactly one inked column/row at 73.75 px and full
+  ink coverage, plus the same with a fractional viewport origin (`x 0.4`); all four hairline cases
+  fail on the pre-fix painter (`[367, 368]` vs `[368]`, `[367, 368]` vs `[367]` with the origin), and the
+  board-space-only snap fails the origin case. `snappedLineStart`'s whole-pixel, exact-width and
+  half-pixel invariants are in `tests/unit/render/surface.test.ts`. Integer-zoom readback,
+  determinism and perf are unchanged.
+- **Perf.** Q-P01 4.1 ms median (budget 8) and the 017 relief addition 5.1 ms (bound 6), both
+  inside the v1.2 measurements (4.0–4.1 / 5.0).
+- **Verify tail.** `bash scripts/verify.sh` green (exit 0): all 13 phases, console node
+  1,058 / browser 320 / coverage 394 / a11y 74, perf 4, determinism 1, E2E 60, plus every other
+  package and the specification/documentation guards.
 
 ## Tasks
 

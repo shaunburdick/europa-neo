@@ -18,6 +18,7 @@ import {
     LAND_FACE_GRAIN_OFFSETS,
     landFaceGrainOffset,
     SEAM_WIDTH_PX,
+    snappedLineStart,
 } from '../../../src/render/surface';
 import { relativeLuminance } from '../../fixtures/contrast';
 
@@ -88,5 +89,29 @@ describe('surface mappings (018 FR-001…FR-003)', () => {
 
     test('the contour ink is a neutral 20 % black', () => {
         expect(CONTOUR_COLOR).toBe('rgba(0, 0, 0, 0.2)');
+    });
+
+    test('a hairline start snaps to a whole bitmap pixel without changing its width', () => {
+        expect(snappedLineStart(220, 0, 1)).toBe(219);
+        // The translate is removed before rounding, so the line lands on
+        // whole bitmap pixels even when the paint itself is off-grid.
+        expect(snappedLineStart(220.35, 0.4, 1) - 0.4).toBeCloseTo(219, 9);
+
+        let worst = 0;
+        for (let step = 0; step < 100; step += 1) {
+            const edge = 32 + step * 0.64;
+            const offset = 0.37;
+            const start = snappedLineStart(edge, offset, 1);
+            // Whole-float arithmetic leaves ~1e-15 of residue, which the
+            // rasteriser covers as a full pixel.
+            expect(Math.abs(start - offset - Math.round(start - offset)), `start ${start}`).toBeLessThan(1e-9);
+            expect(Math.abs(start + 1 - offset - Math.round(start + 1 - offset)), `end ${start + 1}`).toBeLessThan(
+                1e-9,
+            );
+            // The line's far edge stays within half a pixel of the boundary,
+            // so it never drifts a full column away from the face change.
+            worst = Math.max(worst, Math.abs(start + 1 - edge));
+        }
+        expect(worst).toBeLessThanOrEqual(0.5);
     });
 });

@@ -705,7 +705,8 @@ their own:
   relief flag: it is surface, not relief.
 - **Elevation contour** — one 1 CSS px line of `contour-ink` (§ 1.1) on every
   shared edge between two visible land cells whose elevations fall in different
-  28-level bands, in all four zones, inside the lower-coordinate cell. It
+  28-level bands, in all four zones, snapped to the raster grid so it covers one
+  whole pixel column or row (018 FR-004). It
   replaces sub-pass 1e's diagonal hatch (`rgba(0, 0, 0, 0.10)` every 6 px,
   zones 2–3). The interval comes from 142,940 measured land–land edges: 28 levels
   crosses 18.4 % of them (0.35 lines per tile), and no level lands on a zone

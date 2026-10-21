@@ -84,7 +84,13 @@ function waterCell(coord: Coord, elevation: number): CellRenderInfo {
     return { ...landCell(coord, elevation), terrain: 'water' };
 }
 
-function mapViewOf(cells: readonly CellRenderInfo[], boardSize: number, zoom: number, reversed = false): MapView {
+function mapViewOf(
+    cells: readonly CellRenderInfo[],
+    boardSize: number,
+    zoom: number,
+    reversed = false,
+    viewportOffset: Coord = { x: 0, y: 0 },
+): MapView {
     const ordered = reversed ? [...cells].reverse() : cells;
     return {
         id: 'mv-surface-readback' as MapViewId,
@@ -100,7 +106,7 @@ function mapViewOf(cells: readonly CellRenderInfo[], boardSize: number, zoom: nu
         selection: null,
         dragSelection: null,
         exclusiveMode: false,
-        viewportOffset: { x: 0, y: 0 },
+        viewportOffset,
     };
 }
 
@@ -194,6 +200,21 @@ function hslToRgb(hsl: string): readonly [number, number, number] {
 function hexToRgb(hex: string): readonly [number, number, number] {
     const value = Number.parseInt(hex.replace('#', ''), 16);
     return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+function parseRgba(value: string): readonly [number, number, number, number] {
+    const match = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/.exec(value);
+    if (match === null) {
+        throw new Error(`not an rgba() colour: ${value}`);
+    }
+    return [Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4])];
+}
+
+/** `face` with `contour-ink` composited over it at full coverage. */
+function inkOver(face: readonly [number, number, number]): readonly [number, number, number] {
+    const [red, green, blue, alpha] = parseRgba(CONTOUR_COLOR);
+    const channel = (value: number, inkChannel: number): number => Math.round(value * (1 - alpha) + inkChannel * alpha);
+    return [channel(face[0], red), channel(face[1], green), channel(face[2], blue)];
 }
 
 function coastTone(zone: number, side: ReliefSide): string {
@@ -564,6 +585,104 @@ describe('surface readback: elevation contours (AC-006, FR-004)', () => {
         expect(elevationBand(27)).toBe(0);
         expect(elevationBand(28)).toBe(1);
         expect(elevationBand(255)).toBe(Math.floor(255 / 28));
+    });
+});
+
+// ---------------------------------------------------------------------------
+// AC-003 / AC-006 — hairlines snap to the raster grid at fractional zoom
+// ---------------------------------------------------------------------------
+
+describe('surface readback: hairlines snap to the raster grid (AC-003, AC-006)', () => {
+    /**
+     * A fractional zoom inside the shipped 32–96 px range: the wheel's 1.15
+     * steps rarely land on a whole number, and 73.75 puts a shared edge at
+     * 368.75. Every fixture coordinate carries grain offset 0, so the only
+     * difference between a paint and its 018 control is the line itself.
+     */
+    const FRACTIONAL_ZOOM = 73.75;
+    const LOW_E: Coord = { x: 4, y: 1 };
+    const HIGH_E: Coord = { x: 5, y: 1 };
+    const HIGH_S: Coord = { x: 4, y: 2 };
+
+    function point(axis: 'x' | 'y', fixed: number, step: number): Coord {
+        return axis === 'x' ? { x: step, y: fixed } : { x: fixed, y: step };
+    }
+
+    /** Steps along one row (`x`) or column (`y`) where the paint differs from the control. */
+    function inkedRun(
+        painted: CanvasRenderingContext2D,
+        control: CanvasRenderingContext2D,
+        axis: 'x' | 'y',
+        fixed: number,
+        from: number,
+        to: number,
+    ): number[] {
+        const changed: number[] = [];
+        for (let step = from; step <= to; step += 1) {
+            if (!samePixels(pixelAt(painted, point(axis, fixed, step)), pixelAt(control, point(axis, fixed, step)))) {
+                changed.push(step);
+            }
+        }
+        return changed;
+    }
+
+    test('the fixture coordinates carry no grain offset', () => {
+        for (const coord of [LOW_E, HIGH_E, HIGH_S]) {
+            expect(grainOffsetIndex(coord), `${coord.x},${coord.y}`).toBe(0);
+        }
+    });
+
+    test.each(['E', 'S'] as const)('the %s contour covers one whole column or row at 73.75 px', (side) => {
+        // 100 and 130 straddle a 28-level band within one zone: a contour
+        // and no seam. Relief off isolates the ink's own coverage from the
+        // higher cell's bevel, which begins on the same edge.
+        const view = mapViewOf([landCell(LOW_E, 100), landCell(side === 'E' ? HIGH_E : HIGH_S, 130)], BOARD, 73.75);
+        const painted = paintFixture(view, { relief: false });
+        const control = paintFixture(view, { relief: false, surface: false });
+        const edge = (side === 'E' ? LOW_E.x + 1 : LOW_E.y + 1) * FRACTIONAL_ZOOM;
+        const axis = side === 'E' ? 'x' : 'y';
+        const fixed = Math.floor((side === 'E' ? LOW_E.y : LOW_E.x) * FRACTIONAL_ZOOM + FRACTIONAL_ZOOM / 2);
+        expect(contourCrosses(100, 130)).toBe(true);
+        expect(Number.isInteger(edge), 'the fixture edge is fractional').toBe(false);
+
+        const snapped = Math.round(edge) - CONTOUR_WIDTH_PX;
+        expect(inkedRun(painted, control, axis, fixed, Math.floor(edge) - 3, Math.floor(edge) + 2)).toEqual([snapped]);
+
+        const face = pixelAt(control, point(axis, fixed, snapped));
+        const ink = pixelAt(painted, point(axis, fixed, snapped));
+        expect(closeTo(ink, inkOver(rgbOf(face)), 2), 'the ink column is fully covered').toBe(true);
+    });
+
+    test('the seam covers one whole column at 73.75 px', () => {
+        const view = mapViewOf([landCell(LOW_E, 64), landCell(HIGH_E, 128)], BOARD, FRACTIONAL_ZOOM);
+        const painted = paintFixture(view);
+        const control = paintFixture(view, { surface: false });
+        const edge = HIGH_E.x * FRACTIONAL_ZOOM;
+        const row = Math.floor(LOW_E.y * FRACTIONAL_ZOOM + FRACTIONAL_ZOOM / 2);
+        expect(Number.isInteger(edge), 'the fixture edge is fractional').toBe(false);
+
+        const snapped = Math.round(edge) - SEAM_WIDTH_PX;
+        expect(inkedRun(painted, control, 'x', row, Math.floor(edge) - 3, Math.floor(edge) + 2)).toEqual([snapped]);
+        expect(closeTo(pixelAt(painted, { x: snapped, y: row }), hexToRgb(SEAM_COLOR), 2)).toBe(true);
+    });
+
+    test('the line stays one column when the viewport translate is fractional too', () => {
+        // A fractional zoom puts the viewport origin at
+        // (board × zoom − container) / 2 − pan, so the paint itself is
+        // off-grid and the snap has to happen in the bitmap's frame.
+        const offset: Coord = { x: 0.4, y: 0.3 };
+        const view = mapViewOf([landCell(LOW_E, 100), landCell(HIGH_E, 130)], BOARD, FRACTIONAL_ZOOM, false, offset);
+        const painted = paintFixture(view, { relief: false });
+        const control = paintFixture(view, { relief: false, surface: false });
+        const edge = (LOW_E.x + 1) * FRACTIONAL_ZOOM - offset.x;
+        const row = Math.floor(LOW_E.y * FRACTIONAL_ZOOM + FRACTIONAL_ZOOM / 2 - offset.y);
+        expect(Number.isInteger(edge), 'the bitmap edge is fractional').toBe(false);
+
+        const snapped = Math.round(edge) - CONTOUR_WIDTH_PX;
+        expect(inkedRun(painted, control, 'x', row, Math.floor(edge) - 3, Math.floor(edge) + 2)).toEqual([snapped]);
+
+        const face = pixelAt(control, { x: snapped, y: row });
+        expect(closeTo(pixelAt(painted, { x: snapped, y: row }), inkOver(rgbOf(face)), 2)).toBe(true);
     });
 });
 
