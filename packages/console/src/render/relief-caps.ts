@@ -68,13 +68,19 @@ function push(buckets: Map<string, number[]>, colour: string, coordinates: reado
  * @param bands Every band sub-pass 1d derived, in any order.
  */
 export function reliefGeometry(bands: readonly ReliefBand[]): ReliefGeometry {
+    // Sorted so path order — and therefore antialiasing where a taper
+    // meets another band — is a pure function of the band set, never of
+    // cell insertion order (FR-004's determinism clause).
+    const ordered = [...bands].sort(
+        (first, second) => first.y - second.y || first.x - second.x || SIDE_INDEX[first.side] - SIDE_INDEX[second.side],
+    );
     // Pass 1: how many band ends land on each vertex. Two or more fill
     // every cut triangle there; a lone end keeps its taper.
     const endsAtVertex = new Map<number, number>();
     const count = (key: number): void => {
         endsAtVertex.set(key, (endsAtVertex.get(key) ?? 0) + 1);
     };
-    for (const band of bands) {
+    for (const band of ordered) {
         const { x, y, size } = band;
         switch (band.side) {
             case 'N':
@@ -101,7 +107,7 @@ export function reliefGeometry(bands: readonly ReliefBand[]): ReliefGeometry {
     // ends — plus the per-tile side lookup the corner split needs.
     const bandShapes = new Map<string, number[]>();
     const byTileSide = new Map<number, ReliefBand>();
-    for (const band of bands) {
+    for (const band of ordered) {
         const { x, y, size, width, side, colour } = band;
         byTileSide.set(tileSideKey(band), band);
         let startInset = width;
@@ -182,7 +188,7 @@ export function reliefGeometry(bands: readonly ReliefBand[]): ReliefGeometry {
         { corner: 'SW', first: 'S', second: 'W' },
         { corner: 'SE', first: 'S', second: 'E' },
     ];
-    for (const band of bands) {
+    for (const band of ordered) {
         for (const { corner, first, second } of corners) {
             if (band.side !== first) {
                 continue;

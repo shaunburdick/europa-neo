@@ -506,7 +506,7 @@ suite result. Coverage remains gated at ≥80% on every metric.
   - **024-FR-010**: Pipe triangles MUST gain a dark outline for visibility on all biomes.
   - **024-FR-011**: Land tiles MUST render biome-based gradients (4 zones).
   - **024-FR-012**: Contour hints MUST render on zones 2–3 (`rgba(0,0,0,0.10)`).
-  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-001–FR-006, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST paint a face carrying a fixed decorative NW→SE gradient in their biome zone's configured midpoint colour (`LAND_FACE_GRADIENT_DELTA = −5` HSL lightness at the SE corner, hue and saturation kept; a function of zone and zoom alone, never per-cell or per-position), and MUST render a bevel only on an edge where the tile is strictly higher than the adjacent *visible land* tile (feature 017): bevel width is 4 % / 7 % / 10 % of the cell for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+), capped at 10 %, and its tone is lit on north/west edges and shaded on south/east edges under one NW light, moving only the face's lightness while keeping its hue and saturation, with the tone ladder measured per biome zone on feature 017's reference fixture (`specs/017-terrain-relief-shading/spec.md` FR-006) against each tone's worst-case face stop. The face texture encodes no elevation — the bevels are the sole relief cue. An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), to a position outside the board, or to a same-height/higher tile MUST be neutral — no bevel and no synthesized neighbour elevation. The per-tile biome gradient clause of `024-FR-011` is replaced by that fixed face texture; the zone 2–3 contour hints (`024-FR-012`) are unchanged.
+  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-001–FR-006, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST paint a face carrying a fixed decorative NW→SE gradient in their biome zone's configured midpoint colour (`LAND_FACE_GRADIENT_DELTA = −5` HSL lightness at the SE corner, hue and saturation kept; a function of zone, zoom and the cell's own grain offset — feature 018 FR-003 — never per-cell elevation or per-position lighting), and MUST render a bevel only on an edge where the tile is strictly higher than the adjacent *visible land* tile (feature 017): bevel width is 4 % / 7 % / 10 % of the cell for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+), capped at 10 %, and its tone is lit on north/west edges and shaded on south/east edges under one NW light, moving only the face's lightness while keeping its hue and saturation, with the tone ladder measured per biome zone on feature 017's reference fixture (`specs/017-terrain-relief-shading/spec.md` FR-006) against each tone's worst-case face stop. The face texture encodes no elevation — the bevels are the sole relief cue. An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), to a position outside the board, or to a same-height/higher tile MUST be neutral — no bevel and no synthesized neighbour elevation. Neutral still permits feature 018's fixed coastline band (`specs/018-board-surface/spec.md` FR-001) on a water-facing edge; it is elevation-independent and is not relief. The per-tile biome gradient clause of `024-FR-011` is replaced by that fixed face texture; the zone 2–3 contour hints (`024-FR-012`) are unchanged.
   - **024-FR-014**: Pipe slope indicator colors MUST remain unchanged (#059669 downhill / #f59e0b flat / #dc2626 uphill / #9ca3af stalled).
   - **024-FR-020**: The DOM overlay MUST remain transparent (no background).
   - **024-FR-021**: `.europa-pipe` MUST apply `drop-shadow(0 0 1px rgba(0,0,0,0.7))`.
@@ -729,13 +729,33 @@ no other requirement in this file moves.
 
 - **Face**: each land tile paints a fixed NW→SE gradient from its biome zone's
   configured midpoint colour to `LAND_FACE_GRADIENT_DELTA = −5` HSL lightness
-  (hue and saturation kept). It is a function of zone and zoom alone and is
+  (hue and saturation kept). It was a function of zone and zoom alone and was
   pre-rendered per zone, never per cell.
 - **Relief cue unchanged**: the bevels stay the only elevation-relief signal,
   and FR-006's floors are now measured against each tone's worst-case face
   stop (lit against the lightest, shaded against the darkest). The texture
   stays far below every bevel tone shift, so it reads as surface.
 - **Verification**: feature 017's suites — the browser readback spec asserts
-  both texture stops, the pinned −5 and same-zone byte identity; the Δ1 floor
-  test passes on all four zones (tightest: Peaks lit/light 1.220, shaded/dark
-  2.361, lit/shaded 3.249); Q-P01 and Q-P05 are unchanged.
+  both texture stops, the pinned −5 and the then-shipped same-zone byte
+  identity; the Δ1 floor test passes on all four zones (tightest: Peaks
+  lit/light 1.220, shaded/dark 2.361, lit/shaded 3.249); Q-P01 and Q-P05 are
+  unchanged.
+
+### v1.17 (2026-10-20) — board surface treatment (issue #182, feature 018)
+
+Feature 018 (`specs/018-board-surface/spec.md` v1.0, amendments A-01…A-05)
+adds a coastline band, zone seams and per-tile grain to the canvas terrain
+path. Only the absorbed `024-FR-013` text above changes in this file; no
+other requirement moves.
+
+- **Coastline band**: a water-facing edge stays neutral for relief, but may
+  carry a 4 %-of-cell lit (N/W) or shaded (S/E) band inside the land tile —
+  feature 018 FR-001 — with 017's step-1 lightness shares. It reads no water
+  property, and a relief bevel wins where the two meet at a corner.
+- **Face texture**: the decorative gradient's stops shift together by the
+  cell's own grain offset (018 FR-003, ±2 HSL lightness points, coordinates
+  only), so the zone-hue channel and the relief cue are unchanged.
+- **Verification**: `packages/console/tests/component/render/surface.test.tsx`
+  (readback) and `tests/unit/render/surface.test.ts` (pure mappings); 017's
+  relief suite stays green with its floors measured against the grain-shifted
+  worst-case stop; `pnpm verify` green.

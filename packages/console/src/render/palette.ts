@@ -94,6 +94,13 @@ export const PIPE_STALLED_COLOR = TOKENS.color.pipeStalled;
 export const RELIEF_HIGHLIGHT_COLOR = TOKENS.color.reliefHighlight;
 export const RELIEF_SHADOW_COLOR = TOKENS.color.reliefShadow;
 
+/**
+ * Zone-seam isoline (spec 018 FR-002). Reuses `textMuted`: its worst
+ * canvas pairing is 1.373:1 against zone 3's shaded step-1 bevel, above
+ * the 1.2:1 floor against every adjoining face and bevel tone.
+ */
+export const SEAM_COLOR = TOKENS.color.textMuted;
+
 /** Water shallow variant (design token). */
 export const WATER_SHALLOW_COLOR = TOKENS.color.waterShallow;
 
@@ -236,6 +243,18 @@ export function landBandColor(band: number): string {
     const clamped = Math.max(0, Math.min(3, Math.round(band)));
     const zone = biomeZoneAt(clamped);
     const lightness = Math.round((zone.lightnessMin + zone.lightnessMax) / 2);
+    return `hsl(${zone.hue}, ${zone.saturationPct}%, ${lightness}%)`;
+}
+
+/**
+ * The zone's midpoint colour with `shift` HSL lightness points added
+ * (spec 018 FR-003). Unlike `adjustBrightness`, the lightness stays
+ * fractional, so the four grain variants render distinct surfaces.
+ */
+export function landBandColorWithLightness(band: number, shift: number): string {
+    const clamped = Math.max(0, Math.min(3, Math.round(band)));
+    const zone = biomeZoneAt(clamped);
+    const lightness = Math.round((zone.lightnessMin + zone.lightnessMax) / 2) + shift;
     return `hsl(${zone.hue}, ${zone.saturationPct}%, ${lightness}%)`;
 }
 

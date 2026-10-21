@@ -38,12 +38,14 @@ import {
     LAND_BAND_COUNT,
     LAND_FACE_GRADIENT_DELTA,
     landBandColor,
+    landBandColorWithLightness,
     landBandIndex,
     PIPE_DOWNHILL_COLOR,
     PIPE_FLAT_COLOR,
     PIPE_OUTLINE_COLOR,
     PIPE_STALLED_COLOR,
     PIPE_UPHILL_COLOR,
+    SEAM_COLOR,
     terrainColor,
     VOID_GRADIENT_CENTER,
     VOID_GRADIENT_EDGE,
@@ -54,6 +56,13 @@ import {
 import type { PipeSlope } from './pipe-slope';
 import { RELIEF_SIDES, reliefBandWidth, reliefSideIsLit, reliefStep, reliefToneColours } from './relief';
 import { type ReliefBand, reliefGeometry } from './relief-caps';
+import {
+    coastBandWidth,
+    grainOffsetIndex,
+    LAND_FACE_GRAIN_OFFSETS,
+    landFaceGrainOffset,
+    SEAM_WIDTH_PX,
+} from './surface';
 
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
@@ -86,7 +95,7 @@ function pipeSlopeColor(slope: PipeSlope): string {
 function fillBuckets(
     ctx: CanvasRenderingContext2D,
     buckets: ReadonlyMap<string, readonly number[]>,
-    stride: 6 | 8,
+    stride: 4 | 6 | 8,
 ): void {
     for (const colour of [...buckets.keys()].sort()) {
         const run = buckets.get(colour);
@@ -94,8 +103,12 @@ function fillBuckets(
         ctx.fillStyle = colour;
         ctx.beginPath();
         for (let index = 0; index < run.length; index += stride) {
-            // Almost every band is an axis-aligned rect; `rect()` is far
-            // cheaper than four line segments, so detect that form.
+            // Axis-aligned rects are the common case; `rect()` is far
+            // cheaper than four line segments, so detect both forms.
+            if (stride === 4) {
+                ctx.rect(run[index] ?? 0, run[index + 1] ?? 0, run[index + 2] ?? 0, run[index + 3] ?? 0);
+                continue;
+            }
             if (
                 stride === 8 &&
                 run[index] === run[index + 6] &&
@@ -126,6 +139,11 @@ function fillBuckets(
  * built once per zone and the pattern transform scales it to the zoom.
  */
 const FACE_TEXTURE_PX = 64;
+
+/** Key for one zone's face texture at one grain variant. */
+function faceVariantKey(band: number, offsetIndex: number): number {
+    return band * LAND_FACE_GRAIN_OFFSETS.length + offsetIndex;
+}
 
 /**
  * Pre-render one biome zone's face texture (FR-005): the zone colour at
@@ -183,6 +201,12 @@ export interface PaintOptions {
      * inner shadow — FR-005 retires that unconditionally.
      */
     readonly relief?: boolean;
+    /**
+     * Paint feature 018's surface treatments — coastline bands, zone
+     * seams and per-tile grain. `false` is the 018-free control: faces
+     * revert to the ungrained zone texture.
+     */
+    readonly surface?: boolean;
 }
 
 /**
@@ -211,6 +235,7 @@ export class MapCanvas {
     paint(mapView: MapView, ctx: CanvasRenderingContext2D, options?: PaintOptions): void {
         const reducedMotion = options?.reducedMotion === true;
         const relief = options?.relief !== false;
+        const surface = options?.surface !== false;
         const { zoom } = mapView.camera;
         const { viewportOffset } = mapView;
         const canvasWidth = ctx.canvas.width;
@@ -306,8 +331,9 @@ export class MapCanvas {
         ctx.stroke();
 
         // Sub-pass 1c: land faces — a fixed decorative NW→SE gradient per
-        // biome zone, blitted as one pattern fill per zone, so no per-cell
-        // gradient or image objects exist. It encodes no elevation: the
+        // biome zone, shifted by the cell's own grain offset (018 FR-003),
+        // blitted as one pattern fill per zone+variant, so no per-cell
+        // gradient or image object exists. It encodes no elevation: the
         // bevels are the sole relief cue (FR-005).
         const faces = this.landFacePatterns(ctx, zoom, landBandColors);
         const runs = new Map<number, number[]>();
@@ -316,18 +342,20 @@ export class MapCanvas {
             const x = info.coord.x * zoom;
             const y = info.coord.y * zoom;
             const band = landBandIndex(info.elevation);
-            if (!faces.has(band)) {
-                ctx.fillStyle = landBandColors.get(band) ?? landBandColor(band);
+            const grain = surface ? landFaceGrainOffset(info.coord) : 0;
+            const variant = faceVariantKey(band, surface ? grainOffsetIndex(info.coord) : 0);
+            if (!faces.has(variant)) {
+                ctx.fillStyle = landBandColorWithLightness(band, grain);
                 ctx.fillRect(x, y, zoom, zoom);
                 continue;
             }
-            const run = runs.get(band) ?? [];
+            const run = runs.get(variant) ?? [];
             run.push(x, y);
-            runs.set(band, run);
+            runs.set(variant, run);
         }
-        for (const band of [...runs.keys()].sort((a, b) => a - b)) {
-            const pattern = faces.get(band);
-            const run = runs.get(band);
+        for (const variant of [...runs.keys()].sort((a, b) => a - b)) {
+            const pattern = faces.get(variant);
+            const run = runs.get(variant);
             if (pattern === undefined || run === undefined) continue;
             ctx.fillStyle = pattern;
             ctx.beginPath();
@@ -335,6 +363,51 @@ export class MapCanvas {
                 ctx.rect(run[index] ?? 0, run[index + 1] ?? 0, zoom, zoom);
             }
             ctx.fill();
+        }
+
+        // Sub-pass 1c2: coastline bands (018 FR-001). A band exists only
+        // where the neighbour is present and water; 1d paints its bevels
+        // after this, so a bevel wins at a shared corner without clipping
+        // geometry.
+        if (surface) {
+            const coastRuns = new Map<string, number[]>();
+            const coastTones = new Map<number, ReturnType<typeof reliefToneColours>>();
+            const bandWidth = coastBandWidth(zoom);
+            for (const info of mapView.cells.values()) {
+                if (info.terrain !== 'land') continue;
+                const zone = landBandIndex(info.elevation);
+                let tones = coastTones.get(zone);
+                if (tones === undefined) {
+                    tones = reliefToneColours(landBandColor(zone));
+                    coastTones.set(zone, tones);
+                }
+                const x = info.coord.x * zoom;
+                const y = info.coord.y * zoom;
+                for (const side of RELIEF_SIDES) {
+                    const dst = destinationCoord(info.coord, side);
+                    if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
+                    const neighbour = mapView.cells.get(coordKey(dst));
+                    if (neighbour === undefined || neighbour.terrain !== 'water') continue;
+                    const colour = reliefSideIsLit(side) ? tones.lit[0] : tones.shaded[0];
+                    const run = coastRuns.get(colour) ?? [];
+                    switch (side) {
+                        case 'N':
+                            run.push(x, y, zoom, bandWidth);
+                            break;
+                        case 'S':
+                            run.push(x, y + zoom - bandWidth, zoom, bandWidth);
+                            break;
+                        case 'W':
+                            run.push(x, y, bandWidth, zoom);
+                            break;
+                        case 'E':
+                            run.push(x + zoom - bandWidth, y, bandWidth, zoom);
+                            break;
+                    }
+                    coastRuns.set(colour, run);
+                }
+            }
+            fillBuckets(ctx, coastRuns, 4);
         }
 
         // Sub-pass 1d: relief bevels (FR-001). A bevel exists only where
@@ -409,6 +482,41 @@ export class MapCanvas {
             }
         }
         ctx.stroke();
+
+        // Sub-pass 1e2: zone seams (018 FR-002). One CSS pixel on the
+        // shared edge of two visible land cells in different zones,
+        // painted over 1c's grain and 1d's bevels. Only E and S are
+        // tested so each edge is visited once; the unantialiased column
+        // sits on the lower-coordinate side of the boundary.
+        if (surface) {
+            const seams: number[] = [];
+            for (const info of mapView.cells.values()) {
+                if (info.terrain !== 'land') continue;
+                const zone = landBandIndex(info.elevation);
+                const x = info.coord.x * zoom;
+                const y = info.coord.y * zoom;
+                for (const side of ['E', 'S'] as const) {
+                    const dst = destinationCoord(info.coord, side);
+                    if (dst.x >= mapView.width || dst.y >= mapView.height) continue;
+                    const neighbour = mapView.cells.get(coordKey(dst));
+                    if (neighbour === undefined || neighbour.terrain !== 'land') continue;
+                    if (landBandIndex(neighbour.elevation) === zone) continue;
+                    if (side === 'E') {
+                        seams.push(x + zoom - SEAM_WIDTH_PX, y, SEAM_WIDTH_PX, zoom);
+                    } else {
+                        seams.push(x, y + zoom - SEAM_WIDTH_PX, zoom, SEAM_WIDTH_PX);
+                    }
+                }
+            }
+            if (seams.length > 0) {
+                ctx.fillStyle = SEAM_COLOR;
+                ctx.beginPath();
+                for (let index = 0; index < seams.length; index += 4) {
+                    ctx.rect(seams[index] ?? 0, seams[index + 1] ?? 0, seams[index + 2] ?? 0, seams[index + 3] ?? 0);
+                }
+                ctx.fill();
+            }
+        }
 
         // Sub-pass 1f: batched city glow effects — drawn last in terrain
         // because shadowBlur is one of the most expensive Canvas2D ops.
@@ -622,10 +730,10 @@ export class MapCanvas {
     }
 
     /**
-     * One face pattern per biome zone for this paint. The sprites are
-     * built once per instance (a function of the zone colours alone); the
-     * patterns carry the zoom, so the same zone draws identical pixels on
-     * every tile and every canvas (FR-005, AC-008).
+     * One face pattern per (zone, grain offset) for this paint. The
+     * sprites are built once per instance from the zone colours alone;
+     * the patterns carry the zoom, so two tiles with the same zone and
+     * grain draw identical pixels on every canvas (FR-005, 018 FR-003).
      */
     private landFacePatterns(
         ctx: CanvasRenderingContext2D,
@@ -634,17 +742,21 @@ export class MapCanvas {
     ): ReadonlyMap<number, CanvasPattern> {
         if (this.landFaceSprites === undefined) {
             const sprites = new Map<number, HTMLCanvasElement>();
-            for (const [band, colour] of colours) {
-                const dark = this.adjustBrightness(colour, LAND_FACE_GRADIENT_DELTA);
-                const sprite = createLandFace(colour, dark);
-                if (sprite !== undefined) sprites.set(band, sprite);
+            for (const band of colours.keys()) {
+                for (let offsetIndex = 0; offsetIndex < LAND_FACE_GRAIN_OFFSETS.length; offsetIndex += 1) {
+                    const shift = LAND_FACE_GRAIN_OFFSETS[offsetIndex] ?? 0;
+                    const light = landBandColorWithLightness(band, shift);
+                    const dark = landBandColorWithLightness(band, shift + LAND_FACE_GRADIENT_DELTA);
+                    const sprite = createLandFace(light, dark);
+                    if (sprite !== undefined) sprites.set(faceVariantKey(band, offsetIndex), sprite);
+                }
             }
             this.landFaceSprites = sprites;
         }
         const patterns = new Map<number, CanvasPattern>();
-        for (const [band, sprite] of this.landFaceSprites) {
+        for (const [variant, sprite] of this.landFaceSprites) {
             const pattern = createLandFacePattern(ctx, sprite, zoom);
-            if (pattern !== undefined) patterns.set(band, pattern);
+            if (pattern !== undefined) patterns.set(variant, pattern);
         }
         return patterns;
     }

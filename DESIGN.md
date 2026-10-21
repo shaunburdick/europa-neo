@@ -67,7 +67,7 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `info-bg` | `--europa-color-info-bg` | `TOKENS.color.infoBg` | `#302311` | Info background surface (panels, cards) — very low contrast with `surface` ≈ 1.16:1; non-text fill only |
 | `info-border` | `--europa-color-info-border` | `TOKENS.color.infoBorder` | `#5b461d` | Info border for panels/cards — non-text; paired with `info-bg` as a decorative boundary |
 | `info-hover` | `--europa-color-info-hover` | `TOKENS.color.infoHover` | `#e8c35e` | Hover state for info buttons — bg/border use only |
-| `biome-zones` | (array, no CSS variable) | `TOKENS.color.biomeZones` | `[{elevationMax:80, hue:210, saturationPct:65, lightnessMin:38, lightnessMax:52}, ...]` | 4 biome zone configs replacing the retired 6-band land shading (spec 024 FR-001/FR-031). Each zone maps a contiguous elevation range to a distinct hue family aligned with pipe flow transitions. Ice Plains (0–80, blue 210°), Fractured Ice (81–160, teal 170°), Rocky Outcrops (161–208, orange 30°), Peaks (209–255, pale blue 200°). Sub-pass 1c paints each zone's configured midpoint as the NW stop of a fixed decorative NW→SE gradient (`LAND_FACE_GRADIENT_DELTA = −5` HSL lightness at the SE stop; one pre-rendered pattern per zone, no elevation meaning — relief bevels carry depth), whose midpoint lightness is 45 / 33 / 36 / 88 for zones 0–3. Not a CSS variable — consumed only by TS palette/canvas logic |
+| `biome-zones` | (array, no CSS variable) | `TOKENS.color.biomeZones` | `[{elevationMax:80, hue:210, saturationPct:65, lightnessMin:38, lightnessMax:52}, ...]` | 4 biome zone configs replacing the retired 6-band land shading (spec 024 FR-001/FR-031). Each zone maps a contiguous elevation range to a distinct hue family aligned with pipe flow transitions. Ice Plains (0–80, blue 210°), Fractured Ice (81–160, teal 170°), Rocky Outcrops (161–208, orange 30°), Peaks (209–255, pale blue 200°). Sub-pass 1c paints each zone's configured midpoint as the NW stop of a fixed decorative NW→SE gradient (`LAND_FACE_GRADIENT_DELTA = −5` HSL lightness at the SE stop; one pre-rendered pattern per zone and grain variant — feature 018 FR-003 shifts both stops by 0 / −0.5 / −1 / −2 lightness from the cell's coordinates alone — no elevation meaning, relief bevels carry depth), whose midpoint lightness is 45 / 33 / 36 / 88 for zones 0–3. Not a CSS variable — consumed only by TS palette/canvas logic |
 | `overlay-soft` | `--europa-color-overlay-soft` | `TOKENS.color.overlaySoft` | `rgba(26, 34, 51, 0.6)` | Translucent veil over board/plates — non-text; text drawn above it uses `text-primary`/`text-secondary` on the composited surface |
 | `overlay-strong` | `--europa-color-overlay-strong` | `TOKENS.color.overlayStrong` | `rgba(26, 34, 51, 0.75)` | Modal backdrop veil (`.europa-modal-backdrop`) — non-text; dialog contents sit on `surface` |
 | `page-bg` | `--europa-color-page-bg` | `TOKENS.color.pageBg` | `#0b0f19` | `text-secondary` `#e5e7eb` on this bg ≈ 15.47:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-muted` ≈ 7.54:1; `text-primary` ≈ 18.33:1 |
@@ -90,7 +90,7 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `success-bg` | `--europa-color-success-bg` | `TOKENS.color.successBg` | `#11221d` | Success background surface (panels, cards) — very low contrast with `surface` ≈ 1.07:1; non-text fill only |
 | `success-border` | `--europa-color-success-border` | `TOKENS.color.successBorder` | `#173f31` | Success border for panels/cards — non-text; paired with `success-bg` as a decorative boundary |
 | `success-hover` | `--europa-color-success-hover` | `TOKENS.color.successHover` | `#3aa07a` | Hover state for success buttons — bg/border use only |
-| `text-muted` | `--europa-color-text-muted` | `TOKENS.color.textMuted` | `#9ca3af` | On `surface` ≈ 6.99:1, on `page-bg` ≈ 7.54:1, on `void-bg` ≈ 6.26:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
+| `text-muted` | `--europa-color-text-muted` | `TOKENS.color.textMuted` | `#9ca3af` | On `surface` ≈ 6.99:1, on `page-bg` ≈ 7.54:1, on `void-bg` ≈ 6.26:1 — AA 1.4.3 normal (≥ 4.5:1): meets. Also the canvas zone-seam isoline (spec 018 FR-002): its worst canvas pairing is 1.373:1 against zone 3's shaded Δ1 bevel, and ≥ 1.634:1 against each adjoining zone's grain-shifted worst-case face stop; see N-6 |
 | `text-primary` | `--europa-color-text-primary` | `TOKENS.color.textPrimary` | `#f9fafb` | On `surface` ≈ 16.98:1, on `surface-raised` ≈ 14.05:1, on `page-bg` ≈ 18.33:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `text-secondary` | `--europa-color-text-secondary` | `TOKENS.color.textSecondary` | `#e5e7eb` | On `page-bg` = ≈ 15.47:1, on `surface` ≈ 14.33:1, on `void-bg` ≈ 12.84:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `void-bg` | `--europa-color-void-bg` | `TOKENS.color.voidBg` | `#1a2233` | `text-secondary` `#e5e7eb` on this fill ≈ 12.84:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-muted` ≈ 6.26:1 |
@@ -680,6 +680,35 @@ relief paints to be a token, and G-04 would *not* have required them — its pat
 `rgb(`/`rgba(` only, so a numeric lightness anchor would have passed it — so nobody should credit the
 guard with the tokens or delete them as duplicates.
 
+**N-6 — Board surface treatment (canvas-painted, decorative).** Feature 018
+(`specs/018-board-surface/spec.md`) adds three marks that carry no state:
+
+- **Coastline band** — on a land tile's side whose neighbour is a *visible water*
+  cell, a band 4 % of the cell wide inside the tile's own rect, in feature 017's
+  step-1 tone (lit on N/W, shaded on S/E: 0.74 / 0.40 of the face's lightness
+  toward the relief anchors). It reads only "that neighbour is water", never the
+  water's elevation, and a 017 bevel painted after it owns any shared corner.
+- **Zone seam** — one 1 CSS px column/row on the shared edge of two visible land
+  cells in different zones, in `text-muted` (`#9ca3af`, § 1.1). Its worst canvas
+  contrast is 1.373:1 against zone 3's shaded Δ1 bevel and 1.634:1 against zone
+  3's grain-shifted face stop, both above the 1.2:1 floor. The face hue still
+  changes across it, so the line duplicates an existing cue.
+- **Tile grain** — one of four HSL-lightness offsets (0 / −0.5 / −1 / −2) applied
+  to both face-texture stops, from the cell's coordinates alone. It is
+  non-positive because 017 FR-006's Peaks lit floor is 1.220:1 at zero grain and
+  any positive shift drops it below 1.2:1; the four values keep that floor and
+  stay inside the ±2 bound. Never disabled by reduced motion or 017's relief
+  flag: it is surface, not relief.
+
+What asserts all three is the 018 readback suite,
+`packages/console/tests/component/render/surface.test.tsx`, with
+`packages/console/tests/unit/render/surface.test.ts` pinning the pure mappings.
+The seam and coast pairings have **no § 3 row** for N-5's reason — an
+orientation-stepped canvas mark cannot be one measured CSS pairing — and G-07 is
+deferred (spec 012 Scope Note). None of the three adds a canvas literal: the
+coast reuses 017's computed tones, the seam is a token, and the grain shifts the
+token-derived face stops.
+
 **Motion (WCAG 2.3.3).** Decorative animation is gated twice: the stylesheet's
 `@media (prefers-reduced-motion: reduce)` block collapses animation and transition durations globally,
 and `.europa-waiting--reduced` does the same for a host-marked subtree. A focused test asserts the
@@ -748,17 +777,17 @@ a CSS custom property synchronously (§ 4.1). The count is the invariant; the li
 this version and nothing guards them, so re-locate the markers with the searchable marker string
 `design-exception: canvas fallback` in this file if a refactor moves them:
 
-- `packages/console/src/render/canvas.ts:293` — sub-pass 1b's batched water-wave stroke
-  (`rgba(255, 255, 255, 0.04)` on `:294`).
-- `packages/console/src/render/canvas.ts:396` — sub-pass 1e's zone 2–3 contour stroke
-  (`rgba(0, 0, 0, 0.10)` on `:397`; absorbed `024-FR-012`).
-- `packages/console/src/render/canvas.ts:429` — the city-glow gradient's transparent stop
-  (`rgba(255, 68, 68, 0)` on `:430`).
-- `packages/console/src/render/canvas.ts:486` — the hover-highlight fill
-  (`rgba(255,255,255,0.45)` on `:487`).
+- `packages/console/src/render/canvas.ts:318` — sub-pass 1b's batched water-wave stroke
+  (`rgba(255, 255, 255, 0.04)` on `:319`).
+- `packages/console/src/render/canvas.ts:469` — sub-pass 1e's zone 2–3 contour stroke
+  (`rgba(0, 0, 0, 0.10)` on `:470`; absorbed `024-FR-012`).
+- `packages/console/src/render/canvas.ts:537` — the city-glow gradient's transparent stop
+  (`rgba(255, 68, 68, 0)` on `:538`).
+- `packages/console/src/render/canvas.ts:594` — the hover-highlight fill
+  (`rgba(255,255,255,0.45)` on `:595`).
 
 Feature 017 retired the two sub-pass 1d inner-shadow markers this section used to list with their
-`rgba(0, 0, 0, 0.25)` / `rgba(255, 255, 255, 0.15)` fills, and adds none: relief's bevel tones are computed `#rrggbb` values assembled from token colours, and the face texture's two stops are the token colour and its `adjustBrightness` variant, none of which G-04's patterns match (note N-5).
+`rgba(0, 0, 0, 0.25)` / `rgba(255, 255, 255, 0.15)` fills, and adds none: relief's bevel tones are computed `#rrggbb` values assembled from token colours, and the face texture's two stops are the token colour and its `adjustBrightness` variant, none of which G-04's patterns match (note N-5). Feature 018 adds none either: its coast reuses 017's computed tones, its seam is a token and its grain shifts the token-derived face stops.
 
 ---
 

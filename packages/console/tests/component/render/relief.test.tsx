@@ -15,7 +15,13 @@
 
 import { describe, expect, test } from 'vitest';
 import { MapCanvas, type PaintOptions } from '../../../src/render/canvas';
-import { BIOME_ZONES, LAND_FACE_GRADIENT_DELTA, landBandColor, landBandIndex } from '../../../src/render/palette';
+import {
+    BIOME_ZONES,
+    LAND_FACE_GRADIENT_DELTA,
+    landBandColor,
+    landBandColorWithLightness,
+    landBandIndex,
+} from '../../../src/render/palette';
 import {
     RELIEF_SIDES,
     type ReliefSide,
@@ -25,6 +31,7 @@ import {
     reliefStep,
     reliefToneColours,
 } from '../../../src/render/relief';
+import { coastBandWidth, LAND_FACE_GRAIN_OFFSETS } from '../../../src/render/surface';
 import { coordKey } from '../../../src/state/build-map-view';
 import type { CellRenderInfo, Coord, MapView, MapViewId } from '../../../src/state/types';
 
@@ -209,13 +216,16 @@ function toneOf(zone: number, delta: number, side: ReliefSide): string {
 }
 
 /** The face texture's NW (light) and SE (dark) stops for one zone. */
-function faceStops(zone: number): { readonly light: string; readonly dark: string } {
-    const light = landBandColor(zone);
-    const dark = light.replace(/,\s*(\d+)%\)$/, (_match, lightness: string) => {
+function faceStops(zone: number, grainShift = 0): { readonly light: string; readonly dark: string } {
+    const light = landBandColorWithLightness(zone, grainShift);
+    const dark = light.replace(/,\s*(-?\d+(?:\.\d+)?)%\)$/, (_match, lightness: string) => {
         return `, ${Number(lightness) + LAND_FACE_GRADIENT_DELTA}%)`;
     });
     return { light, dark };
 }
+
+/** The most negative grain offset — the texture's darkest stop. */
+const DARKEST_GRAIN = Math.min(...LAND_FACE_GRAIN_OFFSETS);
 
 /**
  * A point at the band's mid-axis, one fully-covered pixel inside its
@@ -430,8 +440,11 @@ describe('relief readback: width ladder (AC-002, FR-003)', () => {
             cells.push(landCell({ x: coord.x, y: coord.y - 1 }, 128 - delta), landCell(coord, 128));
         });
         const view = mapViewOf(cells, WIDE_BOARD, ZOOM);
-        const relief = paintFixture(view);
-        const control = paintFixture(view, { relief: false });
+        // A 017-only mapping fixture: 018 grain would make two tiles at
+        // different coordinates differ in face, and AC-002 is about the
+        // bevel ladder alone.
+        const relief = paintFixture(view, { surface: false });
+        const control = paintFixture(view, { surface: false, relief: false });
         const depths = coords.map((coord) => bandDepth(relief, control, coord, 'N', ZOOM));
 
         expect(depths[1]).toBeGreaterThan(depths[0] ?? 0);
@@ -478,19 +491,22 @@ describe('relief readback: neutral edges (AC-003, FR-004)', () => {
         const absentControl = paintFixture(centreFixture(null), { relief: false });
         expect(samePixels(pixelsOf(absent), pixelsOf(absentControl))).toBe(true);
 
-        // A non-visible neighbour's elevation cannot reach the edge: absent,
-        // water at 0 and water at 255 all paint the identical tile.
-        const reference = new Uint8ClampedArray(absent.getImageData(CENTRE.x * ZOOM, CENTRE.y * ZOOM, ZOOM, ZOOM).data);
-        for (const elevation of [0, 255]) {
-            const view = centreFixture(waterCell({ x: CENTRE.x + 1, y: CENTRE.y }, elevation));
-            const render = paintFixture(view);
-            expect(
-                samePixels(
-                    new Uint8ClampedArray(render.getImageData(CENTRE.x * ZOOM, CENTRE.y * ZOOM, ZOOM, ZOOM).data),
-                    reference,
-                ),
-            ).toBe(true);
-        }
+        // A non-visible neighbour's elevation cannot reach the edge: water
+        // at 0 and water at 255 paint the identical tile (018 A-03).
+        const water0 = paintFixture(centreFixture(waterCell({ x: CENTRE.x + 1, y: CENTRE.y }, 0)));
+        const water255 = paintFixture(centreFixture(waterCell({ x: CENTRE.x + 1, y: CENTRE.y }, 255)));
+        const tile = (ctx: CanvasRenderingContext2D): Pixel =>
+            new Uint8ClampedArray(ctx.getImageData(CENTRE.x * ZOOM, CENTRE.y * ZOOM, ZOOM, ZOOM).data);
+        expect(samePixels(tile(water0), tile(water255))).toBe(true);
+
+        // Absent vs water differs only by the fixed coast band on the E
+        // edge, which is elevation-independent (018 A-03). Compare the
+        // centre tile alone: the water cell itself exists in one fixture
+        // and not the other.
+        const strip = Math.ceil(coastBandWidth(ZOOM));
+        const coast: Rect = { x: ZOOM - strip, y: 0, width: strip, height: ZOOM };
+        expect(differingPixels(tile(water0), tile(absent), ZOOM, coast)).toBeGreaterThan(0);
+        expect(differingOutside(tile(water0), tile(absent), ZOOM, coast)).toBe(0);
 
         // Off-board: a corner tile's missing N/W neighbours are neutral,
         // while its E and S lower neighbours still carry bevels.
@@ -532,7 +548,7 @@ describe('relief readback: face texture and confinement (AC-004, FR-005)', () =>
         // A lone zone-1 tile: no land neighbour, so no bevel, and no contour
         // hints on zone < 2 — the whole rect is 1c's face.
         const view = mapViewOf([landCell(CENTRE, 128)], SMALL_BOARD, ZOOM);
-        const control = paintFixture(view, { relief: false });
+        const control = paintFixture(view, { surface: false, relief: false });
         const origin = { x: CENTRE.x * ZOOM, y: CENTRE.y * ZOOM };
         const stops = faceStops(landBandIndex(128));
 
@@ -548,7 +564,10 @@ describe('relief readback: face texture and confinement (AC-004, FR-005)', () =>
         ).toBe(true);
     });
 
-    test('two tiles of one zone render identical faces — texture, not lighting', () => {
+    test('the 018-free control paints one texture per zone', () => {
+        // 018 AC-004 replaces the shipped same-zone byte identity: grain
+        // makes two coordinates differ. What still holds, and what this
+        // proves, is that the texture itself carries nothing per cell.
         const coords: readonly Coord[] = [
             { x: 0, y: 0 },
             { x: 2, y: 2 },
@@ -560,6 +579,7 @@ describe('relief readback: face texture and confinement (AC-004, FR-005)', () =>
                 ZOOM,
             ),
             {
+                surface: false,
                 relief: false,
             },
         );
@@ -608,7 +628,11 @@ describe('relief readback: per-zone tone floors (AC-005, FR-006)', () => {
             // contour lattice.
             const lit = pixelAt(relief, bandSamplePoint(CENTRE, 'W', delta));
             const shaded = pixelAt(relief, bandSamplePoint(CENTRE, 'E', delta));
-            const stops = faceStops(zone);
+            // 018's grain shifts both stops; the worst case per tone is the
+            // lightest stop (offset 0) for lit and the darkest (min offset)
+            // for shaded (018 AC-006).
+            const lightStop = faceStops(zone).light;
+            const darkStop = faceStops(zone, DARKEST_GRAIN).dark;
             const label = `zone ${zone} (own ${own})`;
 
             expect(closeTo(lit, hexToRgb(toneOf(zone, delta, 'W'))), `${label} lit tone`).toBe(true);
@@ -616,12 +640,11 @@ describe('relief readback: per-zone tone floors (AC-005, FR-006)', () => {
             expect(contrastOf(lit, shaded), `${label}: lit/shaded`).toBeGreaterThanOrEqual(BAND_TO_BAND_FLOOR);
             // Worst case per tone: a lit bevel is weakest against the
             // texture's lightest stop, a shaded one against its darkest.
+            expect(contrastBetween(rgbOf(lit), hslToRgb(lightStop)), `${label}: lit/light stop`).toBeGreaterThanOrEqual(
+                FACE_FLOOR,
+            );
             expect(
-                contrastBetween(rgbOf(lit), hslToRgb(stops.light)),
-                `${label}: lit/light stop`,
-            ).toBeGreaterThanOrEqual(FACE_FLOOR);
-            expect(
-                contrastBetween(rgbOf(shaded), hslToRgb(stops.dark)),
+                contrastBetween(rgbOf(shaded), hslToRgb(darkStop)),
                 `${label}: shaded/dark stop`,
             ).toBeGreaterThanOrEqual(FACE_FLOOR);
         }
