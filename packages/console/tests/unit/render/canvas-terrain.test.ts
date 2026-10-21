@@ -3,8 +3,11 @@
  *
  * Exercises drawTerrain through the public `paint` method using a mock
  * CanvasRenderingContext2D. Verifies water gradient + wave texture,
- * land biome-zone gradients + delta-based edge relief + contour hints,
- * city glow effects, void radial gradient, and pipe triangle outlines.
+ * land biome-zone face textures + delta-based edge relief + contour
+ * hints, city glow effects, void radial gradient, and pipe triangle
+ * outlines. happy-dom has no canvas 2D, so the face-texture sprite path
+ * falls back to a flat zone fill here; the browser readback suite
+ * (`tests/component/render/relief.test.tsx`) asserts the texture.
  */
 
 import { describe, expect, test, vi } from 'vitest';
@@ -244,14 +247,15 @@ describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
         expect(ctx.createLinearGradient).toHaveBeenCalled();
     });
 
-    test('land cells paint a flat zone face, not a gradient', () => {
+    test('land cells paint their zone face without a per-cell gradient', () => {
         const ctx = createMockCtx();
         const canvas = new MapCanvas();
         const view = makeMapView([makeLandCell(0, 0, 128)]);
         canvas.paint(view, ctx);
 
-        // 1c is a flat fill of the zone's configured midpoint; the retired
-        // directional gradient is gone (017 FR-005).
+        // 1c pre-renders one texture per zone; this happy-dom run has no
+        // canvas 2D context for the sprite, so it exercises the flat
+        // fallback. The browser readback asserts the texture (AC-004).
         expect(ctx.createLinearGradient).not.toHaveBeenCalled();
         expect(ctx.fillRect).toHaveBeenCalled();
     });

@@ -6,16 +6,16 @@
  * canvas — no `<App />` indirection — so the relief render and its
  * relief-free control take the identical code path (plan D2).
  *
- * The face is flat, so the control render is one zone colour per tile;
- * sub-pass 1e's contour diagonals are the only other mark on a zone 2–3
- * face. Tone/geometry samples therefore use zone 0–1 fixtures, or a
- * zone 2–3 sample point off the contour lattice (residue 4 mod 6 at
- * zoom 32, and its zoom-96 equivalent).
+ * The face carries one fixed decorative NW→SE gradient per zone, so the
+ * control render (relief off) is texture plus — on zones 2–3 only — the
+ * sub-pass 1e contour diagonals. Tone/geometry samples therefore use
+ * zone 0–1 fixtures, or a zone 2–3 sample point off the contour lattice
+ * (residue 4 mod 6 at zoom 32, and its zoom-96 equivalent).
  */
 
 import { describe, expect, test } from 'vitest';
 import { MapCanvas, type PaintOptions } from '../../../src/render/canvas';
-import { BIOME_ZONES, landBandColor, landBandIndex } from '../../../src/render/palette';
+import { BIOME_ZONES, LAND_FACE_GRADIENT_DELTA, landBandColor, landBandIndex } from '../../../src/render/palette';
 import {
     RELIEF_SIDES,
     type ReliefSide,
@@ -150,10 +150,14 @@ function closeTo(pixel: Pixel, rgb: readonly [number, number, number], tolerance
     return deviationOf(pixel, rgb) < tolerance;
 }
 
-function contrastOf(first: Pixel, second: Pixel): number {
-    const a = relativeLuminance(rgbOf(first));
-    const b = relativeLuminance(rgbOf(second));
+function contrastBetween(first: readonly [number, number, number], second: readonly [number, number, number]): number {
+    const a = relativeLuminance(first);
+    const b = relativeLuminance(second);
     return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+function contrastOf(first: Pixel, second: Pixel): number {
+    return contrastBetween(rgbOf(first), rgbOf(second));
 }
 
 /** Parse `hsl(H, S%, L%)` to sRGB bytes — the browser's own conversion. */
@@ -202,6 +206,15 @@ function hexToRgb(hex: string): readonly [number, number, number] {
 function toneOf(zone: number, delta: number, side: ReliefSide): string {
     const tones = reliefToneColours(landBandColor(zone));
     return (reliefSideIsLit(side) ? tones.lit : tones.shaded)[reliefStep(delta) - 1] ?? landBandColor(zone);
+}
+
+/** The face texture's NW (light) and SE (dark) stops for one zone. */
+function faceStops(zone: number): { readonly light: string; readonly dark: string } {
+    const light = landBandColor(zone);
+    const dark = light.replace(/,\s*(\d+)%\)$/, (_match, lightness: string) => {
+        return `, ${Number(lightness) + LAND_FACE_GRADIENT_DELTA}%)`;
+    });
+    return { light, dark };
 }
 
 /**
@@ -511,19 +524,63 @@ describe('relief readback: neutral edges (AC-003, FR-004)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-004 / FR-005 — flat face, retired fills, confinement
+// AC-004 / FR-005 — face texture, retired fills, confinement
 // ---------------------------------------------------------------------------
 
-describe('relief readback: face and confinement (AC-004, FR-005)', () => {
-    test('land faces are flat and relief stays inside the tile that owns it', () => {
+describe('relief readback: face texture and confinement (AC-004, FR-005)', () => {
+    test('land faces carry the documented NW→SE texture', () => {
+        // A lone zone-1 tile: no land neighbour, so no bevel, and no contour
+        // hints on zone < 2 — the whole rect is 1c's face.
+        const view = mapViewOf([landCell(CENTRE, 128)], SMALL_BOARD, ZOOM);
+        const control = paintFixture(view, { relief: false });
+        const origin = { x: CENTRE.x * ZOOM, y: CENTRE.y * ZOOM };
+        const stops = faceStops(landBandIndex(128));
+
+        expect(LAND_FACE_GRADIENT_DELTA).toBe(-5);
+        // One pixel inside each corner: the pattern's outermost pixel is
+        // resampled and reads a channel step darker.
+        expect(closeTo(pixelAt(control, { x: origin.x + 1, y: origin.y + 1 }), hslToRgb(stops.light)), 'NW stop').toBe(
+            true,
+        );
+        expect(
+            closeTo(pixelAt(control, { x: origin.x + ZOOM - 2, y: origin.y + ZOOM - 2 }), hslToRgb(stops.dark)),
+            'SE stop',
+        ).toBe(true);
+    });
+
+    test('two tiles of one zone render identical faces — texture, not lighting', () => {
+        const coords: readonly Coord[] = [
+            { x: 0, y: 0 },
+            { x: 2, y: 2 },
+        ];
+        const control = paintFixture(
+            mapViewOf(
+                coords.map((coord) => landCell(coord, 128)),
+                SMALL_BOARD,
+                ZOOM,
+            ),
+            {
+                relief: false,
+            },
+        );
+        const rectOf = (coord: Coord): Pixel =>
+            new Uint8ClampedArray(control.getImageData(coord.x * ZOOM, coord.y * ZOOM, ZOOM, ZOOM).data);
+        const first = coords[0];
+        const second = coords[1];
+        if (first === undefined || second === undefined) {
+            throw new Error('texture fixture is missing a tile');
+        }
+        expect(samePixels(rectOf(first), rectOf(second))).toBe(true);
+        // Guard against a flat fill making the comparison pass vacuously.
+        expect(samePixels(pixelAt(control, { x: 0, y: 0 }), pixelAt(control, { x: ZOOM - 1, y: ZOOM - 1 }))).toBe(
+            false,
+        );
+    });
+
+    test('relief stays inside the tile that owns it', () => {
         const view = fourLowerNeighbours(128, 118);
         const relief = paintFixture(view);
         const control = paintFixture(view, { relief: false });
-        const face = hslToRgb(landBandColor(landBandIndex(128)));
-
-        // Flat face: a perimeter point away from the bevels is the zone colour.
-        const perimeter = { x: CENTRE.x * ZOOM + Math.floor(ZOOM / 2), y: CENTRE.y * ZOOM + Math.floor(ZOOM / 2) };
-        expect(closeTo(pixelAt(control, perimeter), face)).toBe(true);
 
         // Every changed pixel lies inside the centre tile; its neighbours
         // are lower and have no bevel of their own.
@@ -541,25 +598,32 @@ describe('relief readback: face and confinement (AC-004, FR-005)', () => {
 // ---------------------------------------------------------------------------
 
 describe('relief readback: per-zone tone floors (AC-005, FR-006)', () => {
-    test('each zone paints a lit and a shaded bevel at Δ1, ≥ 3:1 apart and visible on its face', () => {
+    test('each zone paints a lit and a shaded bevel at Δ1, ≥ 3:1 apart and visible over its face texture', () => {
         for (const zone of [0, 1, 2, 3]) {
             const view = zoneReferenceView(zone);
             const relief = paintFixture(view);
-            const control = paintFixture(view, { relief: false });
             const own = BIOME_ZONES[zone]?.elevationMax ?? 255;
             const delta = 1;
             // W is lit, E is shaded; both sample points sit off the 1e
             // contour lattice.
             const lit = pixelAt(relief, bandSamplePoint(CENTRE, 'W', delta));
             const shaded = pixelAt(relief, bandSamplePoint(CENTRE, 'E', delta));
-            const face = pixelAt(control, bandSamplePoint(CENTRE, 'W', delta));
+            const stops = faceStops(zone);
             const label = `zone ${zone} (own ${own})`;
 
             expect(closeTo(lit, hexToRgb(toneOf(zone, delta, 'W'))), `${label} lit tone`).toBe(true);
             expect(closeTo(shaded, hexToRgb(toneOf(zone, delta, 'E'))), `${label} shaded tone`).toBe(true);
             expect(contrastOf(lit, shaded), `${label}: lit/shaded`).toBeGreaterThanOrEqual(BAND_TO_BAND_FLOOR);
-            expect(contrastOf(lit, face), `${label}: lit/face`).toBeGreaterThanOrEqual(FACE_FLOOR);
-            expect(contrastOf(shaded, face), `${label}: shaded/face`).toBeGreaterThanOrEqual(FACE_FLOOR);
+            // Worst case per tone: a lit bevel is weakest against the
+            // texture's lightest stop, a shaded one against its darkest.
+            expect(
+                contrastBetween(rgbOf(lit), hslToRgb(stops.light)),
+                `${label}: lit/light stop`,
+            ).toBeGreaterThanOrEqual(FACE_FLOOR);
+            expect(
+                contrastBetween(rgbOf(shaded), hslToRgb(stops.dark)),
+                `${label}: shaded/dark stop`,
+            ).toBeGreaterThanOrEqual(FACE_FLOOR);
         }
     });
 });

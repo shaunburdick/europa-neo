@@ -240,6 +240,14 @@ export function landBandColor(band: number): string {
 }
 
 /**
+ * Lightness points the decorative face gradient gives up from the tile's
+ * NW corner to its SE corner (spec 017 FR-005). Decoration only: a third
+ * of the retired gradient's −15, well below a bevel tone shift, so it
+ * reads as surface rather than as a lit or shaded edge.
+ */
+export const LAND_FACE_GRADIENT_DELTA = -5;
+
+/**
  * Map cell elevation to water depth (stub for future depth data).
  *
  * Currently always returns 1 (standard depth). Will be enhanced

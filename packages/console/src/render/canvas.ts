@@ -36,6 +36,7 @@ import {
     FOCUS_RING_COLOR,
     GENERIC_EFFECT_COLOR,
     LAND_BAND_COUNT,
+    LAND_FACE_GRADIENT_DELTA,
     landBandColor,
     landBandIndex,
     PIPE_DOWNHILL_COLOR,
@@ -120,6 +121,54 @@ function fillBuckets(
     }
 }
 
+/**
+ * Resolution of one zone's face-texture sprite. Fixed, so the sprite is
+ * built once per zone and the pattern transform scales it to the zoom.
+ */
+const FACE_TEXTURE_PX = 64;
+
+/**
+ * Pre-render one biome zone's face texture (FR-005): the zone colour at
+ * the NW corner, `LAND_FACE_GRADIENT_DELTA` darker at the SE corner.
+ * Returns `undefined` where no 2D context exists (happy-dom unit runs),
+ * leaving sub-pass 1c on its flat fallback.
+ */
+function createLandFace(colour: string, dark: string): HTMLCanvasElement | undefined {
+    const sprite = document.createElement('canvas');
+    sprite.width = FACE_TEXTURE_PX;
+    sprite.height = FACE_TEXTURE_PX;
+    const spriteCtx = sprite.getContext('2d');
+    if (spriteCtx === null) {
+        return undefined;
+    }
+    const gradient = spriteCtx.createLinearGradient(0, 0, FACE_TEXTURE_PX, FACE_TEXTURE_PX);
+    gradient.addColorStop(0, colour);
+    gradient.addColorStop(1, dark);
+    spriteCtx.fillStyle = gradient;
+    spriteCtx.fillRect(0, 0, FACE_TEXTURE_PX, FACE_TEXTURE_PX);
+    return sprite;
+}
+
+/**
+ * A repeating face pattern whose period is exactly one cell, anchored to
+ * the board origin, so every tile of a zone draws the same texture at any
+ * zoom. Built per paint (patterns belong to one context); the sprite is
+ * cached. `undefined` when the context cannot create patterns.
+ */
+function createLandFacePattern(
+    ctx: CanvasRenderingContext2D,
+    sprite: HTMLCanvasElement,
+    zoom: number,
+): CanvasPattern | undefined {
+    const pattern = ctx.createPattern(sprite, 'repeat');
+    if (pattern === null) {
+        return undefined;
+    }
+    const scale = zoom / FACE_TEXTURE_PX;
+    pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, 0, 0]));
+    return pattern;
+}
+
 /** Options modifying one paint pass. */
 export interface PaintOptions {
     /**
@@ -137,10 +186,12 @@ export interface PaintOptions {
 }
 
 /**
- * Canvas 2D painter for the satellite grid. Stateless: one instance
- * may serve any number of canvases and frames.
+ * Canvas 2D painter for the satellite grid. Stateless apart from a memo of
+ * the per-zone face sprites — a pure function of the zone colours — so one
+ * instance may serve any number of canvases and frames.
  */
 export class MapCanvas {
+    private landFaceSprites: ReadonlyMap<number, HTMLCanvasElement> | undefined;
     /**
      * Paint one complete frame of `mapView` into `ctx`. Clears the
      * canvas to void first (out-of-horizon cells stay void per fog
@@ -254,15 +305,36 @@ export class MapCanvas {
         }
         ctx.stroke();
 
-        // Sub-pass 1c: flat land faces — one colour per biome zone. The
-        // face is never lit; all depth comes from 1d's bevels (FR-005).
+        // Sub-pass 1c: land faces — a fixed decorative NW→SE gradient per
+        // biome zone, blitted as one pattern fill per zone, so no per-cell
+        // gradient or image objects exist. It encodes no elevation: the
+        // bevels are the sole relief cue (FR-005).
+        const faces = this.landFacePatterns(ctx, zoom, landBandColors);
+        const runs = new Map<number, number[]>();
         for (const info of mapView.cells.values()) {
             if (info.terrain !== 'land') continue;
             const x = info.coord.x * zoom;
             const y = info.coord.y * zoom;
             const band = landBandIndex(info.elevation);
-            ctx.fillStyle = landBandColors.get(band) ?? landBandColor(band);
-            ctx.fillRect(x, y, zoom, zoom);
+            if (!faces.has(band)) {
+                ctx.fillStyle = landBandColors.get(band) ?? landBandColor(band);
+                ctx.fillRect(x, y, zoom, zoom);
+                continue;
+            }
+            const run = runs.get(band) ?? [];
+            run.push(x, y);
+            runs.set(band, run);
+        }
+        for (const band of [...runs.keys()].sort((a, b) => a - b)) {
+            const pattern = faces.get(band);
+            const run = runs.get(band);
+            if (pattern === undefined || run === undefined) continue;
+            ctx.fillStyle = pattern;
+            ctx.beginPath();
+            for (let index = 0; index < run.length; index += 2) {
+                ctx.rect(run[index] ?? 0, run[index + 1] ?? 0, zoom, zoom);
+            }
+            ctx.fill();
         }
 
         // Sub-pass 1d: relief bevels (FR-001). A bevel exists only where
@@ -547,6 +619,34 @@ export class MapCanvas {
             ctx.fillRect(effect.cell.x * zoom, effect.cell.y * zoom, zoom, zoom);
         }
         ctx.restore();
+    }
+
+    /**
+     * One face pattern per biome zone for this paint. The sprites are
+     * built once per instance (a function of the zone colours alone); the
+     * patterns carry the zoom, so the same zone draws identical pixels on
+     * every tile and every canvas (FR-005, AC-008).
+     */
+    private landFacePatterns(
+        ctx: CanvasRenderingContext2D,
+        zoom: number,
+        colours: ReadonlyMap<number, string>,
+    ): ReadonlyMap<number, CanvasPattern> {
+        if (this.landFaceSprites === undefined) {
+            const sprites = new Map<number, HTMLCanvasElement>();
+            for (const [band, colour] of colours) {
+                const dark = this.adjustBrightness(colour, LAND_FACE_GRADIENT_DELTA);
+                const sprite = createLandFace(colour, dark);
+                if (sprite !== undefined) sprites.set(band, sprite);
+            }
+            this.landFaceSprites = sprites;
+        }
+        const patterns = new Map<number, CanvasPattern>();
+        for (const [band, sprite] of this.landFaceSprites) {
+            const pattern = createLandFacePattern(ctx, sprite, zoom);
+            if (pattern !== undefined) patterns.set(band, pattern);
+        }
+        return patterns;
     }
 
     /**
