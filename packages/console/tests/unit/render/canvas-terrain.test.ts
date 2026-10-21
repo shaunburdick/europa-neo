@@ -271,15 +271,20 @@ describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
         const tones = reliefToneColours(landBandColor(3));
         expect(polygons.some((polygon) => polygon.fillStyle === tones.lit[2])).toBe(true);
         expect(polygons.some((polygon) => polygon.fillStyle === tones.shaded[2])).toBe(false);
-        // The N band is the full-width top strip, tapering into the tile.
+        // The N band runs along the tile's top edge with its ends
+        // tapering into the tile: a body strip at y = TILE_PX plus a
+        // wedge opening from the tile's top-left corner.
         expect(
             polygons.some(
                 (polygon) =>
                     polygon.fillStyle === tones.lit[2] &&
                     polygon.points[0] === 0 &&
                     polygon.points[1] === TILE_PX &&
-                    polygon.points[2] === TILE_PX,
+                    polygon.points[3] === TILE_PX,
             ),
+        ).toBe(true);
+        expect(
+            fills.some((fill) => fill.fillStyle === tones.lit[2] && fill.y === TILE_PX && fill.height < TILE_PX),
         ).toBe(true);
 
         // A lower S neighbour paints the shaded tone instead: tone follows

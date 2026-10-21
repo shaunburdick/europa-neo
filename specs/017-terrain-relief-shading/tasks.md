@@ -1,8 +1,8 @@
 # Tasks: Terrain Relief Shading (Delta-Based Edge Bevels)
 
-**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.11) · **Plan**: `plan.md`
+**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.13) · **Plan**: `plan.md`
 **Branch**: `issue-182-tile-shading`
-**Tasks**: 16 (T001–T016; T016 restores the decorative face texture). `[P]` marks tasks safe to run in parallel with the immediately
+**Tasks**: 17 (T001–T017; T017 replaces the occupancy cap rule with the four corner cases). `[P]` marks tasks safe to run in parallel with the immediately
 preceding task (different files, no shared edit). One engineer pass; no orchestration.
 
 Every task is one sitting. Tests ship in the same task group as the code they prove.
@@ -277,6 +277,18 @@ reviewer.
 
 ---
 
+## T017 — Vertex corner composition: four cases (spec v1.13)
+
+**Files**: `packages/console/src/render/relief-caps.ts`,
+`packages/console/src/render/canvas.ts`,
+`packages/console/tests/unit/render/relief-caps.test.ts` (new),
+`packages/console/tests/component/render/relief.test.tsx`.
+**Do**: replace v1.9's occupancy cap rule ("two or more ends at a vertex fill every cut triangle") and its corner-square-plus-triangle with the four cases: a same-tile corner splits its `w × v` rect on the outer→inner diagonal, a collinear same-tone pair butts to one line, a perpendicular diagonal pair fills nothing and keeps both tapers, a lone end keeps its taper. Pair in that order, one pair per band end. Express each case as the end inset of the band's trapezoid and emit each band as an axis-aligned body plus its taper wedges, so the painter keeps the rect fast path; keep the sorted per-colour fill order, the fog rules, the width and tone ladders and FR-006's floors untouched. Re-pin nothing else — Q-P01 and Q-P05 must stay inside their unchanged budgets.
+**Traces**: FR-001, FR-002, FR-010 · AC-003, AC-008, AC-010.
+**Done when**: the four geometry cases are pinned by unit test, the perpendicular pair's taper is asserted in the readback suite, the collinear case renders byte-identically to v1.12, `test:perf` is green (Q-P01 < 8 ms, Q-P05 addition < 6 ms), and `bash scripts/verify.sh` is green.
+
+---
+
 ## Coverage table
 
 | Spec item | Tasks |
@@ -344,4 +356,5 @@ Status record for T001–T013 on `issue-182-tile-shading`, with the commit each 
 - **T015** — done (this change set): v1.10 calibration only — no model, geometry, cap or light change. The Δ→step cut is re-pinned from the measured adjacent-land distribution (five seeds × 32/48 boards, 28,594 pairs: p25 2, p50 4, p75 7, p90 10, p99 15, max 27) to `RELIEF_STEP_THRESHOLDS = [4, 9]`, so the three steps carry 51 / 40 / 8 % of positive drops instead of nearly everything saturating at step 3. Tone now keeps the face's hue and saturation and moves only HSL lightness: lit `[0.74, 0.79, 0.84]` of headroom toward `reliefHighlight`'s L=100, shaded `[0.40, 0.50, 0.60]` of the face's L toward `reliefShadow`'s L=0. The two tokens stay as lightness anchors; no token added/removed/re-valued. Unit tests pin the thresholds, both ladders and a hue-family check; AC-002 fixtures now cross the thresholds (Δ1 / Δ5 / Δ10 / Δ255). Q-P05 re-measured **4.0–4.1 ms** addition (relief-on 4.70–4.80 ms, relief-off 0.70 ms) against 6 ms; Q-P01 3.2 ms against 8 ms. Spec v1.10, plan D5/D7, `DESIGN.md` §1.1/N-5, spec 005's absorbed text and `pr-body.md` updated.
 
 - **T016** — done (this change set): v1.11 product-owner decision — the per-tile face gradient returns at a third of its retired strength as decoration, not lighting. `LAND_FACE_GRADIENT_DELTA = −5` HSL lightness (was `−15`) in `palette.ts`; sub-pass 1c pre-renders one 64 px sprite per biome zone once per painter and fills each zone's tiles in one zoom-scaled `CanvasPattern` path, so the texture is a function of zone and zoom alone (two same-zone tiles byte-identical) and no land `createLinearGradient` runs. Per-cell `drawImage` was measured and rejected (relief-off 10.4 ms, addition 9.2 ms on Q-P05). Measured luminance step per zone −0.0368 / −0.0506 / −0.0364 / −0.0913 (12–29 % relative) and stop contrast 1.128–1.288, below every shaded bevel. FR-006's floors pass against the worst-case face stop: lit/lightest 3.445 / 3.555 / 3.991 / 1.220, shaded/darkest 1.660 / 1.587 / 1.534 / 2.361, lit/shaded ≥ 3.249 — no ladder change. Q-P01 3.0–3.2 ms against 8 ms; Q-P05 relief-on 4.60–4.70 ms, relief-off 0.65 ms, addition 3.95–4.05 ms against 6 ms (same as the flat face). Spec v1.11, plan D3/D4/D5/D7/D8, `DESIGN.md` § 1.1/§ 3/N-3/N-5/§ 4.4, spec 005 v1.16, the manual, `pr-body.md` and the two fresh screenshots land together.
+- **T017** — done (this change set): v1.13's four corner cases replace the occupancy rule. `relief-caps.ts` now pairs a vertex's ends (same-tile corner first, then collinear), turns each pairing into an end inset — 0 for a butt, the other band's width for a same-tile corner, the band's own width for rules 3/4 — and emits each band as a rect body plus its taper wedges. End attributes live in typed arrays with a per-vertex linked list, and sub-pass 1d looks its four neighbours up in a row-major index rather than building `coordKey` strings. A same-tile corner needs a wedge on its vertical end only, because the horizontal body already covers the corner. Measured: Q-P01 4.2 ms against 8 ms; Q-P05 relief-on 6.70 ms, relief-off 1.97 ms, **addition 4.73 ms** against the unchanged 6 ms. Five 5× before/after crops (`corner-{same-tile-equal,same-tile-unequal,collinear,perpendicular,four-tile}-{before,after}.png`, gitignored evidence) show each case; the collinear case's pixels are byte-identical to v1.12. Spec v1.13, plan D3, `DESIGN.md` N-5.
 - **Gate 3 fix (2026-10-20)** — every relief band is emitted with one positive winding, so a same-tone S/E corner no longer cancels under the nonzero fill rule (regression sample: the corner read `rgb(30,103,91)` face before, `rgb(15,52,46)` shaded after). The stride-8 `rect()` fast path stays: winding-consistent with the corrected S band, and dropping it measured Q-P05's addition at 8.3 ms against 4.05 ms with it. The test-only `reliefToneColor` and the luminance helpers moved out of `relief.ts`. Spec 017's contract is unchanged.

@@ -673,10 +673,11 @@ describe('relief readback: per-zone tone floors (AC-005, FR-006)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-003 — vertex caps close the taper only where two ends meet
+// AC-003 — a vertex resolves ends by pair: corners split, collinear runs
+// butt, a perpendicular diagonal pair keeps both tapers
 // ---------------------------------------------------------------------------
 
-describe('relief readback: vertex caps (FR-001, FR-002)', () => {
+describe('relief readback: vertex corners (FR-001, FR-002)', () => {
     /** Tile A's NW corner and tile B's SE corner meet at this grid vertex. */
     const VERTEX = { x: 1, y: 1 };
 
@@ -689,23 +690,21 @@ describe('relief readback: vertex caps (FR-001, FR-002)', () => {
         );
     }
 
-    test('two ends at a vertex fill both cut triangles', () => {
+    test('a perpendicular diagonal pair keeps both tapers', () => {
         const view = twoEndView();
         const relief = paintFixture(view);
         const control = paintFixture(view, { relief: false });
         const width = reliefBandWidth(ZOOM, 10);
         const vertexX = VERTEX.x * ZOOM;
         const vertexY = VERTEX.y * ZOOM;
-        // A's W-top triangle centroid lies below-right of the vertex; B's
-        // S-right triangle centroid lies above-left of it.
+        // A's W-top cut triangle would lie below-right of the vertex and
+        // B's S-right one above-left: filling them turns the low tile's
+        // plain corner into a bowtie, so both ends stay tapered.
         const aCap = { x: Math.round(vertexX + (2 * width) / 3), y: Math.round(vertexY + width / 3) };
         const bCap = { x: Math.round(vertexX - width / 3), y: Math.round(vertexY - (2 * width) / 3) };
 
-        expect(closeTo(pixelAt(relief, aCap), hexToRgb(toneOf(landBandIndex(128), 10, 'W')))).toBe(true);
-        expect(closeTo(pixelAt(relief, bCap), hexToRgb(toneOf(landBandIndex(128), 10, 'S')))).toBe(true);
-        // Without the caps both triangles would still be face.
-        expect(samePixels(pixelAt(relief, aCap), pixelAt(control, aCap))).toBe(false);
-        expect(samePixels(pixelAt(relief, bCap), pixelAt(control, bCap))).toBe(false);
+        expect(samePixels(pixelAt(relief, aCap), pixelAt(control, aCap))).toBe(true);
+        expect(samePixels(pixelAt(relief, bCap), pixelAt(control, bCap))).toBe(true);
     });
 
     test('one end at a vertex keeps its taper', () => {

@@ -657,14 +657,16 @@ step cut comes from the measured adjacent-land drop distribution — p50 = 4, p9
 light at the map's NW corner — north/west bevels lit, south/east shaded — by keeping the face's hue and
 saturation and moving only its HSL lightness: lit raises it 74 / 79 / 84 % of the remaining headroom
 toward `relief-highlight`'s `L = 100 %`, shaded lowers it 40 / 50 / 60 % of the face's own lightness
-toward `relief-shadow`'s `L = 0 %`, saturating at step 3. The mitred trapezoids' cut
-corners are closed at a shared vertex by the cap rule (two or more ends fill each cut triangle in its
-band's own colour; one end keeps its taper). Equal heights, water, fog-absent and off-board neighbours
-paint nothing. Per zone on feature 017's Δ1 reference fixture the two tones measure ≥ 3:1 apart, lit
-measures ≥ 1.2:1 against the texture's lightest stop and shaded ≥ 1.2:1 against its darkest — floors at
-their stated values, one constant for every zone, never a per-zone threshold table. The tight case is
-Peaks's pale face (lit/lightest stop 1.220, lit/shaded 3.249). The texture's own stop-to-stop contrast is
-1.208 / 1.288 / 1.243 / 1.128 by zone, below every shaded bevel's Δ1 contrast against the face
+toward `relief-shadow`'s `L = 0 %`, saturating at step 3. At a shared vertex the band ends compose by
+pair: a tile's own two adjacent bevels split their `w × v` corner on the outer→inner diagonal, two
+collinear ends of one tone butt and run on as one line, a perpendicular diagonal pair keeps both tapers
+so the low tile's corner stays a point, and an unpaired end keeps its taper. Equal heights, water,
+fog-absent and off-board neighbours paint nothing. Per zone on feature 017's Δ1 reference fixture the two
+tones measure ≥ 3:1 apart, lit measures ≥ 1.2:1 against the texture's lightest stop and shaded ≥ 1.2:1
+against its darkest — floors at their stated values, one constant for every zone, never a per-zone
+threshold table. The tight case is Peaks's pale face (lit/lightest stop 1.220, lit/shaded 3.249). The
+texture's own stop-to-stop contrast is 1.208 / 1.288 / 1.243 / 1.128 by zone, below every shaded bevel's
+Δ1 contrast against the face
 (1.534–2.361), so the hard-edged bevels stay the dominant relief cue.
 The Δ1 tones keep each zone's material: zone 0 `#2873bd` → `#c3dbf2` / `#184572`, zone 1 `#268273` →
 `#baebe3` / `#174e45`, zone 2 `#8e5c29` → `#ecd5bd` / `#553719`, zone 3 `#dce2e5` → `#f6f7f8` /

@@ -1,7 +1,7 @@
 # Implementation Plan: Terrain Relief Shading (Delta-Based Edge Bevels)
 
-**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.11) · **Branch**: `issue-182-tile-shading`
-**Plan status**: approved at Gate 2 by the product owner on 2026-10-16; Phase 6 shipped against it; D3/D5/D7 revised for spec v1.9's settled per-side bevel model (2026-10-20), D5/D7 re-calibrated for v1.10 (2026-10-20), and D3/D4/D5/D7/D8 revised for v1.11's decorative face texture (2026-10-20) · **Date**: 2026-10-20
+**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.13) · **Branch**: `issue-182-tile-shading`
+**Plan status**: approved at Gate 2 by the product owner on 2026-10-16; Phase 6 shipped against it; D3/D5/D7 revised for spec v1.9's settled per-side bevel model (2026-10-20), D5/D7 re-calibrated for v1.10 (2026-10-20), D3/D4/D5/D7/D8 revised for v1.11's decorative face texture (2026-10-20), and D3's corner composition replaced for spec v1.13's four vertex cases (2026-10-21) · **Date**: 2026-10-21
 
 ## 1. Summary
 
@@ -91,13 +91,20 @@ readonly relief?: boolean;
 
 `paint()` computes `const relief = options?.relief !== false;`. The control render is "the same fixture, same code path, `relief: false`" — the spec's one definition; a neighbour-substituted fixture is not the control. AC-003/AC-004/AC-005 all measure against it; AC-003/AC-004 compare the same coordinate per channel with `closeTo(pixel, rgb, tolerance = 8)` (the `pipe-slope.test.tsx` precedent), AC-005 and the AC-002 rendered half compute WCAG contrast from the sampled pixels.
 
-### D3 — Bevel geometry, caps, order, and confinement
+### D3 — Bevel geometry, corner composition, order, and confinement
 
 **Decision (v1.11).** The face is a fixed decorative texture (FR-005): sub-pass 1c paints each zone's midpoint colour at the tile's NW corner, `LAND_FACE_GRADIENT_DELTA = −5` lightness points darker at its SE corner, hue and saturation unchanged. One 64 px sprite per zone is built once per painter instance and each paint creates one zoom-scaled `CanvasPattern` per zone (period exactly one cell), then fills that zone's tiles in one path — no per-cell gradient or image object. The texture is a function of zone and zoom alone, so two tiles of a zone are byte-identical, and it encodes no elevation. Sub-pass 1d paints a bevel only on a side where `ownElevation − neighbourElevation > 0`. Each bevel is a mitred trapezoid inside its own tile, with side length `S = zoom` and width `w` from D5: N `(0,0) (S,0) (S−w,w) (w,w)`, S `(0,S) (S,S) (S−w,S−w) (w,S−w)`, W `(0,0) (w,w) (w,S−w) (0,S)`, E `(S,0) (S,S) (S−w,S−w) (S−w,w)`. The taper marks where a ledge run ends; it is not an approximation of a rounded corner.
 
-**Caps (FR-001, v1.9).** Each band registers an *end* at each of the two vertices of its side, carrying that side's cut triangle in board coords. At each grid vertex, ends are gathered from all four surrounding tiles. If two or more land there, every end's cut triangle is filled in its own band colour; if one, the taper stands. The rule closes collinear seams and perpendicular turns without run lengths and is applied after all bands.
+**Corner composition (FR-001, spec v1.13).** Each band registers an *end* at each of the two vertices of its side, tagged with the quadrant its tile occupies there. A vertex's ends pair in a fixed order, each end in at most one pair:
 
-**Implementation shape.** `packages/console/src/render/relief-caps.ts` is pure and returns three flat coordinate runs keyed by colour: band polygons (4 points), corner squares (4 points), and cap triangles (3 points). A capped band end is the full band width, so almost every band is an axis-aligned rect and only a lone end keeps a diagonal; a same-tile corner with two different tones adds one square plus the narrower band's triangle to restore the split. The painter paints bands, then squares, then triangles, one path per colour in sorted key order, so the fill sequence is a pure function of the colour set rather than of cell insertion order (AC-008). Relief never leaves its own tile (AC-003 confinement); no cross-tile state exists, and the shared edge carries only the higher tile's bevel by construction (spec Edge Cases). Sub-pass position is unchanged (before 1e), so 1e's contour diagonals still overlay the bevels.
+1. **Same-tile corner** — one tile's horizontal and vertical end. The `w × v` corner rect (horizontal band's width by vertical band's, unequal when the drops are) splits on the diagonal from the tile's outer corner to the rect's inner corner: the triangle on the horizontal edge is the horizontal band's tone, the one on the vertical edge the vertical band's. Equal widths give the exact 45° mitre; equal tones need no split because both full rects are already that rect.
+2. **Collinear pair** — one axis, one side of it, opposite along signs, one tone: both ends butt to full width so the two bands run on as one line.
+3. **Perpendicular pair** — one horizontal and one vertical end in diagonally opposite quadrants: *nothing* is filled. Both tapers stand and meet at a point around the low tile's plain corner. Filling them is what turned that corner into a bowtie under v1.9's occupancy rule.
+4. **Lone end** — keeps its taper.
+
+Rule 1 wins a band end over rule 2, because a tile's own corner must never fall back to a harder termination. Rules 3 and 4 emit nothing beyond the taper.
+
+**Implementation shape.** `packages/console/src/render/relief-caps.ts` is pure and returns two flat coordinate runs keyed by colour: band bodies as `(x, y, w, h)` rects (stride 4) and taper wedges as 3-point triangles (stride 6). Each rule lands as the *inset* of a band end — 0 (butt), the other band's width (rule 1, vertical end only), or its own width (rules 3/4) — and the painter fills bodies then wedges, one path per colour in sorted key order, so the fill sequence is a pure function of the colour set rather than of cell insertion order (AC-008). Two cost levers are load-bearing: a same-tile corner needs a wedge on its vertical end only (the horizontal body covers the corner), and the body/wedge split keeps ~4,500 bodies on the canvas' rect fast path — one trapezoid per band measured Q-P05's addition at 6.7 ms against the 6 ms bound, bodies-plus-wedges at 4.7 ms. End attributes live in typed arrays and each vertex's ends form a linked list, so no per-end object is allocated; sub-pass 1d also looks neighbours up in a row-major index instead of building a `coordKey` string per side. Relief never leaves its own tile (AC-003 confinement); no cross-tile state exists, and the shared edge carries only the higher tile's bevel by construction (spec Edge Cases). Sub-pass position is unchanged (before 1e), so 1e's contour diagonals still overlay the bevels.
 
 ### D4 — The light constant: one source at the NW corner
 
@@ -160,7 +167,7 @@ Each implementation task ships with the tests that prove it (see `tasks.md`'s pa
 | Peaks lit-tone floor (Δ1, 1.2:1 against the texture's lightest stop) | the tone is a lightness ladder toward `reliefHighlight`; the measured Peaks Δ1 lit tone measures 1.220 and the assertion samples an interior pixel. If it ever lands below, fix a ladder step, never floor the mapping (FR-003 is stepped by design) |
 | Zone 2's shaded-tone floor | same lightness-ladder argument; it is not the tight case under the orientation model (1.534 against the darkest stop) |
 | Tone quantisation (8-bit channels) | the tones are computed `#rrggbb` from token colours; the readback asserts the pure mapping and tolerates one channel step (8) at the sample point |
-| Cap geometry at unequal widths | the narrower band's own cut triangle restores its half; the wider band bases the square, so both tones survive the corner |
+| Corner composition at unequal widths | the corner rect is the horizontal band's width by the vertical band's, its diagonal runs from the tile's outer corner to the rect's inner corner, and only the vertical end stops there — so the seam is that diagonal at any width ratio |
 | Token addition ripples (`design.css`, vendored copies, bundle size) | `pnpm --filter @europa/design build` regenerates `dist/` (gitignored) and vendors the two `design.css` copies, committed in T001; `check:vendor-identity` and `check:bundle-size` are in `pnpm verify` |
 | A-03's corrected figures drift from the test | structural: the test asserts them, so a later change fails CI |
 | Rollback | the change is one sub-pass + one module + one flag; reverting the relief sub-pass and restoring `canvas.ts:222–242` restores today's board, and the tokens/notes are additive |
@@ -175,4 +182,4 @@ Spec § Out of Scope applies unchanged — nothing it excludes comes back. Revie
 
 ## 8. Spec version
 
-Written against `spec.md` **v1.11**. v1.11's fixed decorative face texture (one pattern per zone, `−5` lightness, no elevation meaning) sits on top of v1.9's per-side bevel model, orientation tone, 4/7/10 % ladder and vertex caps, which D3/D4/D5 and D7 cite rather than reconcile. The v1.5–v1.8 history is superseded; A-03's older figures remain provisional where the spec still marks them so, and D9's token-reading test is their prover.
+Written against `spec.md` **v1.13**. v1.13's four vertex corner cases replace v1.9's occupancy cap rule; D3 owns them. v1.11's fixed decorative face texture (one pattern per zone, `−5` lightness, no elevation meaning) sits on top of v1.9's per-side bevel model, orientation tone and 4/7/10 % ladder, which D3/D4/D5 and D7 cite rather than reconcile. The v1.5–v1.8 history is superseded; A-03's older figures remain provisional where the spec still marks them so, and D9's token-reading test is their prover.

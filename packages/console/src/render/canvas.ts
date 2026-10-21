@@ -415,8 +415,9 @@ export class MapCanvas {
         // Sub-pass 1d: relief bevels (FR-001). A bevel exists only where
         // this tile is strictly higher than a visible land neighbour; its
         // width and tone step with that drop, its tone side with the NW
-        // light (FR-002/FR-003). Bands are mitred trapezoids inside the
-        // tile, then vertex caps close the taper where ends meet.
+        // light (FR-002/FR-003). Each band is a mitred trapezoid inside
+        // the tile, with its end insets set by the corner rule its vertex
+        // selected (plan D3).
         if (relief) {
             const bands: ReliefBand[] = [];
             // Per zone, the three lit and three shaded tones, so no band
@@ -424,6 +425,21 @@ export class MapCanvas {
             const tonesByZone = new Map<number, ReturnType<typeof reliefToneColours>>();
             for (let band = 0; band < LAND_BAND_COUNT; band++) {
                 tonesByZone.set(band, reliefToneColours(landBandColor(band)));
+            }
+            // Neighbours come from a dense index: four lookups per cell
+            // through `coordKey` allocated a key string each and measured
+            // a fifth of Q-P05's relief budget on its own. The index spans
+            // the visible cells' own coordinates, so it assumes nothing
+            // about the board's declared size.
+            let columns = 0;
+            let rows = 0;
+            for (const info of mapView.cells.values()) {
+                columns = Math.max(columns, info.coord.x + 1);
+                rows = Math.max(rows, info.coord.y + 1);
+            }
+            const cells = new Array<CellRenderInfo | undefined>(columns * rows);
+            for (const info of mapView.cells.values()) {
+                cells[info.coord.y * columns + info.coord.x] = info;
             }
             for (const info of mapView.cells.values()) {
                 if (info.terrain !== 'land') continue;
@@ -433,12 +449,14 @@ export class MapCanvas {
                 const tones = tonesByZone.get(zone);
                 if (tones === undefined) continue;
                 for (const side of RELIEF_SIDES) {
-                    const dst = destinationCoord(info.coord, side);
-                    // Off-board, absent (fog-hidden), water, and equal-height
+                    const column = info.coord.x + (side === 'E' ? 1 : side === 'W' ? -1 : 0);
+                    const row = info.coord.y + (side === 'S' ? 1 : side === 'N' ? -1 : 0);
+                    // Off-board, absent (fog-hidden), water and equal-height
                     // neighbours are all neutral (FR-004): no bevel, no
-                    // synthesized neighbour elevation.
-                    if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
-                    const neighbour = mapView.cells.get(coordKey(dst));
+                    // synthesized neighbour elevation. The index spans only
+                    // the visible cells, so anything outside it is absent.
+                    if (column < 0 || column >= columns || row < 0 || row >= rows) continue;
+                    const neighbour = cells[row * columns + column];
                     if (neighbour === undefined || neighbour.terrain !== 'land') continue;
                     const delta = info.elevation - neighbour.elevation;
                     if (delta <= 0) continue;
@@ -453,15 +471,13 @@ export class MapCanvas {
                 }
             }
 
-            // Bands, cap squares and cap triangles are each filled one path
-            // per colour, colours in sorted key order, so the fill sequence
-            // is a pure function of the colour set rather than of cell
-            // insertion order (AC-008). Phase order matters: a cap square
-            // rebases a corner, then its triangle restores the other half.
+            // Filled one path per colour, colours in sorted key order, so
+            // the fill sequence is a pure function of the colour set
+            // rather than of cell insertion order (AC-008). Bodies are
+            // rects; the wedges that shape each band end follow.
             const geometry = reliefGeometry(bands);
-            fillBuckets(ctx, geometry.bands, 8);
-            fillBuckets(ctx, geometry.squares, 8);
-            fillBuckets(ctx, geometry.caps, 6);
+            fillBuckets(ctx, geometry.bodies, 4);
+            fillBuckets(ctx, geometry.tapers, 6);
         }
 
         // Sub-pass 1e: batched contour hints — ALL contour diagonal lines

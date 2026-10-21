@@ -1,15 +1,22 @@
 /**
  * Bevel geometry for feature 017: the mitred trapezoid each side paints
- * and the vertex caps that close the taper where bands meet. Pure; the
- * caller supplies the band records sub-pass 1d already derived.
+ * and the vertex composition where bands meet. Pure; the caller supplies
+ * the band records sub-pass 1d already derived.
  *
- * Rectangle-heavy by design: a capped band end is the full band width,
- * so almost every band is painted as a rect and only a lone end keeps
- * its taper. A same-tile corner with two different tones adds one square
- * and one triangle, which keeps the cap rule without thousands of
- * triangle paths. Shapes are returned as flat coordinate runs per
- * colour — bands and squares are 4-point (stride 8), caps 3-point
- * (stride 6) — so the painter allocates no per-band path objects.
+ * Per vertex, every band end is paired by the first rule that accepts
+ * it: a tile's own two adjacent bands split their corner on the
+ * outer→inner diagonal (rule 1); two collinear ends of one tone butt and
+ * run on as one line (rule 2); a perpendicular diagonal pair (rule 3)
+ * and an unpaired end (rule 4) keep their taper. Every rule lands as the
+ * end inset of the band's trapezoid, so a corner needs no shape of its
+ * own.
+ *
+ * Layout is flat and typed because this runs per frame: end attributes
+ * live in parallel arrays and each vertex's ends form a linked list
+ * through `nextEnd`, so no per-end object is created. Each trapezoid is
+ * emitted as an axis-aligned body plus its taper wedges, because the
+ * canvas' rect fast path is about ten times cheaper than a path per
+ * band (Q-P05's 6 ms relief bound leaves little room).
  */
 
 import type { ReliefSide } from './relief';
@@ -24,46 +31,132 @@ export interface ReliefBand {
     readonly colour: string;
 }
 
-/** Flat polygon coordinates keyed by fill colour. */
+/** Flat shape coordinates keyed by fill colour. */
 export type ReliefBuckets = ReadonlyMap<string, readonly number[]>;
 
 /** Everything sub-pass 1d paints, by phase. */
 export interface ReliefGeometry {
-    /** Band polygons, 4 points each (stride 8), painted first. */
-    readonly bands: ReliefBuckets;
-    /** Same-tile corner squares, 4 points each (stride 8), painted second. */
-    readonly squares: ReliefBuckets;
-    /** The other half of each two-tone corner, 3 points each (stride 6), last. */
-    readonly caps: ReliefBuckets;
+    /** Band bodies, `(x, y, width, height)` rects (stride 4), painted first. */
+    readonly bodies: ReliefBuckets;
+    /** Taper wedges closing a band end, 3 points each (stride 6), painted last. */
+    readonly tapers: ReliefBuckets;
 }
 
-/** Side indices used for the per-tile lookup and the corner pair order. */
+/** Side indices used for the per-band sort. */
 const SIDE_INDEX: Readonly<Record<ReliefSide, number>> = { N: 0, E: 1, S: 2, W: 3 };
-
-/** Key for one tile side; board coordinates are far below 4096. */
-function tileSideKey(band: ReliefBand): number {
-    const tileX = Math.round(band.x / band.size);
-    const tileY = Math.round(band.y / band.size);
-    return (tileY * 4096 + tileX) * 4 + SIDE_INDEX[band.side];
-}
 
 /** Key for one vertex; pixel coordinates are far below 65536. */
 function vertexKey(x: number, y: number): number {
     return y * 65536 + x;
 }
 
-/** Append one polygon's coordinates to its colour's run. */
-function push(buckets: Map<string, number[]>, colour: string, coordinates: readonly number[]): void {
+/** Append a rect — one band body — without a temporary array. */
+function pushRect(
+    buckets: Map<string, number[]>,
+    colour: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+): void {
     const run = buckets.get(colour);
     if (run === undefined) {
-        buckets.set(colour, [...coordinates]);
+        buckets.set(colour, [x, y, width, height]);
     } else {
-        run.push(...coordinates);
+        run.push(x, y, width, height);
+    }
+}
+
+/** Append six coordinates — one taper wedge — without a temporary array. */
+function pushWedge(
+    buckets: Map<string, number[]>,
+    colour: string,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    cx: number,
+    cy: number,
+): void {
+    const run = buckets.get(colour);
+    if (run === undefined) {
+        buckets.set(colour, [ax, ay, bx, by, cx, cy]);
+    } else {
+        run.push(ax, ay, bx, by, cx, cy);
+    }
+}
+
+/** Emit one band: its axis-aligned body and the wedges closing its tapered ends. */
+function emitBand(
+    band: ReliefBand,
+    startInset: number,
+    endInset: number,
+    bodies: Map<string, number[]>,
+    tapers: Map<string, number[]>,
+): void {
+    const { x, y, size, width, side, colour } = band;
+    const length = size - startInset - endInset;
+    switch (side) {
+        case 'N':
+            pushRect(bodies, colour, x + startInset, y, length, width);
+            if (startInset !== 0) {
+                pushWedge(tapers, colour, x, y, x + startInset, y, x + startInset, y + width);
+            }
+            if (endInset !== 0) {
+                pushWedge(tapers, colour, x + size, y, x + size - endInset, y, x + size - endInset, y + width);
+            }
+            return;
+        case 'S':
+            pushRect(bodies, colour, x + startInset, y + size - width, length, width);
+            if (startInset !== 0) {
+                pushWedge(tapers, colour, x, y + size, x + startInset, y + size, x + startInset, y + size - width);
+            }
+            if (endInset !== 0) {
+                pushWedge(
+                    tapers,
+                    colour,
+                    x + size,
+                    y + size,
+                    x + size - endInset,
+                    y + size,
+                    x + size - endInset,
+                    y + size - width,
+                );
+            }
+            return;
+        case 'W':
+            pushRect(bodies, colour, x, y + startInset, width, length);
+            if (startInset !== 0) {
+                pushWedge(tapers, colour, x, y, x, y + startInset, x + width, y + startInset);
+            }
+            if (endInset !== 0) {
+                pushWedge(tapers, colour, x, y + size, x, y + size - endInset, x + width, y + size - endInset);
+            }
+            return;
+        case 'E':
+            pushRect(bodies, colour, x + size - width, y + startInset, width, length);
+            if (startInset !== 0) {
+                pushWedge(tapers, colour, x + size, y, x + size, y + startInset, x + size - width, y + startInset);
+            }
+            if (endInset !== 0) {
+                pushWedge(
+                    tapers,
+                    colour,
+                    x + size,
+                    y + size,
+                    x + size,
+                    y + size - endInset,
+                    x + size - width,
+                    y + size - endInset,
+                );
+            }
+            return;
     }
 }
 
 /**
- * Build every band shape plus the corner caps of one relief sub-pass.
+ * Build every band shape of one relief sub-pass, with each end shaped by
+ * the rule its vertex selected.
  *
  * @param bands Every band sub-pass 1d derived, in any order.
  */
@@ -74,184 +167,149 @@ export function reliefGeometry(bands: readonly ReliefBand[]): ReliefGeometry {
     const ordered = [...bands].sort(
         (first, second) => first.y - second.y || first.x - second.x || SIDE_INDEX[first.side] - SIDE_INDEX[second.side],
     );
-    // Pass 1: how many band ends land on each vertex. Two or more fill
-    // every cut triangle there; a lone end keeps its taper.
-    const endsAtVertex = new Map<number, number>();
-    const count = (key: number): void => {
-        endsAtVertex.set(key, (endsAtVertex.get(key) ?? 0) + 1);
-    };
-    for (const band of ordered) {
-        const { x, y, size } = band;
-        switch (band.side) {
-            case 'N':
-                count(vertexKey(x, y));
-                count(vertexKey(x + size, y));
-                break;
-            case 'S':
-                count(vertexKey(x, y + size));
-                count(vertexKey(x + size, y + size));
-                break;
-            case 'W':
-                count(vertexKey(x, y));
-                count(vertexKey(x, y + size));
-                break;
-            case 'E':
-                count(vertexKey(x + size, y));
-                count(vertexKey(x + size, y + size));
-                break;
-        }
-    }
-    const isCapped = (x: number, y: number): boolean => (endsAtVertex.get(vertexKey(x, y)) ?? 0) >= 2;
-
-    // Pass 2: band polygons — the full rect at capped ends, taper at lone
-    // ends — plus the per-tile side lookup the corner split needs.
-    const bandShapes = new Map<string, number[]>();
-    const byTileSide = new Map<number, ReliefBand>();
-    for (const band of ordered) {
-        const { x, y, size, width, side, colour } = band;
-        byTileSide.set(tileSideKey(band), band);
-        let startInset = width;
-        let endInset = width;
+    const endCount = ordered.length * 2;
+    // One entry per band end: its vertex, which quadrant its tile
+    // occupies there (+1 east/south), its axis, width and tone, and the
+    // inset its end will paint at.
+    const endKey = new Float64Array(endCount);
+    const endQx = new Int8Array(endCount);
+    const endQy = new Int8Array(endCount);
+    const endHorizontal = new Uint8Array(endCount);
+    const endWidth = new Float64Array(endCount);
+    const endColour = new Uint16Array(endCount);
+    const inset = new Float64Array(endCount);
+    const colourIds = new Map<string, number>();
+    for (const [index, band] of ordered.entries()) {
+        const { x, y, size, side } = band;
+        const horizontal = side === 'N' || side === 'S';
+        let firstX = x;
+        let firstY = y;
+        let secondX = x + size;
+        let secondY = y;
         switch (side) {
             case 'N':
-                if (isCapped(x, y)) startInset = 0;
-                if (isCapped(x + size, y)) endInset = 0;
-                push(bandShapes, colour, [
-                    x,
-                    y,
-                    x + size,
-                    y,
-                    x + size - endInset,
-                    y + width,
-                    x + startInset,
-                    y + width,
-                ]);
                 break;
             case 'S':
-                if (isCapped(x, y + size)) startInset = 0;
-                if (isCapped(x + size, y + size)) endInset = 0;
-                // Same winding as N/W/E: overlapping bands of one colour
-                // must not cancel under the nonzero fill rule.
-                push(bandShapes, colour, [
-                    x + startInset,
-                    y + size - width,
-                    x + size - endInset,
-                    y + size - width,
-                    x + size,
-                    y + size,
-                    x,
-                    y + size,
-                ]);
+                firstY = y + size;
+                secondY = firstY;
                 break;
             case 'W':
-                if (isCapped(x, y)) startInset = 0;
-                if (isCapped(x, y + size)) endInset = 0;
-                push(bandShapes, colour, [
-                    x,
-                    y,
-                    x + width,
-                    y + startInset,
-                    x + width,
-                    y + size - endInset,
-                    x,
-                    y + size,
-                ]);
+                secondX = x;
+                secondY = y + size;
                 break;
             case 'E':
-                if (isCapped(x + size, y)) startInset = 0;
-                if (isCapped(x + size, y + size)) endInset = 0;
-                push(bandShapes, colour, [
-                    x + size,
-                    y,
-                    x + size,
-                    y + size,
-                    x + size - width,
-                    y + size - endInset,
-                    x + size - width,
-                    y + startInset,
-                ]);
+                firstX = x + size;
+                secondX = firstX;
+                secondY = y + size;
                 break;
         }
-    }
-
-    // Pass 3: a tile's two adjacent bands meet at a corner. Two different
-    // tones there need a diagonal split; equal tones are already covered
-    // by the overlapping band rects, and a lone side is already the full
-    // corner square once its end is capped.
-    const squares = new Map<string, number[]>();
-    const caps = new Map<string, number[]>();
-    const corners: ReadonlyArray<{
-        readonly corner: 'NW' | 'NE' | 'SW' | 'SE';
-        readonly first: ReliefSide;
-        readonly second: ReliefSide;
-    }> = [
-        { corner: 'NW', first: 'N', second: 'W' },
-        { corner: 'NE', first: 'N', second: 'E' },
-        { corner: 'SW', first: 'S', second: 'W' },
-        { corner: 'SE', first: 'S', second: 'E' },
-    ];
-    for (const band of ordered) {
-        for (const { corner, first, second } of corners) {
-            if (band.side !== first) {
-                continue;
-            }
-            const tileX = Math.round(band.x / band.size);
-            const tileY = Math.round(band.y / band.size);
-            const partner = byTileSide.get((tileY * 4096 + tileX) * 4 + SIDE_INDEX[second]);
-            if (partner === undefined || partner.colour === band.colour) {
-                continue;
-            }
-            const wider = band.width >= partner.width ? band : partner;
-            const narrower = wider === band ? partner : band;
-            const size = narrower.width;
-            const origin = squareOrigin(band, corner, size);
-            push(squares, wider.colour, [
-                origin.x,
-                origin.y,
-                origin.x + size,
-                origin.y,
-                origin.x + size,
-                origin.y + size,
-                origin.x,
-                origin.y + size,
-            ]);
-            push(caps, narrower.colour, cutTriangle(narrower, corner));
+        let colour = colourIds.get(band.colour);
+        if (colour === undefined) {
+            colour = colourIds.size;
+            colourIds.set(band.colour, colour);
+        }
+        for (let which = 0; which < 2; which++) {
+            const id = index * 2 + which;
+            endKey[id] = which === 0 ? vertexKey(firstX, firstY) : vertexKey(secondX, secondY);
+            endQx[id] = horizontal ? (which === 0 ? 1 : -1) : side === 'W' ? 1 : -1;
+            endQy[id] = horizontal ? (side === 'N' ? 1 : -1) : which === 0 ? 1 : -1;
+            endHorizontal[id] = horizontal ? 1 : 0;
+            endWidth[id] = band.width;
+            endColour[id] = colour;
+            // Rule 4: an unpaired end keeps its taper at its own width.
+            inset[id] = band.width;
         }
     }
 
-    return { bands: bandShapes, squares, caps };
-}
-
-/** The corner square's top-left for a cap of `size` px. */
-function squareOrigin(
-    band: ReliefBand,
-    corner: 'NW' | 'NE' | 'SW' | 'SE',
-    size: number,
-): { readonly x: number; readonly y: number } {
-    const left = corner === 'NW' || corner === 'SW' ? band.x : band.x + band.size - size;
-    const top = corner === 'NW' || corner === 'NE' ? band.y : band.y + band.size - size;
-    return { x: left, y: top };
-}
-
-/** A band end's cut triangle at `corner`, at the band's own width. */
-function cutTriangle(band: ReliefBand, corner: 'NW' | 'NE' | 'SW' | 'SE'): readonly number[] {
-    const { x, y, size, width } = band;
-    switch (corner) {
-        case 'NW':
-            return band.side === 'N'
-                ? [x, y, x, y + width, x + width, y + width]
-                : [x, y, x + width, y, x + width, y + width];
-        case 'NE':
-            return band.side === 'N'
-                ? [x + size, y, x + size, y + width, x + size - width, y + width]
-                : [x + size, y, x + size - width, y, x + size - width, y + width];
-        case 'SW':
-            return band.side === 'S'
-                ? [x, y + size, x, y + size - width, x + width, y + size - width]
-                : [x, y + size, x + width, y + size, x + width, y + size - width];
-        case 'SE':
-            return band.side === 'S'
-                ? [x + size, y + size, x + size, y + size - width, x + size - width, y + size - width]
-                : [x + size, y + size, x + size - width, y + size, x + size - width, y + size - width];
+    // Bucket the ends by vertex: `heads` holds each vertex's first end,
+    // `nextEnd` chains the rest, so a vertex costs no array of its own.
+    const nextEnd = new Int32Array(endCount).fill(-1);
+    const heads = new Map<number, number>();
+    for (let id = 0; id < endCount; id++) {
+        const key = endKey[id] ?? 0;
+        const head = heads.get(key);
+        heads.set(key, id);
+        if (head !== undefined) nextEnd[id] = head;
     }
+
+    // Each vertex's ends pair up. Rule 1 runs first: a tile's own corner
+    // must never fall back to a harder termination, so it wins a band end
+    // that a collinear neighbour would otherwise have butted.
+    const paired = new Uint8Array(endCount);
+    const advance = (id: number): number => nextEnd[id] ?? -1;
+    for (const head of heads.values()) {
+        for (let id = head; id !== -1; id = advance(id)) {
+            if (paired[id] === 1) {
+                continue;
+            }
+            for (let other = advance(id); other !== -1; other = advance(other)) {
+                if (
+                    paired[other] === 1 ||
+                    endHorizontal[other] === endHorizontal[id] ||
+                    endQx[other] !== endQx[id] ||
+                    endQy[other] !== endQy[id]
+                ) {
+                    continue;
+                }
+                // Rule 1: one tile's corner. The horizontal band's body
+                // covers the whole corner, so only the vertical end stops
+                // at the horizontal band's width: its wedge is the
+                // triangle touching the vertical edge, and everything
+                // above the shared diagonal stays the horizontal band's
+                // tone. One tone needs no wedge at all.
+                if (endColour[id] === endColour[other]) {
+                    inset[id] = 0;
+                    inset[other] = 0;
+                } else if (endHorizontal[id] === 1) {
+                    inset[id] = 0;
+                    inset[other] = endWidth[id] ?? 0;
+                } else {
+                    inset[id] = endWidth[other] ?? 0;
+                    inset[other] = 0;
+                }
+                paired[id] = 1;
+                paired[other] = 1;
+                break;
+            }
+        }
+        for (let id = head; id !== -1; id = advance(id)) {
+            if (paired[id] === 1) {
+                continue;
+            }
+            for (let other = advance(id); other !== -1; other = advance(other)) {
+                if (
+                    paired[other] === 1 ||
+                    endHorizontal[other] !== endHorizontal[id] ||
+                    endColour[other] !== endColour[id]
+                ) {
+                    continue;
+                }
+                // Rule 2: collinear — one axis, the same side of that
+                // axis, facing opposite ways — so the two runs continue.
+                const collinear =
+                    endHorizontal[id] === 1
+                        ? endQy[other] === endQy[id] && endQx[other] === -(endQx[id] ?? 0)
+                        : endQx[other] === endQx[id] && endQy[other] === -(endQy[id] ?? 0);
+                if (!collinear) {
+                    continue;
+                }
+                inset[id] = 0;
+                inset[other] = 0;
+                paired[id] = 1;
+                paired[other] = 1;
+                break;
+            }
+        }
+    }
+
+    // Band shapes. Everything else on the vertex is a lone taper (rule
+    // 4): a perpendicular diagonal pair (rule 3) fills nothing, because
+    // filling it turns the low tile's plain corner into a bowtie.
+    const bodies = new Map<string, number[]>();
+    const tapers = new Map<string, number[]>();
+    for (const [index, band] of ordered.entries()) {
+        emitBand(band, inset[index * 2] ?? band.width, inset[index * 2 + 1] ?? band.width, bodies, tapers);
+    }
+
+    return { bodies, tapers };
 }
