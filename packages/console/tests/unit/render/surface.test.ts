@@ -1,15 +1,19 @@
 /**
  * Pure mappings for feature 018 — grain bounds and determinism, coast
- * width, and the seam token's contrast floor. Rendered truth lives in
- * `tests/component/render/surface.test.tsx`.
+ * width, the seam token's contrast floor, and the contour interval.
+ * Rendered truth lives in `tests/component/render/surface.test.tsx`.
  */
 
 import { describe, expect, test } from 'vitest';
-import { landBandColor, SEAM_COLOR } from '../../../src/render/palette';
+import { CONTOUR_COLOR, landBandColor, SEAM_COLOR } from '../../../src/render/palette';
 import { reliefToneColours } from '../../../src/render/relief';
 import {
     COAST_WIDTH_RATIO,
+    CONTOUR_INTERVAL,
+    CONTOUR_WIDTH_PX,
     coastBandWidth,
+    contourCrosses,
+    elevationBand,
     grainOffsetIndex,
     LAND_FACE_GRAIN_OFFSETS,
     landFaceGrainOffset,
@@ -65,5 +69,24 @@ describe('surface mappings (018 FR-001…FR-003)', () => {
                 expect(contrast(seam, hexToRgb(tone)), `zone ${zone} tone ${tone}`).toBeGreaterThanOrEqual(1.2);
             }
         }
+    });
+
+    test('contours mark a 28-level band boundary and are one pixel wide (FR-004)', () => {
+        expect(CONTOUR_INTERVAL).toBe(28);
+        expect(CONTOUR_WIDTH_PX).toBe(1);
+        expect(elevationBand(0)).toBe(0);
+        expect(elevationBand(27)).toBe(0);
+        expect(elevationBand(28)).toBe(1);
+        expect(elevationBand(255)).toBe(9);
+
+        expect(contourCrosses(139, 140)).toBe(true);
+        expect(contourCrosses(140, 139)).toBe(true);
+        expect(contourCrosses(140, 145)).toBe(false);
+        expect(contourCrosses(100, 100)).toBe(false);
+        expect(contourCrosses(64, 96)).toBe(true);
+    });
+
+    test('the contour ink is a neutral 20 % black', () => {
+        expect(CONTOUR_COLOR).toBe('rgba(0, 0, 0, 0.2)');
     });
 });

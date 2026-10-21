@@ -1,6 +1,7 @@
 /**
  * Browser readback: board surface treatment — spec 018.
- * FR-001…FR-003 and FR-002's floors; AC-001…AC-005.
+ * FR-001…FR-004, FR-002's floors and FR-004's contour interval;
+ * AC-001…AC-006.
  *
  * Fixtures paint straight through `MapCanvas.paint` on a real canvas. The
  * 018-free control is the same fixture with `surface: false`; relief stays
@@ -11,7 +12,13 @@
 
 import { describe, expect, test } from 'vitest';
 import { MapCanvas, type PaintOptions } from '../../../src/render/canvas';
-import { landBandColor, landBandColorWithLightness, landBandIndex, SEAM_COLOR } from '../../../src/render/palette';
+import {
+    CONTOUR_COLOR,
+    landBandColor,
+    landBandColorWithLightness,
+    landBandIndex,
+    SEAM_COLOR,
+} from '../../../src/render/palette';
 import {
     RELIEF_SIDES,
     type ReliefSide,
@@ -20,7 +27,10 @@ import {
     reliefToneColours,
 } from '../../../src/render/relief';
 import {
+    CONTOUR_WIDTH_PX,
     coastBandWidth,
+    contourCrosses,
+    elevationBand,
     grainOffsetIndex,
     LAND_FACE_GRAIN_OFFSETS,
     landFaceGrainOffset,
@@ -41,6 +51,8 @@ const ISLAND: Coord = { x: 5, y: 1 };
 const CENTRE: Coord = { x: 1, y: 1 };
 const TOLERANCE = 4;
 const FACE_FLOOR = 1.2;
+/** Upper bound on the contour ink: the zone seam's measured 1.634 floor stays above it. */
+const CONTOUR_CEILING = 1.6;
 
 type Pixel = Uint8ClampedArray;
 
@@ -342,12 +354,14 @@ describe('surface readback: coastline band (AC-001, FR-001)', () => {
 
 describe('surface readback: bevel wins at a corner (AC-002, FR-001)', () => {
     test('the W bevel survives and the N coast band fills the rest of its side', () => {
-        // ISLAND 128: N water (coast, lit), W land 118 (Δ10 bevel, lit).
+        // ISLAND 160: N water (coast, lit), W land 150 (Δ10 bevel, lit).
+        // Both land cells sit in band 5, so no contour crosses this fixture:
+        // the comparison isolates the coast band against the 018 control.
         const view = mapViewOf(
             [
                 waterCell({ x: ISLAND.x, y: ISLAND.y - 1 }, 64),
-                landCell({ x: ISLAND.x - 1, y: ISLAND.y }, 118),
-                landCell(ISLAND, 128),
+                landCell({ x: ISLAND.x - 1, y: ISLAND.y }, 150),
+                landCell(ISLAND, 160),
             ],
             BOARD,
             ZOOM,
@@ -364,7 +378,7 @@ describe('surface readback: bevel wins at a corner (AC-002, FR-001)', () => {
         expect(samePixels(pixelAt(painted, { x: x + ZOOM - 2, y }), pixelAt(control, { x: x + ZOOM - 2, y }))).toBe(
             false,
         );
-        expect(closeTo(pixelAt(painted, { x: x + ZOOM - 2, y }), hexToRgb(coastTone(landBandIndex(128), 'N')))).toBe(
+        expect(closeTo(pixelAt(painted, { x: x + ZOOM - 2, y }), hexToRgb(coastTone(landBandIndex(160), 'N')))).toBe(
             true,
         );
 
@@ -382,6 +396,174 @@ describe('surface readback: bevel wins at a corner (AC-002, FR-001)', () => {
             expect(closeTo(pixelAt(painted, point), hexToRgb(coastTone(landBandIndex(128), side))), side).toBe(true);
             expect(samePixels(pixelAt(painted, point), pixelAt(control, point)), side).toBe(false);
         }
+    });
+});
+
+// ---------------------------------------------------------------------------
+// AC-006 / FR-004 — elevation contours
+// ---------------------------------------------------------------------------
+
+describe('surface readback: elevation contours (AC-006, FR-004)', () => {
+    /** Grain offset 0 (checked below), so its face matches the 018 control. */
+    const LOW: Coord = { x: 2, y: 2 };
+    const EAST: Coord = { x: 3, y: 2 };
+    const SOUTH: Coord = { x: 2, y: 3 };
+
+    function pairView(ownElevation: number, neighbourElevation: number, side: 'E' | 'S' = 'E', zoom = ZOOM): MapView {
+        const neighbour = side === 'E' ? EAST : SOUTH;
+        return mapViewOf([landCell(LOW, ownElevation), landCell(neighbour, neighbourElevation)], BOARD, zoom);
+    }
+
+    /** The one column/row a contour owns on LOW's shared edge. */
+    function contourEdge(side: 'E' | 'S', zoom = ZOOM): Coord {
+        const mid = Math.floor(zoom / 2);
+        return side === 'E'
+            ? { x: LOW.x * zoom + zoom - CONTOUR_WIDTH_PX, y: LOW.y * zoom + mid }
+            : { x: LOW.x * zoom + mid, y: LOW.y * zoom + zoom - CONTOUR_WIDTH_PX };
+    }
+
+    function parseRgba(value: string): readonly [number, number, number, number] {
+        const match = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/.exec(value);
+        if (match === null) {
+            throw new Error(`not an rgba() colour: ${value}`);
+        }
+        return [Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4])];
+    }
+
+    function inkOver(face: readonly [number, number, number]): readonly [number, number, number] {
+        const [red, green, blue, alpha] = parseRgba(CONTOUR_COLOR);
+        const channel = (value: number, ink: number): number => Math.round(value * (1 - alpha) + ink * alpha);
+        return [channel(face[0], red), channel(face[1], green), channel(face[2], blue)];
+    }
+
+    test('the fixture coordinate carries no grain offset', () => {
+        expect(grainOffsetIndex(LOW)).toBe(0);
+    });
+
+    test.each([32, 96])('one pixel on the level-crossing edge at %i px, none inside a band', (zoom) => {
+        expect(CONTOUR_WIDTH_PX).toBe(1);
+
+        for (const side of ['E', 'S'] as const) {
+            const painted = paintFixture(pairView(100, 130, side, zoom));
+            const control = paintFixture(pairView(100, 130, side, zoom), { surface: false });
+            const edge = contourEdge(side, zoom);
+            expect(contourCrosses(100, 130), `${side} crosses`).toBe(true);
+            expect(samePixels(pixelAt(painted, edge), pixelAt(control, edge)), `${side} contour`).toBe(false);
+
+            const inside = side === 'E' ? { x: edge.x - 1, y: edge.y } : { x: edge.x, y: edge.y - 1 };
+            expect(samePixels(pixelAt(painted, inside), pixelAt(control, inside)), `${side} inside`).toBe(true);
+
+            // Same cells, same side: no line inside one band.
+            const inBand = paintFixture(pairView(100, 110, side, zoom));
+            const inBandControl = paintFixture(pairView(100, 110, side, zoom), { surface: false });
+            expect(contourCrosses(100, 110)).toBe(false);
+            expect(samePixels(pixelAt(inBand, edge), pixelAt(inBandControl, edge)), `${side} in band`).toBe(true);
+        }
+    });
+
+    test('every biome zone carries contours, not just zones 2–3', () => {
+        const pairs: readonly (readonly [number, number, number])[] = [
+            [0, 32, 64],
+            [1, 100, 130],
+            [2, 161, 193],
+            [3, 220, 240],
+        ];
+        for (const [zone, own, neighbour] of pairs) {
+            expect(landBandIndex(own), `zone ${zone} own`).toBe(zone);
+            expect(landBandIndex(neighbour), `zone ${zone} neighbour`).toBe(zone);
+            expect(contourCrosses(own, neighbour), `zone ${zone} crosses`).toBe(true);
+
+            const painted = paintFixture(pairView(own, neighbour));
+            const control = paintFixture(pairView(own, neighbour), { surface: false });
+            expect(
+                samePixels(pixelAt(painted, contourEdge('E')), pixelAt(control, contourEdge('E'))),
+                `zone ${zone}`,
+            ).toBe(false);
+        }
+    });
+
+    test('no contour against water, an absent cell, or the board edge', () => {
+        // Water: neither elevation nor the water cell's presence paints a
+        // line, so both water values leave LOW's tile byte-identical.
+        const waterTile = (elevation: number): Pixel => {
+            const view = mapViewOf([landCell(LOW, 100), waterCell(EAST, elevation)], BOARD, ZOOM);
+            return new Uint8ClampedArray(paintFixture(view).getImageData(LOW.x * ZOOM, LOW.y * ZOOM, ZOOM, ZOOM).data);
+        };
+        expect(samePixels(waterTile(0), waterTile(255))).toBe(true);
+
+        // Absent (fog-hidden): LOW's tile is the 018 control's tile.
+        const alone = paintFixture(mapViewOf([landCell(LOW, 100)], BOARD, ZOOM));
+        const aloneControl = paintFixture(mapViewOf([landCell(LOW, 100)], BOARD, ZOOM), { surface: false });
+        const tileOf = (ctx: CanvasRenderingContext2D, coord: Coord): Pixel =>
+            new Uint8ClampedArray(ctx.getImageData(coord.x * ZOOM, coord.y * ZOOM, ZOOM, ZOOM).data);
+        expect(samePixels(tileOf(alone, LOW), tileOf(aloneControl, LOW))).toBe(true);
+
+        // Off-board: (7,6) has grain 0 and sits on the E edge, so its tile
+        // is the control's tile even though a neighbouring W cell crosses
+        // a level (and owns a line on its own side).
+        const edgeTile: Coord = { x: BOARD - 1, y: 6 };
+        expect(grainOffsetIndex(edgeTile)).toBe(0);
+        const edgeView = (): MapView =>
+            mapViewOf([landCell({ x: edgeTile.x - 1, y: edgeTile.y }, 100), landCell(edgeTile, 128)], BOARD, ZOOM);
+        expect(contourCrosses(128, 100)).toBe(true);
+        expect(
+            samePixels(
+                tileOf(paintFixture(edgeView()), edgeTile),
+                tileOf(paintFixture(edgeView(), { surface: false }), edgeTile),
+            ),
+        ).toBe(true);
+    });
+
+    test('a relief bevel paints over the contour it meets', () => {
+        // LOW 140 over its E neighbour 100: a level crosses the edge and LOW
+        // is higher, so the shaded E bevel covers the contour's column.
+        const view = pairView(140, 100);
+        expect(contourCrosses(140, 100)).toBe(true);
+        const relief = paintFixture(view);
+        const reliefOff = paintFixture(view, { relief: false });
+        const faceOnly = paintFixture(view, { relief: false, surface: false });
+        const edge = contourEdge('E');
+
+        expect(closeTo(pixelAt(relief, edge), hexToRgb(reliefToneColours(landBandColor(1)).shaded[2])), 'bevel').toBe(
+            true,
+        );
+        expect(samePixels(pixelAt(reliefOff, edge), pixelAt(faceOnly, edge)), 'contour beneath the bevel').toBe(false);
+    });
+
+    test('the zone seam wins where a contour and a seam share an edge', () => {
+        // Zone 0 at 60 and zone 1 at 100: a level crosses AND the zones
+        // differ, so the seam's opaque column paints last.
+        const view = mapViewOf([landCell(LOW, 60), landCell(EAST, 100)], BOARD, ZOOM);
+        expect(contourCrosses(60, 100)).toBe(true);
+        expect(landBandIndex(60)).not.toBe(landBandIndex(100));
+        expect(closeTo(pixelAt(paintFixture(view), contourEdge('E')), hexToRgb(SEAM_COLOR)), 'seam').toBe(true);
+    });
+
+    test('the contour ink stays under the zone seam’s weight on every face', () => {
+        const ratios: string[] = [];
+        for (const [own, neighbour] of [
+            [32, 64],
+            [100, 130],
+            [161, 193],
+            [220, 240],
+        ] as const) {
+            const edge = contourEdge('E');
+            const ink = pixelAt(paintFixture(pairView(own, neighbour)), edge);
+            const face = pixelAt(paintFixture(pairView(own, neighbour), { surface: false }), edge);
+            const ratio = contrastBetween(rgbOf(ink), rgbOf(face));
+            ratios.push(`zone ${landBandIndex(own)} ${ratio.toFixed(3)}`);
+            expect(ratio, `own ${own} under the seam`).toBeLessThan(CONTOUR_CEILING);
+            expect(ratio, `own ${own} still visible`).toBeGreaterThan(1.05);
+            expect(closeTo(ink, inkOver(rgbOf(face)), 2), `own ${own} ink`).toBe(true);
+        }
+        console.warn(`[surface] contour ink ratios: ${ratios.join(', ')}`);
+    });
+
+    test('elevation bands are a pure function of the 28-level interval', () => {
+        expect(elevationBand(0)).toBe(0);
+        expect(elevationBand(27)).toBe(0);
+        expect(elevationBand(28)).toBe(1);
+        expect(elevationBand(255)).toBe(Math.floor(255 / 28));
     });
 });
 

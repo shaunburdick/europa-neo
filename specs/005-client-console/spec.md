@@ -505,8 +505,8 @@ suite result. Coverage remains gated at ≥80% on every metric.
 - **Absorbed feature 024 (biome-based terrain shading, issue #148/#149) — canvas/console**:
   - **024-FR-010**: Pipe triangles MUST gain a dark outline for visibility on all biomes.
   - **024-FR-011**: Land tiles MUST render biome-based gradients (4 zones).
-  - **024-FR-012**: Contour hints MUST render on zones 2–3 (`rgba(0,0,0,0.10)`).
-  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-001–FR-006, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST paint a face carrying a fixed decorative NW→SE gradient in their biome zone's configured midpoint colour (`LAND_FACE_GRADIENT_DELTA = −5` HSL lightness at the SE corner, hue and saturation kept; a function of zone, zoom and the cell's own grain offset — feature 018 FR-003 — never per-cell elevation or per-position lighting), and MUST render a bevel only on an edge where the tile is strictly higher than the adjacent *visible land* tile (feature 017): bevel width is 4 % / 7 % / 10 % of the cell for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+), capped at 10 %, and its tone is lit on north/west edges and shaded on south/east edges under one NW light, moving only the face's lightness while keeping its hue and saturation, with the tone ladder measured per biome zone on feature 017's reference fixture (`specs/017-terrain-relief-shading/spec.md` FR-006) against each tone's worst-case face stop. The face texture encodes no elevation — the bevels are the sole relief cue. An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), to a position outside the board, or to a same-height/higher tile MUST be neutral — no bevel and no synthesized neighbour elevation. Neutral still permits feature 018's fixed coastline band (`specs/018-board-surface/spec.md` FR-001) on a water-facing edge; it is elevation-independent and is not relief. `024-FR-011`'s biome-based gradient is that fixed per-zone face texture — its former per-tile elevation variation is retired, not the gradient itself; the zone 2–3 contour hints (`024-FR-012`) are unchanged.
+  - **024-FR-012 (amended by `specs/018-board-surface/spec.md` FR-004, issue #182)**: Contour hints MUST be elevation isolines, not a hatch: one 1 CSS px `contour-ink` line on every shared edge between two *visible land* cells whose elevations fall in different bands of a 28-level interval, in all four biome zones, painted before the relief bevels (a bevel owns every pixel it covers) and before the zone seam (which wins where the two coincide). No line is drawn against water, against a cell absent from the fog-filtered view, or off the board.
+  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-001–FR-006, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST paint a face carrying a fixed decorative NW→SE gradient in their biome zone's configured midpoint colour (`LAND_FACE_GRADIENT_DELTA = −5` HSL lightness at the SE corner, hue and saturation kept; a function of zone, zoom and the cell's own grain offset — feature 018 FR-003 — never per-cell elevation or per-position lighting), and MUST render a bevel only on an edge where the tile is strictly higher than the adjacent *visible land* tile (feature 017): bevel width is 4 % / 7 % / 10 % of the cell for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+), capped at 10 %, and its tone is lit on north/west edges and shaded on south/east edges under one NW light, moving only the face's lightness while keeping its hue and saturation, with the tone ladder measured per biome zone on feature 017's reference fixture (`specs/017-terrain-relief-shading/spec.md` FR-006) against each tone's worst-case face stop. The face texture encodes no elevation — the bevels are the sole relief cue. An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), to a position outside the board, or to a same-height/higher tile MUST be neutral — no bevel and no synthesized neighbour elevation. Neutral still permits feature 018's fixed coastline band (`specs/018-board-surface/spec.md` FR-001) on a water-facing edge; it is elevation-independent and is not relief. `024-FR-011`'s biome-based gradient is that fixed per-zone face texture — its former per-tile elevation variation is retired, not the gradient itself; the contour hints are feature 018 FR-004's elevation isolines.
   - **024-FR-014**: Pipe slope indicator colors MUST remain unchanged (#059669 downhill / #f59e0b flat / #dc2626 uphill / #9ca3af stalled).
   - **024-FR-020**: The DOM overlay MUST remain transparent (no background).
   - **024-FR-021**: `.europa-pipe` MUST apply `drop-shadow(0 0 1px rgba(0,0,0,0.7))`.
@@ -759,3 +759,19 @@ other requirement moves.
   (readback) and `tests/unit/render/surface.test.ts` (pure mappings); 017's
   relief suite stays green with its floors measured against the grain-shifted
   worst-case stop; `pnpm verify` green.
+
+### v1.18 (2026-10-21) — elevation contours replace the diagonal hatch (issue #182, feature 018 v1.2)
+
+Feature 018 (`specs/018-board-surface/spec.md` v1.2, amendment A-08) replaces
+the zone 2–3 contour hint with real elevation isolines. Only the absorbed
+`024-FR-012` text above and `024-FR-013`'s closing clause change in this file.
+
+- **Contours**: one 1 CSS px line of the new `contour-ink` token on a shared
+  edge between two visible land cells in different 28-level elevation bands,
+  all four zones, inside the lower-coordinate cell and painted before the
+  relief bevels. No line against water, a fog-absent cell, or off-board.
+- **Retired**: the `rgba(0, 0, 0, 0.10)` diagonals every 6 px on zones 2–3 —
+  a texture that stood in for a contour while covering the surface.
+- **Verification**: `packages/console/tests/component/render/surface.test.tsx`
+  (AC-006) and `tests/unit/render/surface.test.ts`; Q-P01 and the 017 relief
+  addition are unchanged, and 017 v1.14 restates its sampling exclusion.

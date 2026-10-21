@@ -33,6 +33,7 @@ import {
     CITY_COLOR,
     CITY_GLOW_STRONG_COLOR,
     COMBAT_EFFECT_COLOR,
+    CONTOUR_COLOR,
     FOCUS_RING_COLOR,
     GENERIC_EFFECT_COLOR,
     LAND_BAND_COUNT,
@@ -53,11 +54,14 @@ import {
     WATER_SHALLOW_COLOR,
     waterDepthForCell,
 } from './palette';
+
 import type { PipeSlope } from './pipe-slope';
 import { RELIEF_SIDES, reliefBandWidth, reliefSideIsLit, reliefStep, reliefToneColours } from './relief';
 import { type ReliefBand, reliefGeometry } from './relief-caps';
 import {
+    CONTOUR_WIDTH_PX,
     coastBandWidth,
+    contourCrosses,
     grainOffsetIndex,
     LAND_FACE_GRAIN_OFFSETS,
     landFaceGrainOffset,
@@ -367,13 +371,18 @@ export class MapCanvas {
             ctx.fill();
         }
 
-        // Sub-pass 1c2: coastline bands (018 FR-001). A band exists only
-        // where the neighbour is present and water; 1d paints its bevels
-        // after this, so a bevel wins at a shared corner without clipping
-        // geometry.
+        // Sub-pass 1c2: coastline bands (018 FR-001) and elevation
+        // contours (018 FR-004). One visitor per land tile already pays a
+        // neighbour lookup per side for the coast, so the contour joins
+        // that loop instead of walking the cells again. A coast needs a
+        // present water neighbour, a contour a present land neighbour, so
+        // the two never mark the same edge. Only E and S are tested for
+        // contours so each edge is visited once. 1d paints its bevels
+        // after this pass, so a bevel covers a contour where the two meet.
         if (surface) {
             const coastRuns = new Map<string, number[]>();
             const coastTones = new Map<number, ReturnType<typeof reliefToneColours>>();
+            const contours: number[] = [];
             const bandWidth = coastBandWidth(zoom);
             for (const info of mapView.cells.values()) {
                 if (info.terrain !== 'land') continue;
@@ -389,7 +398,17 @@ export class MapCanvas {
                     const dst = destinationCoord(info.coord, side);
                     if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
                     const neighbour = mapView.cells.get(coordKey(dst));
-                    if (neighbour === undefined || neighbour.terrain !== 'water') continue;
+                    if (neighbour === undefined) continue;
+                    if (neighbour.terrain === 'land') {
+                        if (side !== 'E' && side !== 'S') continue;
+                        if (!contourCrosses(info.elevation, neighbour.elevation)) continue;
+                        if (side === 'E') {
+                            contours.push(x + zoom - CONTOUR_WIDTH_PX, y, CONTOUR_WIDTH_PX, zoom);
+                        } else {
+                            contours.push(x, y + zoom - CONTOUR_WIDTH_PX, zoom, CONTOUR_WIDTH_PX);
+                        }
+                        continue;
+                    }
                     const colour = reliefSideIsLit(side) ? tones.lit[0] : tones.shaded[0];
                     const run = coastRuns.get(colour) ?? [];
                     switch (side) {
@@ -408,6 +427,21 @@ export class MapCanvas {
                     }
                     coastRuns.set(colour, run);
                 }
+            }
+            // The coast band is opaque and the contour is 20 % ink, so
+            // the coast goes on top where a shared corner ever overlaps.
+            if (contours.length > 0) {
+                ctx.fillStyle = CONTOUR_COLOR;
+                ctx.beginPath();
+                for (let index = 0; index < contours.length; index += 4) {
+                    ctx.rect(
+                        contours[index] ?? 0,
+                        contours[index + 1] ?? 0,
+                        contours[index + 2] ?? 0,
+                        contours[index + 3] ?? 0,
+                    );
+                }
+                ctx.fill();
             }
             fillBuckets(ctx, coastRuns, 4);
         }
@@ -479,27 +513,6 @@ export class MapCanvas {
             fillBuckets(ctx, geometry.bodies, 4);
             fillBuckets(ctx, geometry.tapers, 6);
         }
-
-        // Sub-pass 1e: batched contour hints — ALL contour diagonal lines
-        // collected into a single path and stroked once (was hundreds of
-        // individual strokes). Zone ≥ 2 only (Rocky Outcrops + Peaks).
-        const contourStep = 6;
-        // design-exception: canvas fallback
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const zone = landBandIndex(info.elevation);
-            if (zone < 2) continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            for (let offset = -zoom; offset < zoom * 2; offset += contourStep) {
-                ctx.moveTo(x + offset, y);
-                ctx.lineTo(x + offset + zoom, y + zoom);
-            }
-        }
-        ctx.stroke();
 
         // Sub-pass 1e2: zone seams (018 FR-002). One CSS pixel on the
         // shared edge of two visible land cells in different zones,

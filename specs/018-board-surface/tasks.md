@@ -1,6 +1,6 @@
-# Tasks: Board Surface Treatment (Coastline, Zone Seams, Tile Grain)
+# Tasks: Board Surface Treatment (Coastline, Zone Seams, Tile Grain, Elevation Contours)
 
-**Spec**: `specs/018-board-surface/spec.md` v1.0 · **Plan**: `plan.md` · **Branch**: `issue-182-tile-shading`
+**Spec**: `specs/018-board-surface/spec.md` v1.2 · **Plan**: `plan.md` · **Branch**: `issue-182-tile-shading`
 
 ## Progress
 
@@ -16,6 +16,11 @@
 - [x] T-010 `DESIGN.md`, `AGENTS.md`
 - [x] T-011 Perf measurement: Q-P01 and Q-P05, on and off
 - [x] T-012 Live screenshots at 32/74/96 px + 3× crops; verify tail
+- [x] T-013 Contour mapping + `contour-ink` token (FR-004, v1.2)
+- [x] T-014 Contour pass in 1c2; retire the 1e hatch
+- [x] T-015 Unit and readback coverage (AC-006, AC-007)
+- [x] T-016 v1.2 docs: spec, plan, 017/005 amendments, DESIGN, manual, AGENTS
+- [x] T-017 Interval measurement, before/after screenshots, perf and verify tail
 
 ## Evidence (2026-10-20)
 
@@ -38,6 +43,36 @@ than symmetric. A positive offset breaks 017 FR-006's Peaks lit floor (1.220 →
 1.163 at +2), and 018's non-goals forbid changing the relief contract. FR-003, AC-004 and the
 Decisions Taken block now state the 0 to −2 range and this rationale; the code is unchanged.
 Reported to the dispatcher at T-001.
+
+## Evidence (2026-10-21, v1.2 — elevation contours)
+
+- **Interval.** Measured on 50 generated boards (`@europa/terrain`, sizes 32 and 48, 25 seeds
+  each, 142,940 land–land edges, elevations 87–206): 28 levels crosses **18.4 %** of land–land
+  edges — 0.35 lines per land tile, one line every ~2.9 tiles, 30 % of tiles touching one,
+  3–5 bands per board. 24 → 20.9 % (0.40/tile), 32 → 15.3 %, 40 → 13.4 %, the retired 8-level
+  hatch ≈ 55.3 % (1.05/tile). 32 was rejected because a level lands on 160, the zone 1/2 cut:
+  **17.7 %** of its lines were hidden by the opaque seam; at 28 that share is **1.3 %**, at 36
+  0.1 %. Chosen: **28 levels**.
+- **Tone.** `contour-ink` = `rgba(0, 0, 0, 0.2)` (new token). Measured on the rendered composite
+  against the face stops the line crosses: zone 0 **1.395**, zone 1 **1.392**, zone 2 **1.346**,
+  zone 3 **1.588** — all under the seam's 1.634:1 worst case, so the seam stays the strongest
+  hairline. It also retires the `rgba(0, 0, 0, 0.10)` hatch literal, dropping `DESIGN.md` § 4.4's
+  canvas-fallback exceptions from four to three.
+- **Layering, verified in code and pixels.** Contours paint in 1c2 (before 1d): on a crossing
+  edge where the tile is also higher, the column reads the bevel tone and the contour is visible
+  only with `relief: false`. The seam (1e2) wins where the two coincide: the column reads
+  `#9ca3af`, one line. No second walk of the cells — the pass shares 1c2's neighbour lookups.
+- **Perf.** Q-P01 **4.0–4.1 ms** (budget 8) with the contour pass and **4.1 ms** with it removed on
+  the same harness — no measurable cost. Q-P05 relief-on 6.6–6.9 ms, relief-off 1.8 ms,
+  addition **5.0 ms** (bound 6).
+- **Screenshots.** `__screenshots__/contour-{before,after}-96.png` and
+  `contour-{before,after}-32.png`, painted by the real `MapCanvas` from one generated 32×32 board
+  (seed `3576916120`) at 96 px (8×8 window centred on cell (22,6): 32 of 37 crossing edges
+  visible, 39 % zone 2–3) and at 32 px (whole board). The "before" shots are the `a78ff0d`
+  painter (diagonal hatch); the "after" shots are this change.
+- **Verify tail:** `bash scripts/verify.sh` green (exit 0): all 13 phases, console node
+  1,057 tests / browser component 315 / a11y 74, perf 4, determinism 1, E2E 60, plus the
+design package's 381 and the spec/documentation guards.
 
 ## Tasks
 
@@ -97,3 +132,34 @@ no manual or overlay change (018 is not gameplay).
 
 Run `test:perf` before/after (Q-P01, Q-P05 addition) and `pnpm verify`; capture a live 32×32
 match at 32, 74 and 96 px plus 3× crops of a coastline and a seam in `__screenshots__/`.
+
+### T-013 — Contour mapping and token
+
+`surface.ts`: `CONTOUR_INTERVAL = 28`, `CONTOUR_WIDTH_PX = 1`, `elevationBand`, `contourCrosses`.
+`packages/design/src/tokens.ts`: `contourInk = rgba(0, 0, 0, 0.2)`; palette re-exports
+`CONTOUR_COLOR`. Rebuild the design package so the vendored `design.css` copies and the
+`--europa-color-contour-ink` variable stay byte-identical (G-05).
+
+### T-014 — Contour pass in 1c2, hatch retired
+
+The coast loop already pays one neighbour lookup per land side; a present land neighbour now
+also feeds `contourCrosses`, and a crossing E or S edge pushes one rect on the lower-coordinate
+cell's side. One path, one fill, all four zones, before 1d so a bevel owns every pixel it
+covers. Sub-pass 1e (the diagonal hatch, its `design-exception` marker and its literal) is
+deleted.
+
+### T-015 — Tests
+
+Unit: interval/band mapping and the 20 % ink token. Readback (AC-006): one CSS px on a crossing
+edge at 32 and 96 px, none inside a band, all four zones, silence against water / absent /
+off-board, bevel-over-contour and seam-over-contour layering, ink 1.05:1–1.6:1 against each face
+stop. The AC-002 coast fixture moves from 140/130 to 160/150 so no level crosses it (it was
+isolating the coast band against the 018 control).
+
+### T-016 / T-017 — Docs and evidence
+
+018 v1.2 (FR-004, AC-006/AC-007, decisions, A-06–A-09), `plan.md` D8, 017 v1.14 (FR-005,
+FR-006 sampling, AC-005), 005 `024-FR-012` + changelog block, `DESIGN.md` § 1.1 / N-6 / § 4.4,
+the manual's board page, `AGENTS.md`. Evidence: the measured interval/crossing distribution,
+the ink ratios, Q-P01 with and without the pass, and the before/after 96 px and 32 px crops in
+`__screenshots__/`.

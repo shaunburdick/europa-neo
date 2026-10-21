@@ -101,6 +101,14 @@ export const RELIEF_SHADOW_COLOR = TOKENS.color.reliefShadow;
  */
 export const SEAM_COLOR = TOKENS.color.textMuted;
 
+/**
+ * Elevation-contour isoline (spec 018 FR-004) — neutral black at 20 %.
+ * Measured 1.346:1 to 1.588:1 against the face stops it crosses, under
+ * the zone seam's 1.634:1 worst case: a third hairline weight that never
+ * outranks the seam, and one the relief bevels cover where they meet.
+ */
+export const CONTOUR_COLOR = TOKENS.color.contourInk;
+
 /** Water shallow variant (design token). */
 export const WATER_SHALLOW_COLOR = TOKENS.color.waterShallow;
 

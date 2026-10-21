@@ -66,6 +66,11 @@ export const TOKENS = {
         cityGlow: '#ff6b6b',
         cityGlowStrong: '#ff4444',
         combatEffect: 'rgba(239, 68, 68, 0.55)',
+        // Elevation-contour isoline (spec 018 FR-004). Neutral black at 20 %:
+        // 1.346:1 to 1.588:1 against the face stops it crosses, below the zone
+        // seam's 1.634:1 floor, so the seam stays the strongest hairline on the
+        // board.
+        contourInk: 'rgba(0, 0, 0, 0.2)',
         divider: '#374151',
         // Semantic state colors — dark-theme values for success/warning/error/info.
         // Each state has a base fill, bg, border, hover, and active variant.  Sourced

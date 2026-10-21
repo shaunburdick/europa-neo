@@ -53,6 +53,7 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `chip-text` | `--europa-color-chip-text` | `TOKENS.color.chipText` | `#f9fafb` | On `chip-bg` `#111827` = ≈ 16.98:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `city` | `--europa-color-city` | `TOKENS.color.city` | `#fbbf24` | On `surface` ≈ 10.63:1 — AA 1.4.3 normal (≥ 4.5:1): meets; on `page-bg` ≈ 11.47:1 |
 | `combat-effect` | `--europa-color-combat-effect` | `TOKENS.color.combatEffect` | `rgba(239, 68, 68, 0.55)` | Canvas combat flash over `void-bg`/terrain — non-text; redundantly encoded by the event feed (not color alone) |
+| `contour-ink` | `--europa-color-contour-ink` | `TOKENS.color.contourInk` | `rgba(0, 0, 0, 0.2)` | Canvas-only elevation-contour line (spec 018 FR-004): one CSS px on a shared edge whose two visible land cells fall in different 28-level elevation bands. Measured against the face stops it crosses: 1.346 (zone 2) to 1.588 (Peaks) — below the zone seam's 1.634:1 worst case, so the seam stays the strongest hairline; the bevels stay the primary relief cue by width and paint order. See N-6 |
 | `error` | `--europa-color-error` | `TOKENS.color.error` | `#dc6966` | `surface` `#111827` on this fill ≈ 5.28:1 — AA 1.4.3 normal (≥ 4.5:1): meets. Semantic error state fill for buttons/indicators |
 | `error-active` | `--europa-color-error-active` | `TOKENS.color.errorActive` | `#ad5553` | Pressed state for error buttons — bg/border use only, not a text pairing target |
 | `error-bg` | `--europa-color-error-bg` | `TOKENS.color.errorBg` | `#32191a` | Error background surface (panels, cards) — very low contrast with `surface` ≈ 1.09:1; non-text fill only |
@@ -683,7 +684,8 @@ relief paints to be a token, and G-04 would *not* have required them — its pat
 guard with the tokens or delete them as duplicates.
 
 **N-6 — Board surface treatment (canvas-painted, decorative).** Feature 018
-(`specs/018-board-surface/spec.md`) adds three marks that carry no state:
+(`specs/018-board-surface/spec.md` v1.2) adds four marks that carry no state of
+their own:
 
 - **Coastline band** — on a land tile's side whose neighbour is a *visible water*
   cell, a band 4 % of the cell wide inside the tile's own rect, in feature 017's
@@ -701,15 +703,25 @@ guard with the tokens or delete them as duplicates.
   any positive shift drops it below 1.2:1; the four values keep that floor and
   stay within the 0 to −2 range. Never disabled by reduced motion or 017's
   relief flag: it is surface, not relief.
+- **Elevation contour** — one 1 CSS px line of `contour-ink` (§ 1.1) on every
+  shared edge between two visible land cells whose elevations fall in different
+  28-level bands, in all four zones, inside the lower-coordinate cell. It
+  replaces sub-pass 1e's diagonal hatch (`rgba(0, 0, 0, 0.10)` every 6 px,
+  zones 2–3). The interval comes from 142,940 measured land–land edges: 28 levels
+  crosses 18.4 % of them (0.35 lines per tile), and no level lands on a zone
+  threshold — at 32 a level sat on 160, where 17.7 % of lines were hidden by the
+  seam. It paints before the bevels, so a bevel owns every pixel it covers, and
+  before the seam, which wins where the two coincide. Its 1.346–1.588:1 range
+  keeps it under the seam's 1.634:1 worst case.
 
-What asserts all three is the 018 readback suite,
+What asserts all four is the 018 readback suite,
 `packages/console/tests/component/render/surface.test.tsx`, with
 `packages/console/tests/unit/render/surface.test.ts` pinning the pure mappings.
-The seam and coast pairings have **no § 3 row** for N-5's reason — an
+The seam, coast and contour pairings have **no § 3 row** for N-5's reason — an
 orientation-stepped canvas mark cannot be one measured CSS pairing — and G-07 is
-deferred (spec 012 Scope Note). None of the three adds a canvas literal: the
-coast reuses 017's computed tones, the seam is a token, and the grain shifts the
-token-derived face stops.
+deferred (spec 012 Scope Note). None of the four adds a canvas literal: the
+coast reuses 017's computed tones, the seam and the contour are tokens, and the
+grain shifts the token-derived face stops.
 
 **Motion (WCAG 2.3.3).** Decorative animation is gated twice: the stylesheet's
 `@media (prefers-reduced-motion: reduce)` block collapses animation and transition durations globally,
@@ -774,22 +786,20 @@ must flag the absence.
 
 ### 4.4 Documented exceptions
 
-Four line-scoped `design-exception: canvas fallback` markers, each a Canvas paint call that cannot read
+Three line-scoped `design-exception: canvas fallback` markers, each a Canvas paint call that cannot read
 a CSS custom property synchronously (§ 4.1). The count is the invariant; the line numbers are those of
 this version and nothing guards them, so re-locate the markers with the searchable marker string
 `design-exception: canvas fallback` in this file if a refactor moves them:
 
-- `packages/console/src/render/canvas.ts:318` — sub-pass 1b's batched water-wave stroke
-  (`rgba(255, 255, 255, 0.04)` on `:319`).
-- `packages/console/src/render/canvas.ts:469` — sub-pass 1e's zone 2–3 contour stroke
-  (`rgba(0, 0, 0, 0.10)` on `:470`; absorbed `024-FR-012`).
-- `packages/console/src/render/canvas.ts:537` — the city-glow gradient's transparent stop
-  (`rgba(255, 68, 68, 0)` on `:538`).
-- `packages/console/src/render/canvas.ts:594` — the hover-highlight fill
-  (`rgba(255,255,255,0.45)` on `:595`).
+- `packages/console/src/render/canvas.ts:324` — sub-pass 1b's batched water-wave stroke
+  (`rgba(255, 255, 255, 0.04)` on `:325`).
+- `packages/console/src/render/canvas.ts:568` — the city-glow gradient's transparent stop
+  (`rgba(255, 68, 68, 0)` on `:569`).
+- `packages/console/src/render/canvas.ts:625` — the hover-highlight fill
+  (`rgba(255,255,255,0.45)` on `:626`).
 
 Feature 017 retired the two sub-pass 1d inner-shadow markers this section used to list with their
-`rgba(0, 0, 0, 0.25)` / `rgba(255, 255, 255, 0.15)` fills, and adds none: relief's bevel tones are computed `#rrggbb` values assembled from token colours, and the face texture's two stops are the token colour and its `adjustBrightness` variant, none of which G-04's patterns match (note N-5). Feature 018 adds none either: its coast reuses 017's computed tones, its seam is a token and its grain shifts the token-derived face stops.
+`rgba(0, 0, 0, 0.25)` / `rgba(255, 255, 255, 0.15)` fills, and adds none: relief's bevel tones are computed `#rrggbb` values assembled from token colours, and the face texture's two stops are the token colour and its `adjustBrightness` variant, none of which G-04's patterns match (note N-5). Feature 018 adds none either — its coast reuses 017's computed tones, its seam and contour are tokens, and its grain shifts the token-derived face stops — and its v1.2 contours **retired** the fourth marker, sub-pass 1e's `rgba(0, 0, 0, 0.10)` diagonal-hatch stroke.
 
 ---
 
