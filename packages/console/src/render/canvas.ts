@@ -103,8 +103,10 @@ function fillBuckets(
         ctx.fillStyle = colour;
         ctx.beginPath();
         for (let index = 0; index < run.length; index += stride) {
-            // Axis-aligned rects are the common case; `rect()` is far
-            // cheaper than four line segments, so detect both forms.
+            // Stride 4 is a rectangle primitive (x, y, w, h). Stride 8 may be
+            // an axis-aligned point rect; `rect()` emits the same positive
+            // winding as every band polygon, so the nonzero fill cannot
+            // cancel at a same-tone S/E corner.
             if (stride === 4) {
                 ctx.rect(run[index] ?? 0, run[index + 1] ?? 0, run[index + 2] ?? 0, run[index + 3] ?? 0);
                 continue;

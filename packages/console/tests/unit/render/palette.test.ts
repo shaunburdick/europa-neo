@@ -24,7 +24,9 @@ import {
     biomeZoneForElevation,
     LAND_BAND_COUNT,
     LAND_BAND_LIGHTNESS,
+    LAND_FACE_GRADIENT_DELTA,
     landBandColor,
+    landBandColorWithLightness,
     landBandIndex,
     PAGE_BACKGROUND_COLOR,
     PIPE_OUTLINE_COLOR,
@@ -34,6 +36,7 @@ import {
     waterDepthColor,
     waterDepthForCell,
 } from '../../../src/render/palette';
+import { reliefToneColours } from '../../../src/render/relief';
 
 /** Parse `hsl(H, S%, L%)` (the format terrainColor/landBandColor emit). */
 function parseHsl(color: string): { hue: number; sat: number; light: number } {
@@ -132,6 +135,23 @@ function zoneMidpointLightness(zone: BiomeZone): number {
 /** A zone's painted midpoint as sRGB bytes — the pipe rows' reference background. */
 function zoneMidpointRgb(zone: BiomeZone): [number, number, number] {
     return hslToRgb(zone.hue, zone.saturationPct, zoneMidpointLightness(zone));
+}
+
+/** One `hsl(H, S%, L%)` palette string as sRGB bytes. */
+function hslColourRgb(colour: string): [number, number, number] {
+    const hsl = parseHsl(colour);
+    return hslToRgb(hsl.hue, hsl.sat, hsl.light);
+}
+
+/** sRGB bytes as `#rrggbb`. */
+function rgbHex([red, green, blue]: readonly [number, number, number]): string {
+    const channel = (value: number): string => value.toString(16).padStart(2, '0');
+    return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
+/** One zone's face-texture NW stop (`shift` 0) or SE stop (the gradient delta). */
+function zoneStopRgb(zone: number, shift: number): [number, number, number] {
+    return hslColourRgb(landBandColorWithLightness(zone, shift));
 }
 
 /** Hue of a `#rrggbb` token colour in degrees. */
@@ -528,21 +548,62 @@ describe('documented terrain contrast figures (A-03 sweep)', () => {
     });
 
     test('N-3 water and darkest painted face figures', () => {
-        // Sub-pass 1c paints the flat midpoint only; the retired gradient's
-        // L=26 shade is no longer painted (017 v1.9 FR-005).
         const zone1 = TOKENS.color.biomeZones[1];
-        expect(rounded(ratio(zoneMidpointRgb(zone1), voidRgb), 2), 'zone 1 flat face (L=33) vs void-bg').toBe(3.43);
+        // Sub-pass 1c paints the zone midpoint to midpoint − 5 (017 v1.11
+        // FR-005): zone 1's L=33 NW stop and L=28 SE stop.
+        expect(rounded(ratio(zoneMidpointRgb(zone1), voidRgb), 2), 'zone 1 NW stop (L=33) vs void-bg').toBe(3.43);
+        expect(
+            rounded(ratio(zoneStopRgb(1, LAND_FACE_GRADIENT_DELTA), voidRgb), 2),
+            'zone 1 SE stop (L=28) vs void-bg',
+        ).toBe(2.66);
     });
 
     test('the § 3 Peaks ceiling row states which shade it measures', () => {
         expect(rounded(ratio(PEAKS_CEILING_RGB, voidRgb), 2), 'shipped Peaks ceiling (L=95) vs void-bg').toBe(14.26);
-        expect(rounded(ratio(peaksLightEndRgb, voidRgb), 2), 'painted flat Peaks face (L=88) vs void-bg').toBe(12.16);
+        expect(rounded(ratio(peaksLightEndRgb, voidRgb), 2), 'painted Peaks NW stop (L=88) vs void-bg').toBe(12.16);
+        expect(
+            rounded(ratio(zoneStopRgb(3, LAND_FACE_GRADIENT_DELTA), voidRgb), 2),
+            'painted Peaks SE stop (L=83) vs void-bg',
+        ).toBe(10.77);
+    });
+
+    test('N-5 relief bevel figures and the Δ1 tone colours', () => {
+        const tones = [0, 1, 2, 3].map((zone) => reliefToneColours(landBandColor(zone)));
+        const faces = [0, 1, 2, 3].map((zone) => rgbHex(zoneStopRgb(zone, 0)));
+        const lightStops = [0, 1, 2, 3].map((zone) => zoneStopRgb(zone, 0));
+        const darkStops = [0, 1, 2, 3].map((zone) => zoneStopRgb(zone, LAND_FACE_GRADIENT_DELTA));
+
+        // The eight Δ1 tone hexes pin hue and saturation, which a contrast
+        // floor alone cannot (a mix toward #ffffff would still pass).
+        expect(faces).toEqual(['#2873bd', '#268273', '#8e5c29', '#dce2e5']);
+        expect(tones.map((entry) => entry.lit[0])).toEqual(['#c3dbf2', '#baebe3', '#ecd5bd', '#f6f7f8']);
+        expect(tones.map((entry) => entry.shaded[0])).toEqual(['#184572', '#174e45', '#553719', '#758d99']);
+
+        const stopContrast = lightStops.map((stop, zone) => {
+            const dark = darkStops[zone];
+            if (dark === undefined) throw new Error(`missing dark stop for zone ${zone}`);
+            return rounded(ratio(stop, dark), 3);
+        });
+        expect(stopContrast, 'face stop-to-stop contrast by zone').toEqual([1.208, 1.288, 1.243, 1.128]);
+        const shadedContrast = tones.map((entry, zone) => {
+            const dark = darkStops[zone];
+            if (dark === undefined) throw new Error(`missing dark stop for zone ${zone}`);
+            return rounded(ratio(hexToRgb(entry.shaded[0]), dark), 3);
+        });
+        expect(shadedContrast, 'shaded Δ1 bevel against the darkest stop by zone').toEqual([1.66, 1.587, 1.534, 2.361]);
+
+        const peaksTones = reliefToneColours(landBandColor(3));
+        const peaksLight = zoneStopRgb(3, 0);
+        expect(rounded(ratio(hexToRgb(peaksTones.lit[0]), peaksLight), 3), 'Peaks lit/lightest stop').toBe(1.22);
+        expect(rounded(ratio(hexToRgb(peaksTones.lit[0]), hexToRgb(peaksTones.shaded[0])), 3), 'Peaks lit/shaded').toBe(
+            3.249,
+        );
     });
 
     test('the pipe outline against the painted land range', () => {
         expect(
             rounded(compositedRatio(TOKENS.color.pipeOutline, peaksLightEndRgb), 2),
-            'outline over the lightest painted land tile (Peaks flat face, L=88)',
+            'outline over the lightest painted land tile (Peaks NW stop, L=88)',
         ).toBe(7.49);
         expect(
             DARK_ZONES.map((zone) => rounded(compositedRatio(TOKENS.color.pipeOutline, zoneMidpointRgb(zone)), 2)),

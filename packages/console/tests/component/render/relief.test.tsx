@@ -25,15 +25,15 @@ import {
 import {
     RELIEF_SIDES,
     type ReliefSide,
-    relativeLuminance,
     reliefBandWidth,
     reliefSideIsLit,
     reliefStep,
     reliefToneColours,
 } from '../../../src/render/relief';
-import { coastBandWidth, LAND_FACE_GRAIN_OFFSETS } from '../../../src/render/surface';
+import { coastBandWidth, grainOffsetIndex, LAND_FACE_GRAIN_OFFSETS } from '../../../src/render/surface';
 import { coordKey } from '../../../src/state/build-map-view';
 import type { CellRenderInfo, Coord, MapView, MapViewId } from '../../../src/state/types';
+import { relativeLuminance } from '../../fixtures/contrast';
 
 // ---------------------------------------------------------------------------
 // Fixture construction and readback helpers
@@ -54,7 +54,7 @@ const TOLERANCE = 4;
 /** FR-006's lit/shaded floor, asserted at its stated value. */
 const BAND_TO_BAND_FLOOR = 3;
 
-/** FR-006's per-band floor against the flat face, asserted at its stated value. */
+/** FR-006's per-band floor against the face texture, asserted at its stated value. */
 const FACE_FLOOR = 1.2;
 
 /** The centre tile of the small fixtures. */
@@ -346,16 +346,23 @@ function fourLowerNeighbours(own: number, neighbour: number, zoom = ZOOM): MapVi
     );
 }
 
+/**
+ * A tile whose grain offset is zero: the texture's lightest case.
+ * `GRAIN_DARK` carries the minimum offset, so its SE stop is the darkest.
+ */
+const GRAIN_ZERO: Coord = { x: 2, y: 2 };
+const GRAIN_DARK: Coord = { x: 6, y: 2 };
+
 /** One zone's reference fixture: own at the zone ceiling, W/E neighbours one lower. */
-function zoneReferenceView(zone: number): MapView {
+function zoneReferenceView(zone: number, centre: Coord = CENTRE): MapView {
     const own = BIOME_ZONES[zone]?.elevationMax ?? 255;
     return mapViewOf(
         [
-            landCell({ x: CENTRE.x - 1, y: CENTRE.y }, own - 1),
-            landCell({ x: CENTRE.x + 1, y: CENTRE.y }, own - 1),
-            landCell(CENTRE, own),
+            landCell({ x: centre.x - 1, y: centre.y }, own - 1),
+            landCell({ x: centre.x + 1, y: centre.y }, own - 1),
+            landCell(centre, own),
         ],
-        SMALL_BOARD,
+        8,
         ZOOM,
     );
 }
@@ -619,32 +626,46 @@ describe('relief readback: face texture and confinement (AC-004, FR-005)', () =>
 
 describe('relief readback: per-zone tone floors (AC-005, FR-006)', () => {
     test('each zone paints a lit and a shaded bevel at Δ1, ≥ 3:1 apart and visible over its face texture', () => {
+        // The named worst case: grain offset 0 gives the lightest stop and
+        // the minimum offset the darkest. Both are read from a relief-free
+        // paint of the reference fixture, never recomputed (AC-005).
+        expect(grainOffsetIndex(GRAIN_ZERO)).toBe(0);
+        expect(LAND_FACE_GRAIN_OFFSETS[grainOffsetIndex(GRAIN_DARK)]).toBe(DARKEST_GRAIN);
         for (const zone of [0, 1, 2, 3]) {
-            const view = zoneReferenceView(zone);
-            const relief = paintFixture(view);
+            const litView = zoneReferenceView(zone, GRAIN_ZERO);
+            const relief = paintFixture(litView);
+            const lightControl = paintFixture(litView, { relief: false });
+            const darkControl = paintFixture(zoneReferenceView(zone, GRAIN_DARK), { relief: false });
             const own = BIOME_ZONES[zone]?.elevationMax ?? 255;
             const delta = 1;
             // W is lit, E is shaded; both sample points sit off the 1e
-            // contour lattice.
-            const lit = pixelAt(relief, bandSamplePoint(CENTRE, 'W', delta));
-            const shaded = pixelAt(relief, bandSamplePoint(CENTRE, 'E', delta));
-            // 018's grain shifts both stops; the worst case per tone is the
-            // lightest stop (offset 0) for lit and the darkest (min offset)
-            // for shaded (018 AC-006).
-            const lightStop = faceStops(zone).light;
-            const darkStop = faceStops(zone, DARKEST_GRAIN).dark;
+            // contour lattice. The bevel tone does not read grain.
+            const lit = pixelAt(relief, bandSamplePoint(GRAIN_ZERO, 'W', delta));
+            const shaded = pixelAt(relief, bandSamplePoint(GRAIN_ZERO, 'E', delta));
+            // Just inside each corner, off the 1e contour lattice: a pixel
+            // with x−y ≠ 0 (mod 6) misses every diagonal, whose offsets are
+            // multiples of 6 at zoom 96.
+            const lightStop = pixelAt(lightControl, { x: GRAIN_ZERO.x * ZOOM + 1, y: GRAIN_ZERO.y * ZOOM + 2 });
+            const darkStop = pixelAt(darkControl, {
+                x: GRAIN_DARK.x * ZOOM + ZOOM - 2,
+                y: GRAIN_DARK.y * ZOOM + ZOOM - 1,
+            });
             const label = `zone ${zone} (own ${own})`;
 
+            expect(closeTo(lightStop, hslToRgb(faceStops(zone).light)), `${label} NW stop sample`).toBe(true);
+            expect(closeTo(darkStop, hslToRgb(faceStops(zone, DARKEST_GRAIN).dark)), `${label} SE stop sample`).toBe(
+                true,
+            );
             expect(closeTo(lit, hexToRgb(toneOf(zone, delta, 'W'))), `${label} lit tone`).toBe(true);
             expect(closeTo(shaded, hexToRgb(toneOf(zone, delta, 'E'))), `${label} shaded tone`).toBe(true);
             expect(contrastOf(lit, shaded), `${label}: lit/shaded`).toBeGreaterThanOrEqual(BAND_TO_BAND_FLOOR);
             // Worst case per tone: a lit bevel is weakest against the
             // texture's lightest stop, a shaded one against its darkest.
-            expect(contrastBetween(rgbOf(lit), hslToRgb(lightStop)), `${label}: lit/light stop`).toBeGreaterThanOrEqual(
+            expect(contrastBetween(rgbOf(lit), rgbOf(lightStop)), `${label}: lit/light stop`).toBeGreaterThanOrEqual(
                 FACE_FLOOR,
             );
             expect(
-                contrastBetween(rgbOf(shaded), hslToRgb(darkStop)),
+                contrastBetween(rgbOf(shaded), rgbOf(darkStop)),
                 `${label}: shaded/dark stop`,
             ).toBeGreaterThanOrEqual(FACE_FLOOR);
         }
@@ -702,6 +723,41 @@ describe('relief readback: vertex caps (FR-001, FR-002)', () => {
             y: Math.round(VERTEX.y * ZOOM + width / 3),
         };
         expect(samePixels(pixelAt(relief, aCap), pixelAt(control, aCap))).toBe(true);
+    });
+
+    test('a same-tone S/E corner keeps its bevel under the nonzero fill rule', () => {
+        // The centre tile drops one ladder step (Δ10) on S and E: both bands
+        // land in one colour bucket and overlap in the SE corner square.
+        // Opposite winding would cancel there and leave a face-coloured notch.
+        const view = mapViewOf(
+            [landCell({ x: 2, y: 0 }, 128), landCell({ x: 2, y: 1 }, 118), landCell({ x: 3, y: 0 }, 118)],
+            4,
+            ZOOM,
+        );
+        const relief = paintFixture(view);
+        const control = paintFixture(view, { relief: false });
+        const corner = { x: 3 * ZOOM - 4, y: 1 * ZOOM - 4 };
+
+        expect(closeTo(pixelAt(relief, corner), hexToRgb(toneOf(landBandIndex(128), 10, 'S')))).toBe(true);
+        expect(samePixels(pixelAt(relief, corner), pixelAt(control, corner))).toBe(false);
+    });
+
+    test('every changed pixel on a multi-painter fixture lies in the tile that paints it (AC-003)', () => {
+        // Two tiles paint, each into its own rect: the per-tile form the
+        // single-painter fixture cannot exercise.
+        const relief = paintFixture(twoEndView());
+        const control = paintFixture(twoEndView(), { relief: false });
+        const reliefPixels = pixelsOf(relief);
+        const controlPixels = pixelsOf(control);
+        const width = relief.canvas.width;
+        const whole = { x: 0, y: 0, width, height: relief.canvas.height };
+        const total = differingPixels(reliefPixels, controlPixels, width, whole);
+        const inA = differingPixels(reliefPixels, controlPixels, width, tileRect({ x: 1, y: 1 }, ZOOM));
+        const inB = differingPixels(reliefPixels, controlPixels, width, tileRect({ x: 0, y: 0 }, ZOOM));
+
+        expect(inA).toBeGreaterThan(0);
+        expect(inB).toBeGreaterThan(0);
+        expect(inA + inB).toBe(total);
     });
 });
 

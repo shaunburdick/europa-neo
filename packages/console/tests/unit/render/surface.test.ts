@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { landBandColor, SEAM_COLOR } from '../../../src/render/palette';
-import { relativeLuminance, reliefToneColours } from '../../../src/render/relief';
+import { reliefToneColours } from '../../../src/render/relief';
 import {
     COAST_WIDTH_RATIO,
     coastBandWidth,
@@ -15,6 +15,7 @@ import {
     landFaceGrainOffset,
     SEAM_WIDTH_PX,
 } from '../../../src/render/surface';
+import { relativeLuminance } from '../../fixtures/contrast';
 
 function hexToRgb(hex: string): readonly [number, number, number] {
     const value = Number.parseInt(hex.replace('#', ''), 16);
@@ -34,11 +35,12 @@ describe('surface mappings (018 FR-001…FR-003)', () => {
         expect(coastBandWidth(96)).toBeCloseTo(3.84);
     });
 
-    test('grain offsets stay within ±2 and offer four distinct values', () => {
+    test('grain offsets stay within 0 to −2 and offer four distinct values', () => {
         const seen = new Set(LAND_FACE_GRAIN_OFFSETS);
         expect(seen.size).toBe(4);
         for (const offset of LAND_FACE_GRAIN_OFFSETS) {
-            expect(Math.abs(offset)).toBeLessThanOrEqual(2);
+            expect(offset).toBeLessThanOrEqual(0);
+            expect(offset).toBeGreaterThanOrEqual(-2);
         }
     });
 

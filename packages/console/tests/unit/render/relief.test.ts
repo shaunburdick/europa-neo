@@ -10,14 +10,14 @@ import {
     RELIEF_SHADED_LIGHTNESS_STEPS,
     RELIEF_STEP_THRESHOLDS,
     RELIEF_WIDTH_RATIOS,
-    relativeLuminance,
+    type ReliefSide,
     reliefBandWidth,
     reliefSideIsLit,
     reliefStep,
-    reliefToneColor,
     reliefToneColours,
     reliefWidthRatio,
 } from '../../../src/render/relief';
+import { relativeLuminance } from '../../fixtures/contrast';
 
 /** Biome zone indices, in elevation order. */
 const ZONES = [0, 1, 2, 3];
@@ -82,6 +82,12 @@ function faceHex(zone: number): string {
     return `#${byte(red)}${byte(green)}${byte(blue)}`;
 }
 
+/** The bevel tone at `delta`, composed from the shipped per-zone mapping. */
+function toneOf(zone: number, delta: number, side: ReliefSide): string {
+    const tones = reliefToneColours(landBandColor(zone));
+    return (reliefSideIsLit(side) ? tones.lit : tones.shaded)[reliefStep(delta) - 1] ?? faceHex(zone);
+}
+
 describe('reliefStep, width and tone ladder (FR-003)', () => {
     test('the width ladder is 4 / 7 / 10 % and caps at 10 %', () => {
         expect(RELIEF_WIDTH_RATIOS).toEqual([0.04, 0.07, 0.1]);
@@ -106,10 +112,9 @@ describe('reliefStep, width and tone ladder (FR-003)', () => {
         expect(RELIEF_LIT_LIGHTNESS_STEPS).toEqual([0.74, 0.79, 0.84]);
         expect(RELIEF_SHADED_LIGHTNESS_STEPS).toEqual([0.4, 0.5, 0.6]);
         for (const zone of ZONES) {
-            const face = landBandColor(zone);
             for (const side of ['N', 'S'] as const) {
-                expect(reliefToneColor(face, 9, side)).not.toBe(reliefToneColor(face, 10, side));
-                expect(reliefToneColor(face, 10, side)).toBe(reliefToneColor(face, 255, side));
+                expect(toneOf(zone, 9, side)).not.toBe(toneOf(zone, 10, side));
+                expect(toneOf(zone, 10, side)).toBe(toneOf(zone, 255, side));
             }
         }
     });
@@ -138,12 +143,11 @@ describe('tone depends on orientation alone (FR-002)', () => {
 
     test('opposite sides of one drop share their tone, independent of the delta', () => {
         for (const zone of ZONES) {
-            const face = landBandColor(zone);
-            expect(reliefToneColor(face, 5, 'N')).toBe(reliefToneColor(face, 5, 'W'));
-            expect(reliefToneColor(face, 5, 'S')).toBe(reliefToneColor(face, 5, 'E'));
+            expect(toneOf(zone, 5, 'N')).toBe(toneOf(zone, 5, 'W'));
+            expect(toneOf(zone, 5, 'S')).toBe(toneOf(zone, 5, 'E'));
             // The tone is a function of the step, never of the raw drop.
-            expect(reliefToneColor(face, 10, 'N')).toBe(reliefToneColor(face, 255, 'N'));
-            expect(reliefToneColor(face, 10, 'S')).toBe(reliefToneColor(face, 255, 'S'));
+            expect(toneOf(zone, 10, 'N')).toBe(toneOf(zone, 255, 'N'));
+            expect(toneOf(zone, 10, 'S')).toBe(toneOf(zone, 255, 'S'));
         }
     });
 
@@ -176,14 +180,6 @@ describe('bevel visibility and distinguishability per zone (FR-006)', () => {
             expect(contrastOf(face, tones.shaded[0])).toBeGreaterThanOrEqual(1.2);
         }
     });
-
-    test('a zero or negative drop returns the face colour', () => {
-        for (const zone of ZONES) {
-            const face = landBandColor(zone);
-            expect(reliefToneColor(face, 0, 'N')).toBe(faceHex(zone));
-            expect(reliefToneColor(face, -4, 'S')).toBe(faceHex(zone));
-        }
-    });
 });
 
 describe('purity (FR-010)', () => {
@@ -192,7 +188,7 @@ describe('purity (FR-010)', () => {
             const face = landBandColor(zone);
             expect(reliefToneColours(face)).toEqual(reliefToneColours(face));
             for (const side of ['N', 'E', 'S', 'W'] as const) {
-                expect(reliefToneColor(face, 7, side)).toBe(reliefToneColor(face, 7, side));
+                expect(toneOf(zone, 7, side)).toBe(toneOf(zone, 7, side));
             }
         }
     });

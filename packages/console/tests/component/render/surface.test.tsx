@@ -15,7 +15,6 @@ import { landBandColor, landBandColorWithLightness, landBandIndex, SEAM_COLOR } 
 import {
     RELIEF_SIDES,
     type ReliefSide,
-    relativeLuminance,
     reliefSideIsLit,
     reliefStep,
     reliefToneColours,
@@ -29,6 +28,7 @@ import {
 } from '../../../src/render/surface';
 import { coordKey } from '../../../src/state/build-map-view';
 import type { CellRenderInfo, Coord, MapView, MapViewId } from '../../../src/state/types';
+import { relativeLuminance } from '../../fixtures/contrast';
 
 // ---------------------------------------------------------------------------
 // Fixtures and readback helpers
@@ -506,12 +506,13 @@ describe('surface readback: tile grain (AC-004, FR-003)', () => {
         return paintFixture(mapViewOf([landCell(coord, elevation)], BOARD, zoom));
     }
 
-    test('offsets are bounded to ±2 and at least four appear on a 32×32 board', () => {
+    test('offsets are bounded to 0 to −2 and at least four appear on a 32×32 board', () => {
         const seen = new Set<number>();
         for (let y = 0; y < 32; y += 1) {
             for (let x = 0; x < 32; x += 1) {
                 const offset = landFaceGrainOffset({ x, y });
-                expect(Math.abs(offset)).toBeLessThanOrEqual(2);
+                expect(offset).toBeLessThanOrEqual(0);
+                expect(offset).toBeGreaterThanOrEqual(-2);
                 seen.add(offset);
             }
         }

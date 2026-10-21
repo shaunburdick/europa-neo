@@ -1,8 +1,9 @@
 /**
  * Land-tile relief bevels — feature 017. Pure mapping from one tile side
- * to its bevel: the face is flat, one light stands at the map's NW
- * corner, so tone comes from the side alone and width from how far this
- * tile rises above the neighbour. No clock, no randomness, no view
+ * to its bevel: one light stands at the map's NW corner, so tone comes
+ * from the side alone and width from how far this tile rises above the
+ * neighbour. The face texture carries no elevation (FR-005), so the
+ * bevels are the sole relief cue. No clock, no randomness, no view
  * knowledge (FR-010).
  */
 
@@ -97,7 +98,7 @@ export function reliefSideIsLit(side: ReliefSide): boolean {
 }
 
 /**
- * The three lit and three shaded bevel colours for one flat face — the
+ * The three lit and three shaded bevel colours for one zone face — the
  * per-zone pre-computation the painter uses, so no band re-parses an
  * `hsl()` string. Each tone keeps the face's hue and saturation and
  * moves only its lightness toward the token extreme (FR-002/FR-003).
@@ -123,37 +124,6 @@ export function reliefToneColours(faceHsl: string): {
             shadedTone(RELIEF_SHADED_LIGHTNESS_STEPS[2]),
         ],
     };
-}
-
-/**
- * The bevel colour for one side at one positive delta: the face's hue
- * and saturation, with lightness moved by the Δ step's share toward the
- * lit or shaded anchor. Orientation alone chooses the direction; the
- * drop only sets the size of the step (FR-002/003).
- *
- * @param faceHsl The flat zone face as `hsl(H, S%, L%)`.
- * @param delta Positive elevation drop (`own − neighbour`).
- * @param side Tile side the bevel faces.
- */
-export function reliefToneColor(faceHsl: string, delta: number, side: ReliefSide): string {
-    const step = reliefStep(delta);
-    const face = parseHsl(faceHsl);
-    if (step === 0) {
-        return bytesToHex(hslToBytes(face.hue, face.saturation, face.lightness));
-    }
-    const tones = reliefToneColours(faceHsl);
-    return (reliefSideIsLit(side) ? tones.lit : tones.shaded)[step - 1] ?? faceHsl;
-}
-
-/** One sRGB channel byte (0–255) as a linear-light value (0–1). */
-export function srgbToLinear(channelByte: number): number {
-    const s = Math.max(0, Math.min(255, channelByte)) / 255;
-    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-}
-
-/** WCAG 2.x relative luminance of an sRGB byte triple. */
-export function relativeLuminance(rgb: readonly [number, number, number]): number {
-    return 0.2126 * srgbToLinear(rgb[0]) + 0.7152 * srgbToLinear(rgb[1]) + 0.0722 * srgbToLinear(rgb[2]);
 }
 
 /** An `hsl()` colour's components, saturation and lightness in 0–1. */
@@ -202,7 +172,7 @@ function bytesToHex([red, green, blue]: readonly [number, number, number]): stri
 
 /**
  * An HSL triple as sRGB bytes — the conversion the browser applies to
- * the flat face strings the painter emits.
+ * the face strings the painter emits.
  */
 function hslToBytes(hue: number, saturation: number, lightness: number): readonly [number, number, number] {
     const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;

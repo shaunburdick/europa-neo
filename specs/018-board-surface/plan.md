@@ -47,8 +47,8 @@ re-derived from the shifted face); +2 measures 1.163 (1.180). A symmetric ±2 se
 cannot satisfy "017's floors still hold" without changing the relief contract — which 018's
 Non-goals forbid. Every candidate set with a positive value either breaks the floor or leaves
 a sub-1 % margin; the four non-positive values keep the binding lit case at its shipped 1.220
-and the shaded case at 1.403 (zone 2, −2), both above 1.2. The trade-off is recorded in
-`tasks.md` T-001 and reported as a narrowed requirement.
+and the shaded case at 1.403 (zone 2, −2), both above 1.2. The trade-off is recorded in spec
+FR-003/AC-004 and Decisions Taken (v1.1) and in `tasks.md` T-001.
 
 **Why fractional.** The four values must render four distinct surfaces. Integer offsets within
 [−2, 0] supply only three, and `adjustBrightness` rounds to an integer lightness, so the face

@@ -25,8 +25,8 @@ export function coastBandWidth(size: number): number {
 }
 
 /**
- * The four face-grain offsets in HSL lightness points (FR-003): within
- * ±2, four distinct values, and never positive — see the module note.
+ * The four face-grain offsets in HSL lightness points (FR-003): four
+ * distinct values in 0 to −2, never positive — see the module note.
  */
 export const LAND_FACE_GRAIN_OFFSETS = [0, -0.5, -1, -2] as const;
 

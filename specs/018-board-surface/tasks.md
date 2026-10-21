@@ -19,18 +19,25 @@
 
 ## Evidence (2026-10-20)
 
-- Screenshots: `__screenshots__/board-{32,74,96}px.png`, `coast-crop-3x.png`, `seam-crop-3x.png`
-  (spectator view of the live 32×32 match `70f56ced…`; the DOM grid overlay is hidden so the canvas marks read).
+- Screenshots: `__screenshots__/board-{32,74,96}px.png`, `coast-crop-3x.png`, `seam-crop-3x.png`.
+  The 2026-10-20 set came from the live match `70f56ced…`; the 96 px re-shoot comes from the
+  deterministic `?e2e` 16×16 demo at 96 px, whose cell (4,11) drops one ladder step on both S
+  and E — the same-tone S/E corner the nonzero-fill fix restores.
 - Perf: Q-P01 3.2 → 3.8 ms; Q-P05 relief-on 4.6 → 6.1 ms, relief-off 0.65 → 2.1 ms, addition
   3.95 → 4.00 ms (bound 6 ms).
+- Re-measured after the Gate 3 fix: Q-P01 3.7 ms; Q-P05 relief-on 6.1 ms, relief-off 2.1 ms,
+  addition 4.0 ms (bound 6 ms). Dropping the stride-8 `rect()` fast path measured the addition
+  at 8.3 ms, so it stays.
 - Seam worst-case contrast per zone pair: 0/1 1.829, 0/2 1.934, 0/3 1.634, 1/2 1.829, 1/3 1.634,
   2/3 1.634; worst crossed bevel tone 1.373. All ≥ 1.2.
-- `pnpm verify` green (exit 0): console node 1,050; browser 304 + 378 coverage; perf 4;
-  determinism 1; a11y 74; E2E green.
+- `pnpm verify` green (exit 0): console node 1,050; browser 306 + 380 coverage; perf 4;
+  determinism 1; a11y 74; E2E 60.
 
-**Deviation recorded at T-001:** the grain set is `[0, -0.5, -1, -2]`, inside the ±2 bound but
-not symmetric. A positive offset breaks 017 FR-006's Peaks lit floor (1.220 → 1.195 at +1,
-1.163 at +2), and the spec forbids changing the relief contract. Reported to the dispatcher.
+**Deviation resolved at spec v1.1:** the grain set is `[0, -0.5, -1, -2]`, one-sided rather
+than symmetric. A positive offset breaks 017 FR-006's Peaks lit floor (1.220 → 1.195 at +1,
+1.163 at +2), and 018's non-goals forbid changing the relief contract. FR-003, AC-004 and the
+Decisions Taken block now state the 0 to −2 range and this rationale; the code is unchanged.
+Reported to the dispatcher at T-001.
 
 ## Tasks
 
@@ -43,8 +50,8 @@ not symmetric. A positive offset breaks 017 FR-006's Peaks lit floor (1.220 → 
   `Math.imul` hash of `(x, y)` only, no zone/elevation/neighbour input.
 - `SEAM_WIDTH_PX = 1`, `SEAM_COLOR` re-exported from the palette.
 
-**Narrowed requirement:** the set is non-positive on purpose (D1). A symmetric ±2 set breaks
-017 FR-006's Peaks lit floor (1.220 → 1.163 at +2). Four values, all within ±2, are kept.
+**Range:** the set is non-positive on purpose (D1, spec FR-003 v1.1). A symmetric ±2 set
+breaks 017 FR-006's Peaks lit floor (1.220 → 1.163 at +2). Four values in 0 to −2 are kept.
 
 ### T-002 — Grain in 1c
 
@@ -71,8 +78,8 @@ the lower-coordinate side of the shared edge, one fill.
 Unit: grain index determinism, bounds, ≥ 4 distinct values on 32×32, coordinate-only
 invariance; coast width; seam colour floor against every zone's grain-shifted worst stop and
 every bevel tone. Readback: coast tone by direction at 32/96, bevel-wins-at-corner with the
-017 control, seam presence/absence + 1 px + six-pair contrast, grain ±2 and two-paint identity,
-hidden-neighbour invariance.
+017 control, seam presence/absence + 1 px + six-pair contrast, grain bounds (0 to −2) and
+two-paint identity, hidden-neighbour invariance.
 
 ### T-008 — Amend 017 tests
 

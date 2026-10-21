@@ -290,7 +290,7 @@ describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
         expect(shadedPolygons.some((polygon) => polygon.fillStyle === tones.lit[2])).toBe(false);
 
         // Equal heights are neutral: no bevel path, and the only land fill
-        // left is the flat face.
+        // left is the zone face.
         const { ctx: equalCtx, fills: equalFills, polygons: equalPolygons } = createRecordingCtx();
         canvas.paint(makeMapView([makeLandCell(0, 0, 209), makeLandCell(0, 1, 209)]), equalCtx);
         expect(equalPolygons).toHaveLength(0);

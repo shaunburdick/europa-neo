@@ -130,15 +130,17 @@ export function reliefGeometry(bands: readonly ReliefBand[]): ReliefGeometry {
             case 'S':
                 if (isCapped(x, y + size)) startInset = 0;
                 if (isCapped(x + size, y + size)) endInset = 0;
+                // Same winding as N/W/E: overlapping bands of one colour
+                // must not cancel under the nonzero fill rule.
                 push(bandShapes, colour, [
-                    x,
-                    y + size,
-                    x + size,
-                    y + size,
-                    x + size - endInset,
-                    y + size - width,
                     x + startInset,
                     y + size - width,
+                    x + size - endInset,
+                    y + size - width,
+                    x + size,
+                    y + size,
+                    x,
+                    y + size,
                 ]);
                 break;
             case 'W':

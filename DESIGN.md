@@ -697,8 +697,8 @@ guard with the tokens or delete them as duplicates.
   to both face-texture stops, from the cell's coordinates alone. It is
   non-positive because 017 FR-006's Peaks lit floor is 1.220:1 at zero grain and
   any positive shift drops it below 1.2:1; the four values keep that floor and
-  stay inside the ±2 bound. Never disabled by reduced motion or 017's relief
-  flag: it is surface, not relief.
+  stay within the 0 to −2 range. Never disabled by reduced motion or 017's
+  relief flag: it is surface, not relief.
 
 What asserts all three is the 018 readback suite,
 `packages/console/tests/component/render/surface.test.tsx`, with
