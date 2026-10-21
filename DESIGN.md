@@ -81,8 +81,8 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `player-3` | `--europa-color-player-3` | `TOKENS.color.playerColor3` | `#059669` | Player 3 ownership — reuses `green`. On `surface` `#111827` ≈ 4.71:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `player-4` | `--europa-color-player-4` | `TOKENS.color.playerColor4` | `#d97706` | Player 4 ownership — reuses `amber`. On `surface` `#111827` ≈ 5.57:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `red` | `--europa-color-red` | `TOKENS.color.red` | `#dc2626` | On `surface`: ≈ 3.67:1 — AA 1.4.3 large (≥ 3:1) / 1.4.11 non-text (≥ 3:1): meets; normal-size text: does NOT meet, use `error-text` |
-| `relief-highlight` | `--europa-color-relief-highlight` | `TOKENS.color.reliefHighlight` | `#ffffff` | Canvas-only relief mix extreme (spec 017 FR-009): the lit end a north- or west-facing bevel mixes toward — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
-| `relief-shadow` | `--europa-color-relief-shadow` | `TOKENS.color.reliefShadow` | `#000000` | Canvas-only relief mix extreme (spec 017 FR-009): the shaded end a south- or east-facing bevel mixes toward — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
+| `relief-highlight` | `--europa-color-relief-highlight` | `TOKENS.color.reliefHighlight` | `#ffffff` | Canvas-only relief lightness anchor (spec 017 FR-009): the lit end a north- or west-facing bevel's lightness moves toward (`L = 100 %`), with the face's hue and saturation kept — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
+| `relief-shadow` | `--europa-color-relief-shadow` | `TOKENS.color.reliefShadow` | `#000000` | Canvas-only relief lightness anchor (spec 017 FR-009): the shaded end a south- or east-facing bevel's lightness moves toward (`L = 0 %`), with the face's hue and saturation kept — painted over terrain, never a UI surface. The delta-dependent pairing has no § 3 row; its measured figures and guard gap are recorded in note N-5 |
 | `surface` | `--europa-color-surface` | `TOKENS.color.surface` | `#111827` | `text-primary` `#f9fafb` on this fill ≈ 16.98:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-secondary` ≈ 14.33:1; `text-muted` ≈ 6.99:1 |
 | `surface-raised` | `--europa-color-surface-raised` | `TOKENS.color.surfaceRaised` | `#1f2937` | `text-primary` `#f9fafb` on this fill ≈ 14.05:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
 | `success` | `--europa-color-success` | `TOKENS.color.success` | `#059669` | `surface` `#111827` on this fill ≈ 4.71:1 — AA 1.4.3 normal (≥ 4.5:1): meets. Reuses `green`. Semantic success state fill for buttons/indicators |
@@ -647,14 +647,21 @@ indicators per biome zone and does not require amending spec 005.
 **N-5 — Relief bevels (orientation- and delta-stepped, canvas-painted).** Feature 017
 (`specs/017-terrain-relief-shading/spec.md`) paints land-tile faces flat — one colour per biome zone,
 no gradient — and adds a bevel only where a tile is strictly higher than a visible land neighbour:
-width is 4 / 7 / 10 % of the cell for Δ = 1 / 2 / 3+ (capped at 10 %), and tone follows one light at
-the map's NW corner — north/west bevels lit, south/east shaded — with a 0.74 / 0.79 / 0.84 mix toward
-the `relief-highlight` / `relief-shadow` extremes that saturates at Δ3. The mitred trapezoids' cut
+width is 4 / 7 / 10 % of the cell for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+, capped at 10 %; the
+step cut comes from the measured adjacent-land drop distribution — p50 = 4, p90 = 10, max = 27 over
+28,594 pairs — so a typical board spreads across the steps instead of saturating), and tone follows one
+light at the map's NW corner — north/west bevels lit, south/east shaded — by keeping the face's hue and
+saturation and moving only its HSL lightness: lit raises it 74 / 79 / 84 % of the remaining headroom
+toward `relief-highlight`'s `L = 100 %`, shaded lowers it 40 / 50 / 60 % of the face's own lightness
+toward `relief-shadow`'s `L = 0 %`, saturating at step 3. The mitred trapezoids' cut
 corners are closed at a shared vertex by the cap rule (two or more ends fill each cut triangle in its
 band's own colour; one end keeps its taper). Equal heights, water, fog-absent and off-board neighbours
 paint nothing. Per zone on feature 017's Δ1 reference fixture the two tones measure ≥ 3:1 apart and
 each ≥ 1.2:1 against the flat face — floors at their stated values, one constant for every zone, never
-a per-zone threshold table.
+a per-zone threshold table. The tight cases are Peaks's pale face (lit/face 1.220, lit/shaded 3.249).
+The Δ1 tones keep each zone's material: zone 0 `#2873bd` → `#c3dbf2` / `#184572`, zone 1 `#268273` →
+`#baebe3` / `#174e45`, zone 2 `#8e5c29` → `#ecd5bd` / `#553719`, zone 3 `#dce2e5` → `#f6f7f8` /
+`#758d99`.
 
 The pairing has **no § 3 row**: § 3's preamble defines every row as a measured pairing over a rendered
 CSS fixture, and an orientation- and delta-stepped canvas colour cannot be expressed by one; G-07 —
@@ -663,8 +670,8 @@ pairing is the 017 readback suite, `packages/console/tests/component/render/reli
 `packages/console/tests/unit/render/relief.test.ts` pinning the pure mapping. The two tokens are not
 redundant with `focus-ring` and black despite duplicating their values: FR-009 requires every colour
 relief paints to be a token, and G-04 would *not* have required them — its patterns match `#`-hex and
-`rgb(`/`rgba(` only, so a numeric mix extreme would have passed it — so nobody should credit the guard
-with the tokens or delete them as duplicates.
+`rgb(`/`rgba(` only, so a numeric lightness anchor would have passed it — so nobody should credit the
+guard with the tokens or delete them as duplicates.
 
 **Motion (WCAG 2.3.3).** Decorative animation is gated twice: the stylesheet's
 `@media (prefers-reduced-motion: reduce)` block collapses animation and transition durations globally,

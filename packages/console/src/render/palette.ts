@@ -86,9 +86,10 @@ export const PIPE_UPHILL_COLOR = TOKENS.color.pipeUphill;
 export const PIPE_STALLED_COLOR = TOKENS.color.pipeStalled;
 
 /**
- * Relief band mix extremes (spec 017 FR-009) — canvas-only, not a UI
- * surface: the light and dark values a delta-dependent land-tile edge
- * band mixes toward.
+ * Relief lightness anchors (spec 017 FR-009) — canvas-only, not a UI
+ * surface: the lit and shaded end points a delta-dependent land-tile
+ * edge band moves its lightness toward, keeping the face's hue and
+ * saturation.
  */
 export const RELIEF_HIGHLIGHT_COLOR = TOKENS.color.reliefHighlight;
 export const RELIEF_SHADOW_COLOR = TOKENS.color.reliefShadow;

@@ -8,11 +8,37 @@
 
 import { RELIEF_HIGHLIGHT_COLOR, RELIEF_SHADOW_COLOR } from './palette';
 
-/** Bevel width as a fraction of the tile size for Δ = 1, 2, 3+ (capped at 10 %). */
+/** Bevel width as a fraction of the tile size for step 1, 2, 3 (capped at 10 %). */
 export const RELIEF_WIDTH_RATIOS = [0.04, 0.07, 0.1] as const;
 
-/** Tone mix toward the lit/shaded token per Δ step; saturates with the width. */
-export const RELIEF_TONE_MIXES = [0.74, 0.79, 0.84] as const;
+/**
+ * The largest drop in each ladder step: Δ 1–4 → step 1, 5–9 → step 2,
+ * 10+ → step 3.
+ *
+ * Measured over five seeds at both shipped board sizes (32 and 48 —
+ * 28,594 adjacent land pairs, `@europa/terrain`): p25 = 2, p50 = 4,
+ * p75 = 7, p90 = 10, p99 = 15, max = 27. These cut the positive drops
+ * 51 % / 40 % / 8 %, so a typical board spreads across all three steps
+ * and only an unusually large drop reaches the 10 % cap. Re-pin them
+ * if the terrain generator's relief changes.
+ */
+export const RELIEF_STEP_THRESHOLDS = [4, 9] as const;
+
+/**
+ * Share of the face's remaining lightness headroom a lit (N/W) bevel
+ * gains per step. Hue and saturation are kept exactly, so the band stays
+ * the same material; only its lightness moves toward the lit anchor.
+ */
+export const RELIEF_LIT_LIGHTNESS_STEPS = [0.74, 0.79, 0.84] as const;
+
+/**
+ * Share of the face's own lightness a shaded (S/E) bevel gives up per
+ * step. Separate from the lit ladder because the faces' lightnesses
+ * differ: a pale Peaks face must lose enough lightness to clear the
+ * tone floor, while a dark zone's shade would reach black under the
+ * same share.
+ */
+export const RELIEF_SHADED_LIGHTNESS_STEPS = [0.4, 0.5, 0.6] as const;
 
 /** The four tile sides, in paint order. */
 export const RELIEF_SIDES = ['N', 'E', 'S', 'W'] as const;
@@ -20,20 +46,24 @@ export const RELIEF_SIDES = ['N', 'E', 'S', 'W'] as const;
 /** One tile side. */
 export type ReliefSide = (typeof RELIEF_SIDES)[number];
 
-/** Δ at which both width and tone stop growing. */
+/** Step at which both width and tone stop growing. */
 export const RELIEF_MAX_STEP = RELIEF_WIDTH_RATIOS.length;
 
-/** The lit (north/west) and shaded (south/east) extremes, as sRGB bytes. */
-const LIT_TARGET = hexToBytes(RELIEF_HIGHLIGHT_COLOR);
-const SHADED_TARGET = hexToBytes(RELIEF_SHADOW_COLOR);
+/** The lit and shaded lightness anchors, taken from the token extremes. */
+const LIT_ANCHOR_LIGHTNESS = hexLightness(RELIEF_HIGHLIGHT_COLOR);
+const SHADED_ANCHOR_LIGHTNESS = hexLightness(RELIEF_SHADOW_COLOR);
 
 /**
- * The Δ ladder step: 0 for no positive delta, otherwise 1, 2 or 3+.
+ * The Δ ladder step: 0 for no positive delta, otherwise 1, 2 or 3.
  *
  * @param delta Positive elevation drop (`own − neighbour`).
  */
 export function reliefStep(delta: number): number {
-    return Math.max(0, Math.min(RELIEF_MAX_STEP, Math.trunc(delta)));
+    if (delta < 1) {
+        return 0;
+    }
+    const threshold = RELIEF_STEP_THRESHOLDS.findIndex((max) => delta <= max);
+    return threshold === -1 ? RELIEF_MAX_STEP : threshold + 1;
 }
 
 /**
@@ -57,16 +87,6 @@ export function reliefBandWidth(size: number, delta: number): number {
 }
 
 /**
- * The tone's mix toward its token extreme; 0 when there is no drop.
- *
- * @param delta Positive elevation drop (`own − neighbour`).
- */
-export function reliefToneMix(delta: number): number {
-    const step = reliefStep(delta);
-    return step === 0 ? 0 : (RELIEF_TONE_MIXES[step - 1] ?? 0);
-}
-
-/**
  * The single light stands at the NW corner: a north- or west-facing
  * bevel is lit, a south- or east-facing one is shaded.
  *
@@ -79,7 +99,8 @@ export function reliefSideIsLit(side: ReliefSide): boolean {
 /**
  * The three lit and three shaded bevel colours for one flat face — the
  * per-zone pre-computation the painter uses, so no band re-parses an
- * `hsl()` string.
+ * `hsl()` string. Each tone keeps the face's hue and saturation and
+ * moves only its lightness toward the token extreme (FR-002/FR-003).
  *
  * @param faceHsl The flat zone face as `hsl(H, S%, L%)`.
  */
@@ -87,19 +108,28 @@ export function reliefToneColours(faceHsl: string): {
     readonly lit: readonly [string, string, string];
     readonly shaded: readonly [string, string, string];
 } {
-    const face = hslToBytes(faceHsl);
-    const litTone = (mix: number): string => mixedHex(face, LIT_TARGET, mix);
-    const shadedTone = (mix: number): string => mixedHex(face, SHADED_TARGET, mix);
+    const face = parseHsl(faceHsl);
+    const litTone = (share: number): string => lightnessShift(face, share, LIT_ANCHOR_LIGHTNESS);
+    const shadedTone = (share: number): string => lightnessShift(face, share, SHADED_ANCHOR_LIGHTNESS);
     return {
-        lit: [litTone(RELIEF_TONE_MIXES[0]), litTone(RELIEF_TONE_MIXES[1]), litTone(RELIEF_TONE_MIXES[2])],
-        shaded: [shadedTone(RELIEF_TONE_MIXES[0]), shadedTone(RELIEF_TONE_MIXES[1]), shadedTone(RELIEF_TONE_MIXES[2])],
+        lit: [
+            litTone(RELIEF_LIT_LIGHTNESS_STEPS[0]),
+            litTone(RELIEF_LIT_LIGHTNESS_STEPS[1]),
+            litTone(RELIEF_LIT_LIGHTNESS_STEPS[2]),
+        ],
+        shaded: [
+            shadedTone(RELIEF_SHADED_LIGHTNESS_STEPS[0]),
+            shadedTone(RELIEF_SHADED_LIGHTNESS_STEPS[1]),
+            shadedTone(RELIEF_SHADED_LIGHTNESS_STEPS[2]),
+        ],
     };
 }
 
 /**
- * The bevel colour for one side at one positive delta: the face mixed
- * toward the lit or shaded token by the Δ step's factor. Orientation
- * alone chooses the tone; the drop only sets its strength (FR-002/003).
+ * The bevel colour for one side at one positive delta: the face's hue
+ * and saturation, with lightness moved by the Δ step's share toward the
+ * lit or shaded anchor. Orientation alone chooses the direction; the
+ * drop only sets the size of the step (FR-002/003).
  *
  * @param faceHsl The flat zone face as `hsl(H, S%, L%)`.
  * @param delta Positive elevation drop (`own − neighbour`).
@@ -107,8 +137,9 @@ export function reliefToneColours(faceHsl: string): {
  */
 export function reliefToneColor(faceHsl: string, delta: number, side: ReliefSide): string {
     const step = reliefStep(delta);
+    const face = parseHsl(faceHsl);
     if (step === 0) {
-        return mixedHex(hslToBytes(faceHsl), hslToBytes(faceHsl), 0);
+        return bytesToHex(hslToBytes(face.hue, face.saturation, face.lightness));
     }
     const tones = reliefToneColours(faceHsl);
     return (reliefSideIsLit(side) ? tones.lit : tones.shaded)[step - 1] ?? faceHsl;
@@ -125,17 +156,36 @@ export function relativeLuminance(rgb: readonly [number, number, number]): numbe
     return 0.2126 * srgbToLinear(rgb[0]) + 0.7152 * srgbToLinear(rgb[1]) + 0.0722 * srgbToLinear(rgb[2]);
 }
 
-/** Per-channel sRGB mix of `base` toward `target` by `mix`, as `#rrggbb`. */
-function mixedHex(
-    base: readonly [number, number, number],
-    target: readonly [number, number, number],
-    mix: number,
-): string {
-    const channel = (index: 0 | 1 | 2): string =>
-        Math.round(base[index] + (target[index] - base[index]) * mix)
-            .toString(16)
-            .padStart(2, '0');
-    return `#${channel(0)}${channel(1)}${channel(2)}`;
+/** An `hsl()` colour's components, saturation and lightness in 0–1. */
+interface Hsl {
+    readonly hue: number;
+    readonly saturation: number;
+    readonly lightness: number;
+}
+
+/** Parse an `hsl(H, S%, L%)` string. */
+function parseHsl(hslColor: string): Hsl {
+    const match = /^hsl\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)$/i.exec(hslColor.trim());
+    if (match === null) {
+        throw new Error(`relief: expected an "hsl(H, S%, L%)" colour, received "${hslColor}"`);
+    }
+    return {
+        hue: Number(match[1]),
+        saturation: Number(match[2]) / 100,
+        lightness: Number(match[3]) / 100,
+    };
+}
+
+/** The same face colour with lightness moved `share` of the way to `anchorLightness`. */
+function lightnessShift(face: Hsl, share: number, anchorLightness: number): string {
+    const lightness = face.lightness + (anchorLightness - face.lightness) * share;
+    return bytesToHex(hslToBytes(face.hue, face.saturation, lightness));
+}
+
+/** The HSL lightness of a `#rrggbb` token value, in 0–1. */
+function hexLightness(hex: string): number {
+    const [red, green, blue] = hexToBytes(hex);
+    return (Math.max(red, green, blue) + Math.min(red, green, blue)) / 2 / 255;
 }
 
 /** Parse a `#rrggbb` token value to sRGB bytes. */
@@ -144,18 +194,17 @@ function hexToBytes(hex: string): readonly [number, number, number] {
     return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
 }
 
+/** sRGB bytes as `#rrggbb`. */
+function bytesToHex([red, green, blue]: readonly [number, number, number]): string {
+    const channel = (value: number): string => value.toString(16).padStart(2, '0');
+    return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
 /**
- * An `hsl(H, S%, L%)` triple as sRGB bytes — the conversion the browser
- * applies to the flat face strings the painter emits.
+ * An HSL triple as sRGB bytes — the conversion the browser applies to
+ * the flat face strings the painter emits.
  */
-function hslToBytes(hslColor: string): readonly [number, number, number] {
-    const match = /^hsl\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)$/i.exec(hslColor.trim());
-    if (match === null) {
-        throw new Error(`relief: expected an "hsl(H, S%, L%)" colour, received "${hslColor}"`);
-    }
-    const hue = Number(match[1]);
-    const saturation = Number(match[2]) / 100;
-    const lightness = Number(match[3]) / 100;
+function hslToBytes(hue: number, saturation: number, lightness: number): readonly [number, number, number] {
     const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
     const second = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
     const offset = lightness - chroma / 2;

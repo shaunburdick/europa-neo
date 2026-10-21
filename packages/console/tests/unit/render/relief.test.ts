@@ -6,7 +6,9 @@
 import { describe, expect, test } from 'vitest';
 import { landBandColor } from '../../../src/render/palette';
 import {
-    RELIEF_TONE_MIXES,
+    RELIEF_LIT_LIGHTNESS_STEPS,
+    RELIEF_SHADED_LIGHTNESS_STEPS,
+    RELIEF_STEP_THRESHOLDS,
     RELIEF_WIDTH_RATIOS,
     relativeLuminance,
     reliefBandWidth,
@@ -14,15 +16,14 @@ import {
     reliefStep,
     reliefToneColor,
     reliefToneColours,
-    reliefToneMix,
     reliefWidthRatio,
 } from '../../../src/render/relief';
 
 /** Biome zone indices, in elevation order. */
 const ZONES = [0, 1, 2, 3];
 
-/** The width ladder's deltas: one per step, plus two that must cap at Δ3. */
-const WIDTH_DELTAS = [1, 2, 3, 9, 255];
+/** One delta per ladder step, plus one that must cap at step 3. */
+const WIDTH_DELTAS = [1, 5, 10, 255];
 
 /** Parse `hsl(H, S%, L%)` to sRGB bytes — the browser's own conversion. */
 function hslToRgb(hsl: string): readonly [number, number, number] {
@@ -84,27 +85,46 @@ function faceHex(zone: number): string {
 describe('reliefStep, width and tone ladder (FR-003)', () => {
     test('the width ladder is 4 / 7 / 10 % and caps at 10 %', () => {
         expect(RELIEF_WIDTH_RATIOS).toEqual([0.04, 0.07, 0.1]);
+        expect(RELIEF_STEP_THRESHOLDS).toEqual([4, 9]);
         for (const delta of WIDTH_DELTAS) {
-            expect(reliefStep(delta)).toBe(Math.min(3, delta));
+            expect(reliefStep(delta)).toBe(delta <= 4 ? 1 : delta <= 9 ? 2 : 3);
         }
+        expect(reliefStep(0)).toBe(0);
         expect(reliefWidthRatio(0)).toBe(0);
         expect(reliefWidthRatio(1)).toBe(0.04);
-        expect(reliefWidthRatio(2)).toBe(0.07);
-        expect(reliefWidthRatio(3)).toBe(0.1);
-        expect(reliefWidthRatio(9)).toBe(0.1);
+        expect(reliefWidthRatio(4)).toBe(0.04);
+        expect(reliefWidthRatio(5)).toBe(0.07);
+        expect(reliefWidthRatio(9)).toBe(0.07);
+        expect(reliefWidthRatio(10)).toBe(0.1);
         expect(reliefWidthRatio(255)).toBe(0.1);
         for (const delta of WIDTH_DELTAS) {
             expect(reliefBandWidth(96, delta)).toBeCloseTo(96 * reliefWidthRatio(delta), 12);
         }
     });
 
-    test('the tone ladder rises with Δ and saturates at Δ3', () => {
-        expect(RELIEF_TONE_MIXES).toEqual([0.74, 0.79, 0.84]);
-        expect(reliefToneMix(0)).toBe(0);
-        expect(reliefToneMix(1)).toBe(0.74);
-        expect(reliefToneMix(2)).toBe(0.79);
-        expect(reliefToneMix(3)).toBe(0.84);
-        expect(reliefToneMix(9)).toBe(0.84);
+    test('the tone ladder rises with Δ and saturates at step 3', () => {
+        expect(RELIEF_LIT_LIGHTNESS_STEPS).toEqual([0.74, 0.79, 0.84]);
+        expect(RELIEF_SHADED_LIGHTNESS_STEPS).toEqual([0.4, 0.5, 0.6]);
+        for (const zone of ZONES) {
+            const face = landBandColor(zone);
+            for (const side of ['N', 'S'] as const) {
+                expect(reliefToneColor(face, 9, side)).not.toBe(reliefToneColor(face, 10, side));
+                expect(reliefToneColor(face, 10, side)).toBe(reliefToneColor(face, 255, side));
+            }
+        }
+    });
+    test('every tone stays in its face hue family (FR-002/FR-003)', () => {
+        const channelOrder = (rgb: readonly [number, number, number]): string => {
+            const [red, green, blue] = rgb;
+            return `${red >= green && red >= blue ? 'r' : green >= blue ? 'g' : 'b'}${red <= green && red <= blue ? 'r' : green <= blue ? 'g' : 'b'}`;
+        };
+        for (const zone of ZONES) {
+            const faceOrder = channelOrder(hexToRgb(faceHex(zone)));
+            const tones = reliefToneColours(landBandColor(zone));
+            for (const colour of [...tones.lit, ...tones.shaded]) {
+                expect(channelOrder(hexToRgb(colour))).toBe(faceOrder);
+            }
+        }
     });
 });
 
@@ -122,12 +142,12 @@ describe('tone depends on orientation alone (FR-002)', () => {
             expect(reliefToneColor(face, 5, 'N')).toBe(reliefToneColor(face, 5, 'W'));
             expect(reliefToneColor(face, 5, 'S')).toBe(reliefToneColor(face, 5, 'E'));
             // The tone is a function of the step, never of the raw drop.
-            expect(reliefToneColor(face, 3, 'N')).toBe(reliefToneColor(face, 255, 'N'));
-            expect(reliefToneColor(face, 3, 'S')).toBe(reliefToneColor(face, 255, 'S'));
+            expect(reliefToneColor(face, 10, 'N')).toBe(reliefToneColor(face, 255, 'N'));
+            expect(reliefToneColor(face, 10, 'S')).toBe(reliefToneColor(face, 255, 'S'));
         }
     });
 
-    test('the ladder brightens a lit bevel and darkens a shaded one, still at Δ3', () => {
+    test('the ladder brightens a lit bevel and darkens a shaded one, still at step 3', () => {
         for (const zone of ZONES) {
             const tones = reliefToneColours(landBandColor(zone));
             const lit = tones.lit.map((colour) => relativeLuminance(hexToRgb(colour)));

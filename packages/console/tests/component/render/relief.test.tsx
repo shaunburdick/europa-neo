@@ -402,10 +402,11 @@ describe('relief readback: per-side tone and the drop-only bevel rule', () => {
 // ---------------------------------------------------------------------------
 
 describe('relief readback: width ladder (AC-002, FR-003)', () => {
-    test('Δ1 < Δ2 < Δ3, and Δ3+ is capped', () => {
-        // Four independent N-edge fixtures on a wide board: drops of 1, 2,
-        // 3 and 9. Widths at zoom 96 are 3.84 / 6.72 / 9.6 / 9.6 px.
-        const drops = [1, 2, 3, 9];
+    test('Δ1 < Δ5 < Δ10, and step 3+ is capped', () => {
+        // Four independent N-edge fixtures on a wide board crossing the
+        // measured thresholds: drops of 1, 5, 10 and 255 map to steps
+        // 1, 2, 3 and 3. Widths at zoom 96 are 3.84 / 6.72 / 9.6 / 9.6 px.
+        const drops = [1, 5, 10, 255];
         const coords = drops.map((_, index) => ({ x: 2 + index * 3, y: 1 }));
         const cells: CellRenderInfo[] = [];
         drops.forEach((delta, index) => {
@@ -428,7 +429,7 @@ describe('relief readback: width ladder (AC-002, FR-003)', () => {
         expect(depths[2]).toBeGreaterThanOrEqual(9);
         expect(depths[2]).toBeLessThanOrEqual(11);
 
-        // Δ3 and Δ9 share both width and tone, so their tiles are identical.
+        // Step 3 and step 3 share both width and tone, so their tiles are identical.
         const third = coords[2];
         const ninth = coords[3];
         if (third === undefined || ninth === undefined) {

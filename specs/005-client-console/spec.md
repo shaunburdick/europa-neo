@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-20 (v1.14; terrain relief shading model revision — issue #182)
-**Version**: 1.14
+**Last Updated**: 2026-10-20 (v1.15; relief ladder calibration — issue #182)
+**Version**: 1.15
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; v1.13 terrain-relief amendment (issue #182) applied 2026-10-16, revised by v1.14 to the settled flat-face / per-side bevel model; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; v1.13 terrain-relief amendment (issue #182) applied 2026-10-16, revised by v1.14 to the settled flat-face / per-side bevel model and by v1.15 to its calibrated ladder; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -506,7 +506,7 @@ suite result. Coverage remains gated at ≥80% on every metric.
   - **024-FR-010**: Pipe triangles MUST gain a dark outline for visibility on all biomes.
   - **024-FR-011**: Land tiles MUST render biome-based gradients (4 zones).
   - **024-FR-012**: Contour hints MUST render on zones 2–3 (`rgba(0,0,0,0.10)`).
-  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-001–FR-006, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST paint a flat face in their biome zone's configured midpoint colour and MUST render a bevel only on an edge where the tile is strictly higher than the adjacent *visible land* tile (feature 017): bevel width is 4 % / 7 % / 10 % of the cell for Δ = 1 / 2 / 3+, capped at 10 %, and its tone is lit on north/west edges and shaded on south/east edges under one NW light, with the tone ladder measured per biome zone on feature 017's reference fixture (`specs/017-terrain-relief-shading/spec.md` FR-006). An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), to a position outside the board, or to a same-height/higher tile MUST be neutral — no bevel and no synthesized neighbour elevation. The per-tile biome gradient clause of `024-FR-011` is replaced by that flat face; the zone 2–3 contour hints (`024-FR-012`) are unchanged.
+  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-001–FR-006, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST paint a flat face in their biome zone's configured midpoint colour and MUST render a bevel only on an edge where the tile is strictly higher than the adjacent *visible land* tile (feature 017): bevel width is 4 % / 7 % / 10 % of the cell for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+), capped at 10 %, and its tone is lit on north/west edges and shaded on south/east edges under one NW light, moving only the face's lightness while keeping its hue and saturation, with the tone ladder measured per biome zone on feature 017's reference fixture (`specs/017-terrain-relief-shading/spec.md` FR-006). An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), to a position outside the board, or to a same-height/higher tile MUST be neutral — no bevel and no synthesized neighbour elevation. The per-tile biome gradient clause of `024-FR-011` is replaced by that flat face; the zone 2–3 contour hints (`024-FR-012`) are unchanged.
   - **024-FR-014**: Pipe slope indicator colors MUST remain unchanged (#059669 downhill / #f59e0b flat / #dc2626 uphill / #9ca3af stalled).
   - **024-FR-020**: The DOM overlay MUST remain transparent (no background).
   - **024-FR-021**: `.europa-pipe` MUST apply `drop-shadow(0 0 1px rgba(0,0,0,0.7))`.
@@ -684,11 +684,12 @@ changes.
 - **024-FR-013 (restated, issue #182)**: the face is flat — one colour per
   biome zone, no per-tile gradient — and the bevel exists only where the tile
   is strictly higher than a visible land neighbour. Width is the 4 / 7 / 10 %
-  ladder for Δ = 1 / 2 / 3+ (capped at 10 %); tone depends on the side alone
-  under one NW light (north/west lit, south/east shaded). Equal heights are
-  neutral, like water, fog-absent and off-board neighbours. Feature 017
-  FR-001–FR-003 and FR-006 carry the full geometry, ladder and measured
-  floors.
+  ladder for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+, capped at 10 %); tone
+  depends on the side alone under one NW light (north/west lit, south/east
+  shaded) and moves only the face's lightness, keeping its hue and saturation.
+  Equal heights are neutral, like water, fog-absent and off-board neighbours.
+  Feature 017 FR-001–FR-003 and FR-006 carry the full geometry, ladder and
+  measured floors.
 - **018-FR-004 (restated, issue #182)**: the legend's relief entry describes
   the bevel a player sees — where this tile drops to a lower neighbour, lit on
   its north/west edges and shaded on its south/east edges — not a
@@ -698,3 +699,23 @@ changes.
   suites `tests/unit/render/relief.test.ts` and `canvas-terrain.test.ts`, and
   the `palette.test.ts` figures this amendment's prose depends on; `pnpm
   verify` green.
+
+### v1.15 (2026-10-20) — relief ladder calibrated to the real elevation range (issue #182)
+
+Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.10) re-calibrates
+the v1.14 ladder without changing the model, geometry, caps or light rule.
+No requirement in this file changes beyond the absorbed `024-FR-013` wording
+already restated above.
+
+- **Ladder cut**: width remains 4 / 7 / 10 % of the cell for ladder steps
+  1 / 2 / 3, capped at 10 %, but the step cut is re-pinned from the measured
+  adjacent-land drop distribution — step 1 Δ 1–4, step 2 Δ 5–9, step 3
+  Δ ≥ 10. v1.14's Δ = 1 / 2 / 3+ assumed a small heightfield and saturated
+  on a real 0–255 board.
+- **Tone**: lit/shaded now moves only the face's HSL lightness — keeping its
+  hue and saturation — toward the `relief-highlight` / `relief-shadow`
+  lightness anchors, instead of mixing toward their literal white/black
+  values.
+- **Verification**: the same 017 suites, with the unit mapping test pinning
+  the thresholds and both lightness ladders and AC-002's fixtures crossing
+  them; `pnpm verify` green.

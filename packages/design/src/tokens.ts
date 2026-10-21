@@ -105,8 +105,9 @@ export const TOKENS = {
         /** Player 4 ownership color — amber-600. */
         playerColor4: '#d97706',
         red: '#dc2626',
-        // Relief band mix extremes (spec 017 FR-009): the canvas-only values a
-        // delta-dependent edge band mixes toward — not a UI surface.
+        // Relief lightness anchors (spec 017 FR-009): the canvas-only end
+        // points a delta-dependent edge band's lightness moves toward — not a
+        // UI surface, and never painted literally.
         reliefHighlight: '#ffffff',
         reliefShadow: '#000000',
         success: '#059669',
