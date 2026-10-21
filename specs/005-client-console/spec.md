@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-13 (v1.12; console review cleanup — issues #153 and #127)
-**Version**: 1.12
+**Last Updated**: 2026-10-21 (v1.13; issue #201 dynamic control mapping planning amendment)
+**Version**: 1.13
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.13 issue #201 scope and M1–M3 plan are user-approved; these requirements remain unimplemented, and implementation may start only after the PRE-M1 draft planning PR is remotely confirmed.
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -651,3 +651,98 @@ heading above does not overclaim:**
 - The duplicate `FR-027` bullet that v1.10 appended at the end of this
   file is removed; the requirements-list copy is authoritative (no
   behavior change).
+
+### v1.13 (2026-10-21) — Dynamic control mapping (issue #201; PRE-M1)
+
+**Status:** The user approved the bounded scope and M1–M3 plan. These
+requirements describe future behavior; the planning amendment does not change
+shipped code. M1 implementation has not started and may begin only after the
+PRE-M1 draft planning PR is remotely confirmed; the current user assignment
+authorizes M1–M3 after that dependency without another approval pause.
+
+**Scope and compatibility:** Dynamic resolution is client-only and maps
+supported device bindings to existing console actions. It MUST preserve the
+current Original control semantics and existing pointer targeting. The existing
+public `InputMapping` remains a compatibility surface and MUST be adapted
+additively; this amendment does not decide or assert a breaking
+`CONSOLE_API_VERSION` change. Any version decision, if needed, must follow
+inspection of the exact public diff and the existing version contract. Mapping
+changes MUST NOT alter `NETWORK_API_VERSION`.
+
+- **FR-048 — Action bindings:** The console MUST represent supported input
+  bindings as typed source-to-existing-action mappings. A semantic action MAY
+  have multiple bindings. Primary and Secondary are configurable UI aliases
+  that invoke the same action; they are not a two-binding limit. Mappings MUST
+  resolve client-side and MUST NOT change order payloads or server authority.
+- **FR-049 — Original keyboard parity:** The Original profile MUST remain the
+  default and preserve the shipped keyboard behavior: I/J/K/L pipe directions,
+  Alt+I/J/K/L exclusive variants, Space clears pipes, P/H paratroops, G/O
+  guns, 0–9 reserves, Escape cancel, and arrows move selection. Existing
+  `KeyboardEvent.key` semantics MUST be retained for these defaults. A
+  physical `KeyboardEvent.code` binding, if supported for a custom mapping,
+  MUST be represented explicitly and MUST NOT silently replace `key` semantics
+  or change non-US layout behavior.
+- **FR-050 — Runtime updates and validation:** A runtime mapping replacement
+  MUST take effect without remounting input controllers. Validation MUST be
+  atomic: a conflicting or unsupported assignment MUST NOT partially replace
+  the active mapping. Conflicts are evaluated across bindings whose gameplay
+  contexts overlap; distinct modifier chords MAY coexist. Held/repeat state
+  MUST be flushed when mappings change and on blur, disconnection, or teardown.
+- **FR-051 — Scope and lifetime:** Each console app/tab runtime MUST own an
+  independent in-memory mapping. It MUST remain active across route changes and
+  rematches that retain that runtime, reset to Original on reload, and remain
+  isolated from other embedded runtimes. Mappings MUST NOT be persisted.
+- **FR-052 — M1 runtime seam:** M1 MUST route the current defaults through the
+  runtime-updatable mapping seam while preserving action and wire-order
+  behavior. M1 includes no settings UI, Gamepad polling, or hardware
+  implementation; keyboard and pointer paths remain available.
+- **FR-053 — M2 Controls and standard Gamepad:** M2 MUST provide an accessible
+  Controls dialog with Primary/Secondary aliases, additional bindings,
+  conflict feedback, and safe capture that emits no gameplay action. It MUST
+  support feature-detected, standard-mapped Gamepad API buttons and signed
+  axes while preserving concurrent keyboard and pointer use. Unsupported
+  Gamepad APIs MUST degrade safely without disabling keyboard or pointer
+  controls. Controller input MUST remain local and MUST NOT send raw device
+  data over the network. Hardware support claims require a physical standard
+  controller smoke test.
+- **FR-054 — M3 keyboard profiles:** M3 MUST provide Original, MMO/WASD, and
+  Custom keyboard mappings. MMO/WASD changes selection movement to WASD only;
+  it MUST NOT imply troop movement, camera panning, or pipe creation. Custom
+  mappings and profile selection remain in memory only; reload returns to
+  Original. Applying a keyboard preset MUST NOT silently erase controller
+  bindings.
+- **FR-055 — Gamepad defaults and custom bindings:** The default Gamepad
+  directional mapping MUST move selection only; it MUST NOT automatically
+  map directional input to troop movement, pipe orders, or camera pan. A
+  custom mapping MAY bind a supported discrete Gamepad control—including a
+  d-pad button or a signed-axis activation—to an existing compatible semantic
+  action, using the same guarded action bridge as other sources. This permits
+  remapping existing actions only; it adds no troop-movement action and makes
+  no arbitrary device/action compatibility promise. Pointer subcell weapon
+  aiming remains available. Gamepad-only weapon aiming, analog camera control,
+  and controller presets are deferred and MUST NOT be implied as supported.
+
+**Non-goals:** No accounts, server/protocol/engine changes, storage or
+persistence, raw device data on the wire, touch input, vendor SDK, arbitrary
+device/browser compatibility guarantee, or edits to the archived
+`europa-source/` control reference. No troop-movement control is introduced.
+The player manual changes only in a milestone that changes shipped controls,
+as required by feature 007 FR-012.
+
+**Milestone acceptance:**
+
+1. **M1 — runtime foundation:** typed action/source mapping, compatibility
+   adapter, runtime update/reset seam, current-default and wire-order parity,
+   atomic validation, runtime isolation, and lifecycle/focus/offline/spectator
+   guards; no UI or Gamepad hardware.
+2. **M2 — Controls dialog and Gamepad:** accessible capture/edit/reset flows,
+   concurrent keyboard/pointer/Gamepad input, standard-mapped API feature
+   detection, bounded selection repeat and button activation, cleanup across
+   neutral/disconnected/hidden/blur states, and physical hardware smoke before
+   claiming hardware validation.
+3. **M3 — keyboard presets:** Original and MMO/WASD-selection tables plus
+   in-memory Custom editing; accurate active labels, conflict-safe atomic
+   application, manual update, and reload-to-Original behavior.
+
+All milestone requirements remain unimplemented until their corresponding
+implementation and acceptance evidence are reviewed.
