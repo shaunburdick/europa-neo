@@ -11,8 +11,8 @@
  *
  * Terrain shading uses 4 biome zones (spec 024 FR-001) with distinct hue
  * families replacing the retired single-hue 6-band system. Each zone maps
- * a contiguous elevation range to icy cyan / deep blue / blue-gray / cool
- * white, so terrain color communicates both elevation and pipe flow viability.
+ * a contiguous elevation range to blue / teal / orange / pale blue (hues
+ * 210 / 170 / 30 / 200); color carries elevation and pipe flow viability.
  * Contrast notes (WCAG 1.4.3/1.4.11) are documented in `DESIGN.md` and
  * pinned by `palette.test.ts`; owner identity is never conveyed by color
  * alone (constitution Principle VI).
@@ -62,13 +62,11 @@ function biomeZoneAt(index: number): (typeof BIOME_ZONES)[number] {
 }
 
 /**
- * Dark outline color for pipe triangles — guarantees contrast against
- * all biome backgrounds (spec 024 FR-010, FR-021).
- *
- * Against light backgrounds (Peaks, L=60–78%), provides ≥9:1 contrast.
- * Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops),
- * the pipe fill colors themselves are perceptually distinct from terrain
- * hues and reinforced by triangle shape and cell-edge position.
+ * Dark outline for pipe triangles (spec 024 FR-010/FR-021). Composited over
+ * terrain it reaches ≈7.49:1 on the lightest painted land tile (Peaks light
+ * end, L=88) and ≈2.91–3.40:1 on the dark zones' midpoints — so the triangle
+ * is carried by shape and outline, not fill hue: three of the four fills sit
+ * within 9° of a zone hue and all measure ≈1.0–2.6:1 (DESIGN.md N-4, #199).
  */
 export const PIPE_OUTLINE_COLOR = TOKENS.color.pipeOutline;
 
@@ -86,6 +84,30 @@ export const PIPE_DOWNHILL_COLOR = TOKENS.color.pipeDownhill;
 export const PIPE_FLAT_COLOR = TOKENS.color.pipeFlat;
 export const PIPE_UPHILL_COLOR = TOKENS.color.pipeUphill;
 export const PIPE_STALLED_COLOR = TOKENS.color.pipeStalled;
+
+/**
+ * Relief lightness anchors (spec 017 FR-009) — canvas-only, not a UI
+ * surface: the lit and shaded end points a delta-dependent land-tile
+ * edge band moves its lightness toward, keeping the face's hue and
+ * saturation.
+ */
+export const RELIEF_HIGHLIGHT_COLOR = TOKENS.color.reliefHighlight;
+export const RELIEF_SHADOW_COLOR = TOKENS.color.reliefShadow;
+
+/**
+ * Zone-seam isoline (spec 018 FR-002). Reuses `textMuted`: its worst
+ * canvas pairing is 1.373:1 against zone 3's shaded step-1 bevel, above
+ * the 1.2:1 floor against every adjoining face and bevel tone.
+ */
+export const SEAM_COLOR = TOKENS.color.textMuted;
+
+/**
+ * Elevation-contour isoline (spec 018 FR-004) — neutral black at 20 %.
+ * Measured 1.346:1 to 1.588:1 against the face stops it crosses, under
+ * the zone seam's 1.634:1 worst case: a third hairline weight that never
+ * outranks the seam, and one the relief bevels cover where they meet.
+ */
+export const CONTOUR_COLOR = TOKENS.color.contourInk;
 
 /** Water shallow variant (design token). */
 export const WATER_SHALLOW_COLOR = TOKENS.color.waterShallow;
@@ -231,6 +253,26 @@ export function landBandColor(band: number): string {
     const lightness = Math.round((zone.lightnessMin + zone.lightnessMax) / 2);
     return `hsl(${zone.hue}, ${zone.saturationPct}%, ${lightness}%)`;
 }
+
+/**
+ * The zone's midpoint colour with `shift` HSL lightness points added
+ * (spec 018 FR-003). Unlike `adjustBrightness`, the lightness stays
+ * fractional, so the four grain variants render distinct surfaces.
+ */
+export function landBandColorWithLightness(band: number, shift: number): string {
+    const clamped = Math.max(0, Math.min(3, Math.round(band)));
+    const zone = biomeZoneAt(clamped);
+    const lightness = Math.round((zone.lightnessMin + zone.lightnessMax) / 2) + shift;
+    return `hsl(${zone.hue}, ${zone.saturationPct}%, ${lightness}%)`;
+}
+
+/**
+ * Lightness points the decorative face gradient gives up from the tile's
+ * NW corner to its SE corner (spec 017 FR-005). Decoration only: a third
+ * of the retired gradient's −15, well below a bevel tone shift, so it
+ * reads as surface rather than as a lit or shaded edge.
+ */
+export const LAND_FACE_GRADIENT_DELTA = -5;
 
 /**
  * Map cell elevation to water depth (stub for future depth data).

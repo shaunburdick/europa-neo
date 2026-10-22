@@ -117,7 +117,7 @@ export function cellViewToRenderInfo(cell: CellView): CellRenderInfo {
  * simply misses, which classifies the pipe as flat (fog fallback,
  * 005 FR-013).
  */
-function destinationCoord(coord: Coord, direction: Direction): Coord {
+export function destinationCoord(coord: Coord, direction: Direction): Coord {
     switch (direction) {
         case 'N':
             return { x: coord.x, y: coord.y - 1 };

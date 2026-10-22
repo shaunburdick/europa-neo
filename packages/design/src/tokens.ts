@@ -66,6 +66,11 @@ export const TOKENS = {
         cityGlow: '#ff6b6b',
         cityGlowStrong: '#ff4444',
         combatEffect: 'rgba(239, 68, 68, 0.55)',
+        // Elevation-contour isoline (spec 018 FR-004). Neutral black at 20 %:
+        // 1.346:1 to 1.588:1 against the face stops it crosses, below the zone
+        // seam's 1.634:1 floor, so the seam stays the strongest hairline on the
+        // board.
+        contourInk: 'rgba(0, 0, 0, 0.2)',
         divider: '#374151',
         // Semantic state colors — dark-theme values for success/warning/error/info.
         // Each state has a base fill, bg, border, hover, and active variant.  Sourced
@@ -105,6 +110,11 @@ export const TOKENS = {
         /** Player 4 ownership color — amber-600. */
         playerColor4: '#d97706',
         red: '#dc2626',
+        // Relief lightness anchors (spec 017 FR-009): the canvas-only end
+        // points a delta-dependent edge band's lightness moves toward — not a
+        // UI surface, and never painted literally.
+        reliefHighlight: '#ffffff',
+        reliefShadow: '#000000',
         success: '#059669',
         successActive: '#1b7154',
         successBg: '#11221d',

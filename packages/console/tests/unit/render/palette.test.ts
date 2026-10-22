@@ -7,15 +7,26 @@
  * - biomeZoneForElevation pure function (AC-020);
  * - terrainColor returns biome-zone HSL for land (AC-022);
  * - water/void distinctness invariants preserved (AC-017/AC-018);
- * - pipe outline color constant (AC-010).
+ * - pipe outline color constant (AC-010);
+ * - the documented terrain-contrast figures of the spec 017 A-03 sweep,
+ *   asserted against `TOKENS.color.biomeZones` so a token change fails this
+ *   test instead of rotting `DESIGN.md` (A-05);
+ * - the relief mix-extreme tokens and their `DESIGN.md` § 1.1 rows (spec 017
+ *   AC-007), which no running guard otherwise covers.
  */
 
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { TOKENS } from '@europa/design';
 import { describe, expect, test } from 'vitest';
 import {
     biomeZoneForElevation,
     LAND_BAND_COUNT,
     LAND_BAND_LIGHTNESS,
+    LAND_FACE_GRADIENT_DELTA,
     landBandColor,
+    landBandColorWithLightness,
     landBandIndex,
     PAGE_BACKGROUND_COLOR,
     PIPE_OUTLINE_COLOR,
@@ -25,6 +36,7 @@ import {
     waterDepthColor,
     waterDepthForCell,
 } from '../../../src/render/palette';
+import { reliefToneColours } from '../../../src/render/relief';
 
 /** Parse `hsl(H, S%, L%)` (the format terrainColor/landBandColor emit). */
 function parseHsl(color: string): { hue: number; sat: number; light: number } {
@@ -46,6 +58,144 @@ function hexToRgb(hex: string): [number, number, number] {
         throw new Error(`not a #rrggbb color: ${hex}`);
     }
     return [Number.parseInt(match[1], 16), Number.parseInt(match[2], 16), Number.parseInt(match[3], 16)];
+}
+
+/** Parse `hsl(H S% L%)` to RGB for contrast calculation. */
+function hslToRgb(hue: number, sat: number, light: number): [number, number, number] {
+    const s = sat / 100;
+    const l = light / 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hue < 60) {
+        r = c;
+        g = x;
+        b = 0;
+    } else if (hue < 120) {
+        r = x;
+        g = c;
+        b = 0;
+    } else if (hue < 180) {
+        r = 0;
+        g = c;
+        b = x;
+    } else if (hue < 240) {
+        r = 0;
+        g = x;
+        b = c;
+    } else if (hue < 300) {
+        r = x;
+        g = 0;
+        b = c;
+    } else {
+        r = c;
+        g = 0;
+        b = x;
+    }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+/** Relative luminance per WCAG 2.x (sRGB → linear → weighted sum). */
+function relativeLuminance(rgb: [number, number, number]): number {
+    const [rs, gs, bs] = rgb.map((c) => {
+        const s = c / 255;
+        return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+/** WCAG contrast ratio between two relative luminances. */
+function contrastRatio(l1: number, l2: number): number {
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** The dark biome zones 0–2, the pipe rows' worst-case terrain. */
+const DARK_ZONES = TOKENS.color.biomeZones.slice(0, 3);
+
+/** The lightest shipped Peaks shade: zone 3's configured lightness maximum. */
+const PEAKS_CEILING_RGB = hslToRgb(
+    TOKENS.color.biomeZones[3].hue,
+    TOKENS.color.biomeZones[3].saturationPct,
+    TOKENS.color.biomeZones[3].lightnessMax,
+);
+
+/** One biome zone's shipped configuration. */
+type BiomeZone = (typeof TOKENS.color.biomeZones)[number];
+
+/** The lightness `landBandColor` paints for a zone: the configured midpoint. */
+function zoneMidpointLightness(zone: BiomeZone): number {
+    return Math.round((zone.lightnessMin + zone.lightnessMax) / 2);
+}
+
+/** A zone's painted midpoint as sRGB bytes — the pipe rows' reference background. */
+function zoneMidpointRgb(zone: BiomeZone): [number, number, number] {
+    return hslToRgb(zone.hue, zone.saturationPct, zoneMidpointLightness(zone));
+}
+
+/** One `hsl(H, S%, L%)` palette string as sRGB bytes. */
+function hslColourRgb(colour: string): [number, number, number] {
+    const hsl = parseHsl(colour);
+    return hslToRgb(hsl.hue, hsl.sat, hsl.light);
+}
+
+/** sRGB bytes as `#rrggbb`. */
+function rgbHex([red, green, blue]: readonly [number, number, number]): string {
+    const channel = (value: number): string => value.toString(16).padStart(2, '0');
+    return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
+/** One zone's face-texture NW stop (`shift` 0) or SE stop (the gradient delta). */
+function zoneStopRgb(zone: number, shift: number): [number, number, number] {
+    return hslColourRgb(landBandColorWithLightness(zone, shift));
+}
+
+/** Hue of a `#rrggbb` token colour in degrees. */
+function hexHue(hex: string): number {
+    const [red, green, blue] = hexToRgb(hex);
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const span = max - min;
+    if (span === 0) {
+        return 0;
+    }
+    const sector =
+        max === red ? ((green - blue) / span) % 6 : max === green ? (blue - red) / span + 2 : (red - green) / span + 4;
+    return (sector * 60 + 360) % 360;
+}
+
+/** WCAG contrast ratio between two sRGB byte triples. */
+function ratio(a: [number, number, number], b: [number, number, number]): number {
+    return contrastRatio(relativeLuminance(a), relativeLuminance(b));
+}
+
+/**
+ * WCAG contrast ratio of a translucent `rgba()` overlay composited over a
+ * background, to that background — the pipe outline's visibility on a tile.
+ */
+function compositedRatio(overlay: string, background: [number, number, number]): number {
+    const match = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)$/.exec(overlay);
+    if (match === null) {
+        throw new Error(`not an rgba() palette colour: ${overlay}`);
+    }
+    const [, red = '0', green = '0', blue = '0', alpha = '0'] = match;
+    const a = Number(alpha);
+    const composited: [number, number, number] = [
+        Math.round(a * Number(red) + (1 - a) * background[0]),
+        Math.round(a * Number(green) + (1 - a) * background[1]),
+        Math.round(a * Number(blue) + (1 - a) * background[2]),
+    ];
+    return ratio(composited, background);
+}
+
+/** Round to `places` decimals, the precision `DESIGN.md` states its figures at. */
+function rounded(value: number, places: number): number {
+    const factor = 10 ** places;
+    return Math.round(value * factor) / factor;
 }
 
 describe('biomeZoneForElevation (spec 024 FR-005, AC-020)', () => {
@@ -306,68 +456,13 @@ describe('PIPE_OUTLINE_COLOR (spec 024 FR-010, AC-010)', () => {
 });
 
 describe('biome zone contrast vs void (spec 024)', () => {
-    /**
-     * Parse `hsl(H S% L%)` to RGB for contrast calculation.
-     */
-    function hslToRgb(hue: number, sat: number, light: number): [number, number, number] {
-        const s = sat / 100;
-        const l = light / 100;
-        const c = (1 - Math.abs(2 * l - 1)) * s;
-        const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-        const m = l - c / 2;
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        if (hue < 60) {
-            r = c;
-            g = x;
-            b = 0;
-        } else if (hue < 120) {
-            r = x;
-            g = c;
-            b = 0;
-        } else if (hue < 180) {
-            r = 0;
-            g = c;
-            b = x;
-        } else if (hue < 240) {
-            r = 0;
-            g = x;
-            b = c;
-        } else if (hue < 300) {
-            r = x;
-            g = 0;
-            b = c;
-        } else {
-            r = c;
-            g = 0;
-            b = x;
-        }
-        return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
-    }
-
-    /** Relative luminance per WCAG 2.x (sRGB → linear → weighted sum). */
-    function relativeLuminance(rgb: [number, number, number]): number {
-        const [rs, gs, bs] = rgb.map((c) => {
-            const s = c / 255;
-            return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-        });
-        return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-    }
-
-    /** WCAG contrast ratio between two relative luminances. */
-    function contrastRatio(l1: number, l2: number): number {
-        const lighter = Math.max(l1, l2);
-        const darker = Math.min(l1, l2);
-        return (lighter + 0.05) / (darker + 0.05);
-    }
-
     test('Peaks zone (highest lightness) has sufficient contrast vs void', () => {
         const voidRgb = hexToRgb(VOID_COLOR);
         const voidLum = relativeLuminance(voidRgb);
 
-        // Peaks zone: lightness 60–78%, hue 220, sat 8%
-        const peaksRgb = hslToRgb(220, 8, 60);
+        // Zone 3's darkest shade (L=80) is the weakest case for the lightest zone.
+        const peaks = TOKENS.color.biomeZones[3];
+        const peaksRgb = hslToRgb(peaks.hue, peaks.saturationPct, peaks.lightnessMin);
         const peaksLum = relativeLuminance(peaksRgb);
         const ratio = contrastRatio(peaksLum, voidLum);
         expect(ratio).toBeGreaterThanOrEqual(3.0);
@@ -383,5 +478,170 @@ describe('biome zone contrast vs void (spec 024)', () => {
             Math.abs(voidRgb[2] - pageRgb[2]),
         );
         expect(channelGap).toBeGreaterThanOrEqual(8);
+    });
+});
+
+/**
+ * Every figure `DESIGN.md`'s spec 017 A-03 sweep states, asserted here
+ * instead of printed: the sweep transcribes this block's numbers, so a token
+ * change fails this test before the prose can go stale (A-05, plan D9).
+ */
+describe('documented terrain contrast figures (A-03 sweep)', () => {
+    const voidRgb = hexToRgb(VOID_COLOR);
+    const waterRgb = hexToRgb(WATER_COLOR);
+    const peaks = TOKENS.color.biomeZones[3];
+    /** The lightest painted land tile: sub-pass 1c's Peaks gradient start. */
+    const peaksLightEndRgb = zoneMidpointRgb(peaks);
+
+    test('biome-zone hues and painted midpoint lightness', () => {
+        const documented = [
+            [80, 210, 45],
+            [160, 170, 33],
+            [208, 30, 36],
+            [255, 200, 88],
+        ];
+        expect(
+            TOKENS.color.biomeZones.map((zone) => [zone.elevationMax, zone.hue, zoneMidpointLightness(zone)]),
+            'DESIGN.md § 1.1 biome-zones: elevationMax, hue, painted midpoint lightness',
+        ).toEqual(documented);
+    });
+
+    test('pipe slope fills against the void and the dark biome midpoints', () => {
+        const documented = [
+            { name: 'downhill', fill: TOKENS.color.pipeDownhill, void: 4.22, darkZones: [1.3, 1.23, 1.5] },
+            { name: 'flat', fill: TOKENS.color.pipeFlat, void: 7.4, darkZones: [2.29, 2.16, 2.63] },
+            { name: 'uphill', fill: TOKENS.color.pipeUphill, void: 3.29, darkZones: [1.02, 1.04, 1.17] },
+            { name: 'stalled', fill: TOKENS.color.pipeStalled, void: 6.26, darkZones: [1.93, 1.83, 2.23] },
+        ];
+        for (const row of documented) {
+            const fill = hexToRgb(row.fill);
+            expect(rounded(ratio(fill, voidRgb), 2), `${row.name} vs void-bg`).toBe(row.void);
+            expect(
+                DARK_ZONES.map((zone) => rounded(ratio(fill, zoneMidpointRgb(zone)), 2)),
+                `${row.name} vs zones 0–2 midpoints`,
+            ).toEqual(row.darkZones);
+        }
+    });
+
+    test('pipe and terrain hue proximities', () => {
+        const zone0Hue = TOKENS.color.biomeZones[0].hue;
+        const zone1Hue = TOKENS.color.biomeZones[1].hue;
+        const zone2Hue = TOKENS.color.biomeZones[2].hue;
+        const downhillHue = hexHue(TOKENS.color.pipeDownhill);
+        const flatHue = hexHue(TOKENS.color.pipeFlat);
+        const stalledHue = hexHue(TOKENS.color.pipeStalled);
+
+        expect([zone0Hue, zone1Hue, zone2Hue, peaks.hue], 'shipped zone hues').toEqual([210, 170, 30, 200]);
+        expect(
+            [downhillHue, flatHue, hexHue(TOKENS.color.pipeUphill), stalledHue].map((hue) => rounded(hue, 1)),
+            'pipe fill hues',
+        ).toEqual([161.4, 37.7, 0, 217.9]);
+        expect(rounded(hexHue(TOKENS.color.city), 1), 'city — the 43° amber the pipe rows used to name').toBe(43.3);
+        expect(rounded(Math.abs(downhillHue - zone1Hue), 1), 'downhill green vs zone 1').toBe(8.6);
+        expect(rounded(Math.abs(flatHue - zone2Hue), 1), 'flat amber vs zone 2').toBe(7.7);
+        expect(rounded(Math.abs(stalledHue - zone0Hue), 1), 'stalled grey vs zone 0').toBe(7.9);
+    });
+
+    test('water ratios name the shipped land ceiling as their referent', () => {
+        expect(rounded(ratio(waterRgb, voidRgb), 2), 'water vs void-bg').toBe(2.37);
+        expect(rounded(ratio(waterRgb, PEAKS_CEILING_RGB), 2), 'water vs the land ceiling hsl(200 15% 95%)').toBe(6.01);
+    });
+
+    test('N-3 water and darkest painted face figures', () => {
+        const zone1 = TOKENS.color.biomeZones[1];
+        // Sub-pass 1c paints the zone midpoint to midpoint − 5 (017 v1.11
+        // FR-005): zone 1's L=33 NW stop and L=28 SE stop.
+        expect(rounded(ratio(zoneMidpointRgb(zone1), voidRgb), 2), 'zone 1 NW stop (L=33) vs void-bg').toBe(3.43);
+        expect(
+            rounded(ratio(zoneStopRgb(1, LAND_FACE_GRADIENT_DELTA), voidRgb), 2),
+            'zone 1 SE stop (L=28) vs void-bg',
+        ).toBe(2.66);
+    });
+
+    test('the § 3 Peaks ceiling row states which shade it measures', () => {
+        expect(rounded(ratio(PEAKS_CEILING_RGB, voidRgb), 2), 'shipped Peaks ceiling (L=95) vs void-bg').toBe(14.26);
+        expect(rounded(ratio(peaksLightEndRgb, voidRgb), 2), 'painted Peaks NW stop (L=88) vs void-bg').toBe(12.16);
+        expect(
+            rounded(ratio(zoneStopRgb(3, LAND_FACE_GRADIENT_DELTA), voidRgb), 2),
+            'painted Peaks SE stop (L=83) vs void-bg',
+        ).toBe(10.77);
+    });
+
+    test('N-5 relief bevel figures and the Δ1 tone colours', () => {
+        const tones = [0, 1, 2, 3].map((zone) => reliefToneColours(landBandColor(zone)));
+        const faces = [0, 1, 2, 3].map((zone) => rgbHex(zoneStopRgb(zone, 0)));
+        const lightStops = [0, 1, 2, 3].map((zone) => zoneStopRgb(zone, 0));
+        const darkStops = [0, 1, 2, 3].map((zone) => zoneStopRgb(zone, LAND_FACE_GRADIENT_DELTA));
+
+        // The eight Δ1 tone hexes pin hue and saturation, which a contrast
+        // floor alone cannot (a mix toward #ffffff would still pass).
+        expect(faces).toEqual(['#2873bd', '#268273', '#8e5c29', '#dce2e5']);
+        expect(tones.map((entry) => entry.lit[0])).toEqual(['#c3dbf2', '#baebe3', '#ecd5bd', '#f6f7f8']);
+        expect(tones.map((entry) => entry.shaded[0])).toEqual(['#184572', '#174e45', '#553719', '#758d99']);
+
+        const stopContrast = lightStops.map((stop, zone) => {
+            const dark = darkStops[zone];
+            if (dark === undefined) throw new Error(`missing dark stop for zone ${zone}`);
+            return rounded(ratio(stop, dark), 3);
+        });
+        expect(stopContrast, 'face stop-to-stop contrast by zone').toEqual([1.208, 1.288, 1.243, 1.128]);
+        const shadedContrast = tones.map((entry, zone) => {
+            const dark = darkStops[zone];
+            if (dark === undefined) throw new Error(`missing dark stop for zone ${zone}`);
+            return rounded(ratio(hexToRgb(entry.shaded[0]), dark), 3);
+        });
+        expect(shadedContrast, 'shaded Δ1 bevel against the darkest stop by zone').toEqual([1.66, 1.587, 1.534, 2.361]);
+
+        const peaksTones = reliefToneColours(landBandColor(3));
+        const peaksLight = zoneStopRgb(3, 0);
+        expect(rounded(ratio(hexToRgb(peaksTones.lit[0]), peaksLight), 3), 'Peaks lit/lightest stop').toBe(1.22);
+        expect(rounded(ratio(hexToRgb(peaksTones.lit[0]), hexToRgb(peaksTones.shaded[0])), 3), 'Peaks lit/shaded').toBe(
+            3.249,
+        );
+    });
+
+    test('the pipe outline against the painted land range', () => {
+        expect(
+            rounded(compositedRatio(TOKENS.color.pipeOutline, peaksLightEndRgb), 2),
+            'outline over the lightest painted land tile (Peaks NW stop, L=88)',
+        ).toBe(7.49);
+        expect(
+            DARK_ZONES.map((zone) => rounded(compositedRatio(TOKENS.color.pipeOutline, zoneMidpointRgb(zone)), 2)),
+            'outline over the dark zone midpoints',
+        ).toEqual([3.25, 3.4, 2.91]);
+    });
+});
+
+/**
+ * Spec 017 AC-007's token-presence clause: no running guard reads `DESIGN.md`,
+ * so a relief token added without its § 1.1 row — or a row dropped later —
+ * has to fail here (G-01/G-02 are deferred per spec 012's Scope Note).
+ */
+describe('relief tokens and their DESIGN.md rows (spec 017 AC-007)', () => {
+    test('relief mix extremes carry the documented values', () => {
+        expect(TOKENS.color.reliefHighlight).toBe('#ffffff');
+        expect(TOKENS.color.reliefShadow).toBe('#000000');
+    });
+
+    test('DESIGN.md § 1.1 documents both tokens, each on its own row', () => {
+        const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
+        const design = readFileSync(resolve(repositoryRoot, 'DESIGN.md'), 'utf8');
+        const heading = '### 1.1 Colors';
+        const start = design.indexOf(heading);
+        expect(start, `DESIGN.md must carry the "${heading}" heading`).toBeGreaterThanOrEqual(0);
+        const nextHeading = design.indexOf('\n### ', start + heading.length);
+        expect(nextHeading, 'DESIGN.md § 1.1 must be followed by the next section heading').toBeGreaterThan(start);
+        const rows = design.slice(start + heading.length, nextHeading).split('\n');
+        expect(rows.length, 'DESIGN.md § 1.1 must carry rows').toBeGreaterThan(1);
+
+        const documented = [
+            ['TOKENS.color.reliefHighlight', TOKENS.color.reliefHighlight],
+            ['TOKENS.color.reliefShadow', TOKENS.color.reliefShadow],
+        ];
+        for (const [name, value] of documented) {
+            const row = rows.filter((line) => line.includes(name)).join('\n');
+            expect(row, `${name} must have a § 1.1 row`).not.toBe('');
+            expect(row, `${name}'s § 1.1 row must carry ${value}`).toContain(value);
+        }
     });
 });

@@ -17,6 +17,7 @@
   --europa-color-city-glow: #ff6b6b;
   --europa-color-city-glow-strong: #ff4444;
   --europa-color-combat-effect: rgba(239, 68, 68, 0.55);
+  --europa-color-contour-ink: rgba(0, 0, 0, 0.2);
   --europa-color-divider: #374151;
   --europa-color-error: #dc6966;
   --europa-color-error-active: #ad5553;
@@ -47,6 +48,8 @@
   --europa-color-player-color3: #059669;
   --europa-color-player-color4: #d97706;
   --europa-color-red: #dc2626;
+  --europa-color-relief-highlight: #ffffff;
+  --europa-color-relief-shadow: #000000;
   --europa-color-success: #059669;
   --europa-color-success-active: #1b7154;
   --europa-color-success-bg: #11221d;

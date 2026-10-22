@@ -3,19 +3,67 @@
  *
  * Exercises drawTerrain through the public `paint` method using a mock
  * CanvasRenderingContext2D. Verifies water gradient + wave texture,
- * land biome-zone gradients + inner shadow + contour hints, city glow effects,
- * void radial gradient, and pipe triangle outlines.
+ * land biome-zone face textures + delta-based edge relief + contour
+ * hints, city glow effects, void radial gradient, and pipe triangle
+ * outlines. happy-dom has no canvas 2D, so the face-texture sprite path
+ * falls back to a flat zone fill here; the browser readback suite
+ * (`tests/component/render/relief.test.tsx`) asserts the texture.
  */
 
 import { describe, expect, test, vi } from 'vitest';
 import { MapCanvas } from '../../../src/render/canvas';
-import { PIPE_OUTLINE_COLOR, PIPE_STALLED_COLOR } from '../../../src/render/palette';
+import { landBandColor, PIPE_OUTLINE_COLOR, PIPE_STALLED_COLOR } from '../../../src/render/palette';
+import { reliefToneColours } from '../../../src/render/relief';
 import type { CellRenderInfo, MapView } from '../../../src/state/types';
 
-/** Build a minimal mock CanvasRenderingContext2D with tracked calls. */
-function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
+/** Tile size the mock board paints at (`makeMapView`'s camera zoom). */
+const TILE_PX = 32;
+
+/**
+ * The two `fillStyle` literals sub-pass 1d painted on every land tile
+ * before spec 017 retired them (005's absorbed `024-FR-013`, rewritten
+ * by 017 FR-005).
+ */
+const RETIRED_INNER_SHADOW_FILLS = ['rgba(0, 0, 0, 0.25)', 'rgba(255, 255, 255, 0.15)'];
+
+/** One `fillRect` the mock recorded, with the `fillStyle` in effect at the call. */
+interface RecordedFill {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+    readonly fillStyle: unknown;
+}
+
+/** One filled path polygon the mock recorded. */
+interface RecordedPolygon {
+    readonly points: readonly number[];
+    readonly fillStyle: unknown;
+}
+
+/** A mock 2D context plus every fill it recorded. */
+interface RecordingMockCtx {
+    readonly ctx: CanvasRenderingContext2D;
+    readonly fills: RecordedFill[];
+    readonly polygons: RecordedPolygon[];
+}
+
+/**
+ * Build a mock context that records each `fillRect` and each filled path
+ * polygon together with the `fillStyle` in effect, so a test can assert
+ * a fill's colour and shape as the painter set them.
+ */
+function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
     const mocks = new Map<string | symbol, ReturnType<typeof vi.fn>>();
     const props = new Map<string | symbol, unknown>();
+    const fills: RecordedFill[] = [];
+    const polygons: RecordedPolygon[] = [];
+    // Sub-pass 1d batches relief bands into one path per distinct colour,
+    // so a fill arrives as one or more `moveTo`/`lineTo` subpaths flushed
+    // by `fill`.
+    const pathRects: { x: number; y: number; width: number; height: number }[] = [];
+    const pathPolygons: number[][] = [];
+    let currentPoints: number[] = [];
     const gradient = {
         addColorStop: vi.fn(),
     };
@@ -33,6 +81,70 @@ function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
                         prop,
                         vi.fn(() => ({ ...gradient, addColorStop: vi.fn() })),
                     );
+                } else if (prop === 'fillRect') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number, fillWidth: number, fillHeight: number) => {
+                            fills.push({
+                                x,
+                                y,
+                                width: fillWidth,
+                                height: fillHeight,
+                                fillStyle: props.get('fillStyle'),
+                            });
+                        }),
+                    );
+                } else if (prop === 'rect') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number, fillWidth: number, fillHeight: number) => {
+                            pathRects.push({ x, y, width: fillWidth, height: fillHeight });
+                        }),
+                    );
+                } else if (prop === 'moveTo') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number) => {
+                            if (currentPoints.length > 0) {
+                                pathPolygons.push(currentPoints);
+                            }
+                            currentPoints = [x, y];
+                        }),
+                    );
+                } else if (prop === 'lineTo') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number) => {
+                            currentPoints.push(x, y);
+                        }),
+                    );
+                } else if (prop === 'beginPath') {
+                    mocks.set(
+                        prop,
+                        vi.fn(() => {
+                            pathRects.length = 0;
+                            pathPolygons.length = 0;
+                            currentPoints = [];
+                        }),
+                    );
+                } else if (prop === 'fill') {
+                    mocks.set(
+                        prop,
+                        vi.fn(() => {
+                            if (currentPoints.length > 0) {
+                                pathPolygons.push(currentPoints);
+                                currentPoints = [];
+                            }
+                            for (const rect of pathRects) {
+                                fills.push({ ...rect, fillStyle: props.get('fillStyle') });
+                            }
+                            for (const points of pathPolygons) {
+                                polygons.push({ points, fillStyle: props.get('fillStyle') });
+                            }
+                            pathRects.length = 0;
+                            pathPolygons.length = 0;
+                        }),
+                    );
                 } else {
                     mocks.set(prop, vi.fn());
                 }
@@ -45,7 +157,12 @@ function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
         },
     };
 
-    return new Proxy({} as CanvasRenderingContext2D, handler);
+    return { ctx: new Proxy({} as CanvasRenderingContext2D, handler), fills, polygons };
+}
+
+/** Build a minimal mock CanvasRenderingContext2D with tracked calls. */
+function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
+    return createRecordingCtx(width, height).ctx;
 }
 
 /** Build a minimal MapView with the given cells. */
@@ -130,25 +247,71 @@ describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
         expect(ctx.createLinearGradient).toHaveBeenCalled();
     });
 
-    test('land cells use directional gradient (top-left to bottom-right)', () => {
+    test('land cells paint their zone face without a per-cell gradient', () => {
         const ctx = createMockCtx();
         const canvas = new MapCanvas();
         const view = makeMapView([makeLandCell(0, 0, 128)]);
         canvas.paint(view, ctx);
 
-        // Verify createLinearGradient was called (land directional gradient).
-        expect(ctx.createLinearGradient).toHaveBeenCalled();
+        // 1c pre-renders one texture per zone; this happy-dom run has no
+        // canvas 2D context for the sprite, so it exercises the flat
+        // fallback. The browser readback asserts the texture (AC-004).
+        expect(ctx.createLinearGradient).not.toHaveBeenCalled();
+        expect(ctx.fillRect).toHaveBeenCalled();
     });
 
-    test('land cells draw inner shadow (1px dark/light edges)', () => {
-        const ctx = createMockCtx();
+    test('land tiles paint relief bevels only where they are higher (017 FR-001, AC-004)', () => {
         const canvas = new MapCanvas();
-        const view = makeMapView([makeLandCell(0, 0, 128)]);
-        canvas.paint(view, ctx);
 
-        // Inner shadow draws multiple fillRect calls with rgba colors.
-        // We verify the method was called (exact pattern tested by integration).
-        expect(ctx.fillRect).toHaveBeenCalled();
+        // A Peaks tile (own 209) with a lower N neighbour (0): one lit bevel
+        // at Δ ≥ 3 and no shaded bevel anywhere, since no tile is higher
+        // than a neighbour on a shaded side.
+        const { ctx, fills, polygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 1, 209), makeLandCell(0, 0, 0)]), ctx);
+        const tones = reliefToneColours(landBandColor(3));
+        expect(polygons.some((polygon) => polygon.fillStyle === tones.lit[2])).toBe(true);
+        expect(polygons.some((polygon) => polygon.fillStyle === tones.shaded[2])).toBe(false);
+        // The N band runs along the tile's top edge with its ends
+        // tapering into the tile: a body strip at y = TILE_PX plus a
+        // wedge opening from the tile's top-left corner.
+        expect(
+            polygons.some(
+                (polygon) =>
+                    polygon.fillStyle === tones.lit[2] &&
+                    polygon.points[0] === 0 &&
+                    polygon.points[1] === TILE_PX &&
+                    polygon.points[3] === TILE_PX,
+            ),
+        ).toBe(true);
+        expect(
+            fills.some((fill) => fill.fillStyle === tones.lit[2] && fill.y === TILE_PX && fill.height < TILE_PX),
+        ).toBe(true);
+
+        // A lower S neighbour paints the shaded tone instead: tone follows
+        // the side, never the drop alone (FR-002).
+        const { ctx: shadedCtx, polygons: shadedPolygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 0, 209), makeLandCell(0, 1, 0)]), shadedCtx);
+        expect(shadedPolygons.some((polygon) => polygon.fillStyle === tones.shaded[2])).toBe(true);
+        expect(shadedPolygons.some((polygon) => polygon.fillStyle === tones.lit[2])).toBe(false);
+
+        // Equal heights are neutral: no bevel path, and the only land fill
+        // left is the zone face.
+        const { ctx: equalCtx, fills: equalFills, polygons: equalPolygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 0, 209), makeLandCell(0, 1, 209)]), equalCtx);
+        expect(equalPolygons).toHaveLength(0);
+        expect(equalFills.some((fill) => fill.fillStyle === landBandColor(3))).toBe(true);
+
+        // `relief: false` paints the control: same face, no bevel paths.
+        const { ctx: controlCtx, polygons: controlPolygons } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 1, 209), makeLandCell(0, 0, 0)]), controlCtx, { relief: false });
+        expect(controlPolygons).toHaveLength(0);
+
+        // And the retired uniform inner shadow is gone from every paint.
+        for (const recorded of [fills, equalFills]) {
+            expect(
+                RETIRED_INNER_SHADOW_FILLS.filter((literal) => recorded.some((fill) => fill.fillStyle === literal)),
+            ).toEqual([]);
+        }
     });
 
     test('city cells draw radial glow and center dot', () => {
