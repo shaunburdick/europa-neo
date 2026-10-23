@@ -73,6 +73,21 @@ export function snappedLineStart(edge: number, offset: number, width: number): n
 }
 
 /**
+ * Path coordinate of a `width` px stroke whose edge marks `edge`, snapped so
+ * the stroke covers whole bitmap pixels: a 1 px stroke needs its centre at
+ * integer + 0.5. `offset` is the paint's viewport translate, for the same
+ * reason as {@link snappedLineStart}. On an integer edge this is the
+ * `edge + width / 2` alignment stroked hairlines used before the snap.
+ *
+ * @param edge Edge coordinate in board px.
+ * @param offset Board-space origin of the paint's translate.
+ * @param width Stroke width in px.
+ */
+export function snappedStrokeCenter(edge: number, offset: number, width = 1): number {
+    return Math.round(edge - offset) + offset + width / 2;
+}
+
+/**
  * The contour band an elevation falls in; two neighbours are separated by
  * a contour line exactly when their bands differ (FR-004).
  *

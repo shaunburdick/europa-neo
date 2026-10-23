@@ -23,6 +23,7 @@
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 import { terrainColor, VOID_COLOR } from '../render/palette';
+import { snappedStrokeCenter } from '../render/surface';
 import { computeViewportOffset } from '../render/viewport-offset';
 import type { CameraState, CellRenderInfo, Coord } from '../state/types';
 import { clampCamera, panForCellCenter } from './zoom';
@@ -47,6 +48,14 @@ export function minimapScale(board: MinimapGeometry): number {
     return MINIMAP_SIZE_PX / Math.max(board.width, board.height);
 }
 
+/** A rectangle in minimap pixels. */
+export interface ViewportRect {
+    readonly x: number;
+    readonly y: number;
+    readonly w: number;
+    readonly h: number;
+}
+
 /**
  * The visible-viewport rectangle in minimap pixels
  * (`{ x, y, w, h }`). Pure.
@@ -60,7 +69,7 @@ export function viewportRect(
     camera: CameraState,
     board: MinimapGeometry,
     viewportSize?: { readonly width: number; readonly height: number },
-): { readonly x: number; readonly y: number; readonly w: number; readonly h: number } {
+): ViewportRect {
     const scale = minimapScale(board);
     const view = viewportSize ?? {
         width: board.width * camera.zoom,
@@ -81,6 +90,25 @@ export function viewportRect(
         y: y * scale || 0,
         w: (clippedRight - x) * scale,
         h: (clippedBottom - y) * scale,
+    };
+}
+
+/**
+ * `strokeRect` arguments for the viewport indicator (FR-019): each edge
+ * snaps independently to a whole bitmap pixel, so at a fractional minimap
+ * scale the 1 px stroke has no antialiased neighbour. The 2 px minimum keeps
+ * the indicator visible. Paint-time only — {@link viewportRect} stays exact.
+ *
+ * @param rect Fractional viewport rectangle in minimap pixels.
+ */
+export function viewportStrokeRect(rect: ViewportRect): ViewportRect {
+    const x = snappedStrokeCenter(rect.x, 0);
+    const y = snappedStrokeCenter(rect.y, 0);
+    return {
+        x,
+        y,
+        w: Math.max(snappedStrokeCenter(rect.x + rect.w, 0) - x, 2),
+        h: Math.max(snappedStrokeCenter(rect.y + rect.h, 0) - y, 2),
     };
 }
 
@@ -204,8 +232,9 @@ function paintMinimap(
         ctx.fillRect(info.coord.x * scale + (scale - dot) / 2, info.coord.y * scale + (scale - dot) / 2, dot, dot);
     }
 
-    // Viewport rectangle (translucent white).
+    // Viewport rectangle (translucent white), snapped to whole bitmap pixels.
     const rect = viewportRect(camera, { width: boardWidth, height: boardHeight }, viewportSize);
+    const stroke = viewportStrokeRect(rect);
     // design-exception: canvas fallback — spec Edge Cases § pit
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 1;
@@ -213,7 +242,7 @@ function paintMinimap(
     ctx.beginPath();
     ctx.rect(0, 0, boardWidth * scale, boardHeight * scale);
     ctx.clip();
-    ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, Math.max(rect.w, 2), Math.max(rect.h, 2));
+    ctx.strokeRect(stroke.x, stroke.y, stroke.w, stroke.h);
     ctx.restore();
 }
 
