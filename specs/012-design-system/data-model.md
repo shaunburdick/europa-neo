@@ -155,7 +155,7 @@ The automated correctness layer that keeps Design truthful. Not an accessor enti
 | G-05 | Vendored asset byte identity | FR-014, SC-003 | `docs/manual/assets/design.css hash … !== packages/design/dist/design.css hash … — run pnpm --filter @europa/design build` |
 | G-06 | Version header lockstep | FR-017, FR-020, spec 009 FR-009 | `DESIGN.md header 0.1.0 !== packages/design 0.2.0` |
 | G-07 | A11y contrast pairing | FR-016, SC-005, NFR-001 | `pair foreground --europa-text-primary on --europa-surface measured 3.9:1, need ≥4.5:1` |
-| G-08 | Bundle budget | NFR-005 | `browser payload …B gz reaches/exceeds 155648B` |
+| G-08 | Bundle reference report | NFR-005 | Below: `browser payload is within the reference target (…) below`; equality: `browser payload equals the 155648-byte reference target (0 bytes above)`; over: `browser payload is … bytes above the 155648-byte reference target` |
 | G-09 | Artifact scope | FR-013, SC-006 | `artifact contains packages/design/** — pages-deploy.yml source/path widened` |
 
 ---

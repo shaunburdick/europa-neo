@@ -24,6 +24,7 @@ import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { ControlMappingSession } from '../../../src/input/control-mapping';
 import { ControlMappingProvider } from '../../../src/input/control-mapping-context';
+import { GamepadController } from '../../../src/input/gamepad-controller';
 import { createConsoleClient } from '../../../src/net/client';
 import { createWsMatchClient } from '../../../src/net/ws-match-client';
 import { App } from '../../../src/render/App';
@@ -141,12 +142,13 @@ async function bootLiveConsole(mappingSession?: ControlMappingSession): Promise<
         bridge.handleEffect(effect);
     };
 
+    const app = <App store={store} />;
     await render(
         mappingSession === undefined ? (
-            <App store={store} />
+            app
         ) : (
-            <ControlMappingProvider session={mappingSession}>
-                <App store={store} />
+            <ControlMappingProvider session={mappingSession} gamepadController={new GamepadController(mappingSession)}>
+                {app}
             </ControlMappingProvider>
         ),
     );

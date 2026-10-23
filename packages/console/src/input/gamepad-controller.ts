@@ -135,12 +135,13 @@ function actionsWithRisingBindings(
  * same guarded semantic-action translator used by keyboard controls.
  */
 export class GamepadController {
-    private readonly store: ConsoleStore;
+    private store: ConsoleStore | null = null;
     private readonly mappingSession: ControlMappingReader;
     private readonly environment: GamepadPollEnvironment;
     private frame: number | null = null;
     private attached = false;
     private gameplayEnabled = true;
+    private neutralizeNextSample = false;
     private captureHandler: GamepadCaptureHandler | null = null;
     private readonly activeInputs = new Set<string>();
     private readonly suppressedInputs = new Set<string>();
@@ -151,8 +152,7 @@ export class GamepadController {
     private blurListener: (() => void) | null = null;
     private visibilityListener: (() => void) | null = null;
 
-    constructor(store: ConsoleStore, mappingSession: ControlMappingReader, options: GamepadControllerOptions = {}) {
-        this.store = store;
+    constructor(mappingSession: ControlMappingReader, options: GamepadControllerOptions = {}) {
         this.mappingSession = mappingSession;
         this.environment = options.environment ?? browserEnvironment();
     }
@@ -167,12 +167,15 @@ export class GamepadController {
         if (this.attached) return this;
         this.attached = true;
         this.mapUnsubscribe = this.mappingSession.subscribe?.(() => this.reset()) ?? null;
-        this.stateUnsubscribe = this.store.subscribe((state) => {
-            if (!state.inputEnabled) this.reset();
-        });
-        this.blurListener = () => this.reset();
+        this.blurListener = () => {
+            this.neutralizeNextSample = true;
+            this.reset();
+        };
         this.visibilityListener = () => {
-            if (this.environment.isHidden()) this.reset();
+            if (this.environment.isHidden()) {
+                this.neutralizeNextSample = true;
+                this.reset();
+            }
         };
         this.environment.addBlurListener(this.blurListener);
         this.environment.addVisibilityListener(this.visibilityListener);
@@ -180,24 +183,39 @@ export class GamepadController {
         return this;
     }
 
+    /** Attach the one live store whose guarded action bridge may receive input. */
+    attachStore(store: ConsoleStore): void {
+        if (this.store === store) return;
+        if (this.store !== null) this.detachStore(this.store);
+        this.reset();
+        this.store = store;
+        this.stateUnsubscribe = store.subscribe((state) => {
+            if (!state.inputEnabled) this.reset();
+        });
+        this.suppressObservedInputs();
+    }
+
+    /** Detach only the store that was supplied by the matching App instance. */
+    detachStore(store: ConsoleStore): void {
+        if (this.store !== store) return;
+        this.reset();
+        this.stateUnsubscribe?.();
+        this.stateUnsubscribe = null;
+        this.store = null;
+    }
+
     /** Drop all active and repeated input when a modal or lifecycle guard takes over. */
     setGameplayEnabled(enabled: boolean): void {
         if (this.gameplayEnabled === enabled) return;
         this.gameplayEnabled = enabled;
-        if (!enabled) {
-            for (const token of this.activeInputs) this.suppressedInputs.add(token);
-            this.activeInputs.clear();
-            this.heldMoves.clear();
-            this.clearAim();
-        } else {
-            this.heldMoves.clear();
-        }
+        this.reset();
     }
 
     /** Capture the next fresh standard button/axis activation instead of dispatching it. */
     setCaptureHandler(handler: GamepadCaptureHandler | null): void {
+        if (this.captureHandler === handler) return;
         this.captureHandler = handler;
-        this.heldMoves.clear();
+        this.reset();
     }
 
     /** Supply the latest pointer subcell for existing special-weapon aiming. */
@@ -208,21 +226,36 @@ export class GamepadController {
     /** Deterministic one-frame seam used by tests and the RAF loop. */
     pollFrame(nowMs: number): void {
         if (!this.attached || this.environment.isHidden()) {
+            if (this.environment.isHidden()) this.neutralizeNextSample = true;
             this.reset();
             return;
         }
         const pads = this.environment.readGamepads();
         if (pads === null) {
+            this.neutralizeNextSample = true;
             this.reset();
             return;
         }
         const pad = pads.find((candidate) => candidate?.connected && candidate.mapping === 'standard') ?? null;
         if (pad === null) {
+            this.neutralizeNextSample = true;
             this.reset();
             return;
         }
         const nextInputs = new Set<string>();
         this.readActiveInputs(pad, nextInputs);
+
+        for (const token of this.suppressedInputs) {
+            if (!nextInputs.has(token)) this.suppressedInputs.delete(token);
+        }
+        if (this.neutralizeNextSample) {
+            this.neutralizeNextSample = false;
+            for (const token of nextInputs) this.suppressedInputs.add(token);
+            this.activeInputs.clear();
+            this.heldMoves.clear();
+            this.clearAim();
+            return;
+        }
 
         const newlyPressed = [...nextInputs].find(
             (token) => !this.activeInputs.has(token) && !this.suppressedInputs.has(token),
@@ -230,9 +263,10 @@ export class GamepadController {
         if (this.captureHandler !== null && newlyPressed !== undefined) {
             const binding = this.bindingForToken(newlyPressed);
             this.activeInputs.clear();
-            for (const token of nextInputs) this.activeInputs.add(token);
+            for (const token of nextInputs) this.suppressedInputs.add(token);
+            this.heldMoves.clear();
+            this.clearAim();
             if (binding !== null) {
-                this.suppressedInputs.add(newlyPressed);
                 const captureHandler = this.captureHandler;
                 this.captureHandler = null;
                 captureHandler?.(binding);
@@ -240,11 +274,16 @@ export class GamepadController {
             return;
         }
 
-        for (const token of this.suppressedInputs) {
-            if (!nextInputs.has(token)) this.suppressedInputs.delete(token);
-        }
         for (const token of [...nextInputs]) {
             if (this.suppressedInputs.has(token)) nextInputs.delete(token);
+        }
+
+        if (this.store === null) {
+            for (const token of nextInputs) this.suppressedInputs.add(token);
+            this.activeInputs.clear();
+            this.heldMoves.clear();
+            this.clearAim();
+            return;
         }
 
         if (!this.gameplayEnabled) {
@@ -285,20 +324,20 @@ export class GamepadController {
 
     /** Stop polling and release listeners, held state, and captured input. */
     dispose(): void {
-        if (!this.attached) return;
+        if (this.attached && this.frame !== null) this.environment.cancelFrame(this.frame);
         this.attached = false;
-        if (this.frame !== null) this.environment.cancelFrame(this.frame);
         this.frame = null;
         if (this.blurListener !== null) this.environment.removeBlurListener(this.blurListener);
         if (this.visibilityListener !== null) this.environment.removeVisibilityListener(this.visibilityListener);
         this.blurListener = null;
         this.visibilityListener = null;
         this.mapUnsubscribe?.();
-        this.stateUnsubscribe?.();
         this.mapUnsubscribe = null;
-        this.stateUnsubscribe = null;
         this.captureHandler = null;
         this.reset();
+        this.stateUnsubscribe?.();
+        this.stateUnsubscribe = null;
+        this.store = null;
     }
 
     private scheduleFrame(): void {
@@ -353,7 +392,9 @@ export class GamepadController {
     }
 
     private dispatch(action: ControlActionId, nowMs: number): void {
-        const state = this.store.getState();
+        const store = this.store;
+        if (store === null) return;
+        const state = store.getState();
         const ageMs = this.sample === null ? null : nowMs - this.sample.atMs;
         const outcome = translateControlAction({
             action,
@@ -363,7 +404,7 @@ export class GamepadController {
         });
         if (outcome.kind !== 'action') return;
         if (this.sample !== null && this.sample.target.cell === null && isOrderProducingAction(outcome.action)) return;
-        this.store.dispatch(outcome.action, { nowMs });
+        store.dispatch(outcome.action, { nowMs });
     }
 
     private clearAim(): void {
@@ -375,5 +416,16 @@ export class GamepadController {
         this.activeInputs.clear();
         this.heldMoves.clear();
         this.clearAim();
+        this.suppressObservedInputs();
+    }
+
+    private suppressObservedInputs(): void {
+        const pads = this.environment.readGamepads();
+        if (pads === null) return;
+        const pad = pads.find((candidate) => candidate?.connected && candidate.mapping === 'standard') ?? null;
+        if (pad === null) return;
+        const observed = new Set<string>();
+        this.readActiveInputs(pad, observed);
+        for (const token of observed) this.suppressedInputs.add(token);
     }
 }
