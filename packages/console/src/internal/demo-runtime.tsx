@@ -23,6 +23,7 @@ import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ControlMappingSession } from '../input/control-mapping';
 import { ControlMappingProvider } from '../input/control-mapping-context';
+import { GamepadController } from '../input/gamepad-controller';
 import { App } from '../render/App';
 import { createOrderBridge } from '../state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
@@ -172,10 +173,11 @@ export function mountDemoRuntime(root: HTMLElement): void {
 
     window.__europaE2E = { orders: client.sent, store };
     const inputMappingSession = new ControlMappingSession();
+    const gamepadController = new GamepadController(inputMappingSession);
 
     createRoot(root).render(
         <StrictMode>
-            <ControlMappingProvider session={inputMappingSession}>
+            <ControlMappingProvider session={inputMappingSession} gamepadController={gamepadController}>
                 <StoreApp store={store} />
             </ControlMappingProvider>
         </StrictMode>,

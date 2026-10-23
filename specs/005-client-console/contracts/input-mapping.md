@@ -1,9 +1,12 @@
-# Input mapping contract (spec 005 v1.13, issue #201)
+# Input mapping contract (spec 005 v1.16, issue #201)
 
-**Status:** M1–M3 are implemented in the current worktree. Focused verification
-and independent review are recorded in `issue-201-plan.md`; the repository-wide
-gate remains required before push. No physical controller smoke has been
-performed, and no hardware-validation claim is made.
+**Status:** M1–M3, the shared runtime-owner foundation, and the approved
+lobby/pre-join/embedding-host UI are implemented in the current worktree.
+Current LC015/LC017 acceptance, independent-review, and verification evidence
+is recorded in `issue-201-lobby-controls-tasks.md`. Q-P03 retains the
+155,648-byte reference target with warning-only numeric excess per spec 005
+v1.16. No physical controller smoke has been performed, and no
+hardware-validation claim is made.
 
 ## Source of truth
 
@@ -40,10 +43,11 @@ Public data types are declared in
 
 ## Update, validation, and isolation
 
-- Each application runtime owns one `ControlMappingSession`. Production's
-  page-lifetime provider shares the session across route changes and rematches;
-  each `ConsoleRuntime` embedding instance owns a separate session. Isolated
-  `App` renders use a private fallback session.
+- Each application runtime owns one `ControlMappingSession` and one Gamepad
+  input owner. Production's page-lifetime provider shares both across route
+  changes and rematches; each `ConsoleRuntime` embedding instance, demo runtime,
+  and direct-match runtime owns a separate pair. Isolated `App` renders use
+  private fallback instances.
 - A valid replacement updates the session snapshot and notifies consumers;
   input controllers read the new snapshot without remounting. `reset()` returns
   to that session's initial mapping. Mapping state is in memory only and is not
@@ -56,12 +60,16 @@ Public data types are declared in
 - Existing keyboard focus/repeat guards, live-input and bounds checks,
   pointer hit-testing, subcell targeting, local order preflight, and the
   store-to-order bridge remain the dispatch path. Mapping never creates a new
-  `PlayerAction` or changes a wire order.
+  `PlayerAction` or changes a wire order. Keyboard and pointer controllers
+  remain App/store-owned; only the Gamepad owner is available before a match
+  store attaches.
 - Replacing a mapping clears a remembered cursor aim. Blur, offline transition,
   and controller disposal clear the same transient sample; pointer movement
-  while offline cannot repopulate it. A spectator without a live store mounts
-  no order-producing keyboard/pointer/Gamepad controller; the UI-only mapped
-  Help toggle remains available as required by FR-041.
+  while offline cannot repopulate it. A spectator without a live store attaches
+  no order-producing keyboard/pointer controller or Gamepad store bridge. The
+  Gamepad owner may remain available to its runtime, but without an attached
+  store it cannot dispatch; the UI-only mapped Help toggle remains available as
+  required by FR-041.
 - The Help overlay lists active keyboard bindings per semantic action, so
   additional bindings remain associated with their own action rather than
   being flattened across direction/action rows.
@@ -75,7 +83,7 @@ Public data types are declared in
   keyboard profile preserves active pointer and Gamepad bindings; a collision
   rejects the complete preset. Profile selection and edits remain in memory;
   reload creates a new Original session.
-- Standard Gamepad polling is feature-detected and reads only the first
+- One runtime-owned Gamepad poller is feature-detected and reads only the first
   connected `mapping === 'standard'` pad. Default D-pad buttons 12–15 and
   signed left-stick axes move selection only. A press threshold of 0.55 and
   release threshold of 0.35 provide hysteresis; directional selection repeats
@@ -83,7 +91,11 @@ Public data types are declared in
   actions activate on a rising edge. Missing/unsupported APIs, non-standard
   pads, disconnect, blur, hidden documents, modal capture, mapping replacement,
   and teardown do not create raw-device network data or bypass the existing
-  action translator/preflight.
+  action translator/preflight. The same poller can capture before a
+  `ConsoleStore` attaches; capture and every store/capture/mapping/focus/
+  visibility/connection/disposal handoff flush held and repeated state and
+  suppress held controls until neutral. With no store, the dispatch branch is
+  unavailable by construction.
 - Gamepad validation rejects pointer-gesture, camera UI, and Help UI actions;
   compatible discrete button/axis bindings route through the existing semantic
   action translator. Pointer subcell weapon aiming remains available.

@@ -41,7 +41,7 @@ The vendored file at `docs/manual/assets/design.css` is tracked — `pnpm build`
 | `pnpm lint && pnpm format:check` | Biome — `@europa/design` formatted/linted like every other package | FR-022, NFR-003 |
 | `pnpm --filter @europa/console test -- --run` + `pnpm --filter @europa/console exec vitest run --config vitest.config.browser.ts tests/a11y` | Computed-style no-regression smoke (page/HUD/lobby/void/muted/chip/banner/focus), axe scans, reduced-motion inert | SC-001, SC-005, NFR-001 |
 | `pnpm version:check` | `APP_VERSION` = every `package.json#version` = `DESIGN.md` header = `packages/design` version | SC-007, SC-008, FR-020 |
-| `pnpm --filter @europa/console test:selfhost` | Console browser payload is strictly <155,648 B (152 KiB), with the remote-URL scan and one-port host smoke; manual Pages payload remains separately bounded | NFR-005 |
+| `pnpm --filter @europa/console test:selfhost` | Reports every console browser JS/CSS gzip size against the 155,648 B (152 KiB) reference; at/above it warns and still runs the blocking remote-URL scan/one-port host smoke; manual Pages payload remains separately bounded | NFR-005 |
 
 ### Visual QA (human, side-by-side)
 
@@ -97,7 +97,7 @@ Both should render the same treatment for each class without custom CSS. Delete 
 | `DESIGN.md header 0.1.0 !== packages/design 0.1.1` | Lockstep bump missed `DESIGN.md` | Update `DESIGN.md` header to `0.1.1` in the same bump commit (FR-020) |
 | `orphan token in DESIGN.md: --europa-color-…` | Token removed from code without removing the table row (or vice versa) | Remove/add the row + class as required; coverage test names the orphan |
 | Manual still shows white Jekyll default | `_layouts/default.html` missing or vendored CSS path wrong | Ensure `docs/manual/_layouts/default.html` links `{{ '/assets/design.css' | relative_url }}` and pages use `layout: default` |
-| Build reaches or exceeds 155,648 B gz | Unintended duplication of design rules | Check that console imports `@europa/design/dist/design.css` once and does not re-declare rules |
+| Build reaches or exceeds 155,648 B gz | Payload exceeds the advisory reference target; this alone is not a failing self-host check | Confirm every asset remains counted and review for unnecessary duplication (for example, repeated imports); the required host smoke must still complete |
 
 ---
 

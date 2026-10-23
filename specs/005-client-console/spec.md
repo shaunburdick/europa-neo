@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-22 (v1.14; issue #201 owner-approved payload budget amendment)
-**Version**: 1.14
+**Last Updated**: 2026-10-23 (v1.16; issue #201 Q-P03 advisory policy clarification)
+**Version**: 1.16
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.13 issue #201 M1–M3 implementation and v1.14 owner-approved payload-budget amendment are present in this branch. `pnpm verify` passed locally on 2026-10-22 against manifest `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`; the later readiness-document delta is not included in that run. Physical standard-controller smoke remains unperformed, so no hardware validation claim is made. Hook/signing gates remain separate requirements before code publication.
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.13 issue #201 M1–M3 implementation and v1.14 payload-target amendment are present in this branch. The v1.15 issue #201 lobby/pre-entry amendment is approved; its runtime-owner foundation, lobby/pre-join/embedding-host UI, and manual updates are implemented in the current worktree. The pre-policy UI checkpoint measured 156,654 bytes gzipped and its then-current self-host script exited before HTTP/WS smoke; that historical result is recorded in the follow-on task log. v1.16 makes only Q-P03 numeric excess advisory; current LC015/LC017 acceptance and verification evidence is maintained in `issue-201-lobby-controls-tasks.md`. Physical standard-controller smoke remains unperformed, so no hardware validation claim is made. Hook/signing gates remain separate requirements before code publication.
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -253,14 +253,17 @@ truthful).
    effects**: never emitted by the v1 reducer. The runtime handles
    them defensively (log / sound seam / modal epoch) so future
    emitters work without runtime changes.
-4. **Bundle budget scope (Q-P03)**: the browser-delivered initial bundle
-   MUST remain strictly below 155,648 bytes (152 KiB). `scripts/test-selfhost.sh`
-   sums per-file gzip sizes over all `dist/assets/**/*.{js,css}`; the current
-   issue #201 tree measured 155,540 bytes (108 bytes below the amended gate).
-   The tsc library tree also emitted into `dist/` is consumed by
-   bundling hosts, never fetched by browsers, and is out of scope.
-   The browser-mode perf suite cannot read the filesystem, hence the
-   enforcement point.
+ 4. **Bundle payload reference (Q-P03)**: the browser-delivered initial bundle
+    is measured as the sum of per-file gzip sizes over every
+    `dist/assets/**/*.{js,css}` asset. The 155,648-byte (152 KiB) value is an
+    advisory reference target: at or above it, `scripts/test-selfhost.sh` MUST
+    report the exact total and excess, then continue to the required host smoke.
+    Numeric payload size alone MUST NOT fail self-host verification. Build,
+    remote-URL scan, measurement/tooling errors, asset checks, and HTTP/WS host
+    smoke remain blocking. The tsc library tree also emitted into `dist/` is
+    consumed by bundling hosts, never fetched by browsers, and remains outside
+    the Q-P03 browser-payload measurement. The browser-mode perf suite cannot
+    read the filesystem, hence the post-build reporting point.
 5. **Coverage gate scope (T094/T097)**: DOM-bound modules
    (`src/render/`, `src/ui/`, `src/qol/minimap.tsx`) are covered by
    the component/a11y/E2E suites in real Chromium; node-only coverage
@@ -694,9 +697,12 @@ changes MUST NOT alter `NETWORK_API_VERSION`.
   contexts overlap; distinct modifier chords MAY coexist. Held/repeat state
   MUST be flushed when mappings change and on blur, disconnection, or teardown.
 - **FR-051 — Scope and lifetime:** Each console app/tab runtime MUST own an
-  independent in-memory mapping. It MUST remain active across route changes and
-  rematches that retain that runtime, reset to Original on reload, and remain
-  isolated from other embedded runtimes. Mappings MUST NOT be persisted.
+  independent in-memory mapping and its input owner. Production MUST create the
+  owner before the router so one applied mapping and one Gamepad poller can be
+  reused across lobby, pre-entry, match, route changes, and rematches that retain
+  that runtime. `ConsoleRuntime` embedding instances, the demo harness, and the
+  direct-match test runtime MUST have separate owners. A full reload MUST reset
+  the mapping to Original. Mappings MUST NOT be persisted.
 - **FR-052 — M1 runtime seam:** M1 MUST route the current defaults through the
   runtime-updatable mapping seam while preserving action and wire-order
   behavior. M1 includes no settings UI, Gamepad polling, or hardware
@@ -705,11 +711,14 @@ changes MUST NOT alter `NETWORK_API_VERSION`.
   Controls dialog with Primary/Secondary aliases, additional bindings,
   conflict feedback, and safe capture that emits no gameplay action. It MUST
   support feature-detected, standard-mapped Gamepad API buttons and signed
-  axes while preserving concurrent keyboard and pointer use. Unsupported
-  Gamepad APIs MUST degrade safely without disabling keyboard or pointer
-  controls. Controller input MUST remain local and MUST NOT send raw device
-  data over the network. Hardware support claims require a physical standard
-  controller smoke test.
+  axes while preserving concurrent keyboard and pointer use. The runtime-owned
+  Gamepad poller MUST support capture before a gameplay `ConsoleStore` is
+  attached; with no store attached, dispatch MUST be impossible. Attaching the
+  match store MUST reuse that owner and poller rather than construct another.
+  Unsupported Gamepad APIs MUST degrade safely without disabling keyboard or
+  pointer controls. Controller input MUST remain local and MUST NOT send raw
+  device data over the network. Hardware support claims require a physical
+  standard controller smoke test.
 - **FR-054 — M3 keyboard profiles:** M3 MUST provide Original, MMO/WASD, and
   Custom keyboard mappings. MMO/WASD changes selection movement to WASD only;
   it MUST NOT imply troop movement, camera panning, or pipe creation. Custom
@@ -726,6 +735,30 @@ changes MUST NOT alter `NETWORK_API_VERSION`.
   no arbitrary device/action compatibility promise. Pointer subcell weapon
   aiming remains available. Gamepad-only weapon aiming, analog camera control,
   and controller presets are deferred and MUST NOT be implied as supported.
+
+- **FR-056 — Pre-play Controls entry and compatibility:** The existing Controls
+  editor MUST be available from `/lobby` before Create, Join, or public-match
+  entry, and MUST NOT be launched from the production active-match sidebar.
+  Configuration MUST remain optional; Create/Join MUST NOT require opening or
+  completing the editor. The same editor MUST also be reachable on the existing
+  deep-link pre-join screen before Play, without adding a route or changing the
+  entry action. A `ConsoleRuntime` embedding MUST retain an editor launcher in
+  its host shell outside the production match sidebar. One applied mapping MUST
+  govern the first live input after lobby or pre-entry configuration and MUST
+  remain active through retained-runtime navigation and rematches. Reload resets
+  to Original; independent tabs and embedded runtimes remain isolated. Match
+  start timing, identity, route shapes, order semantics, and wire payloads MUST
+  remain unchanged.
+- **FR-057 — Single Gamepad owner and safe lifecycle handoff:** Each runtime MUST
+  own at most one Gamepad polling loop, shared by pre-entry capture and match
+  input. Capture without a store MUST be unable to dispatch gameplay. Capture
+  start/end, store attach/detach, mapping replacement, blur, hidden-page state,
+  disconnect/reconnect, and owner disposal MUST flush held/repeat/aim state and
+  suppress already-held activations until release. A captured or held input
+  MUST NOT become an order when the match store attaches or capture closes.
+  Gamepad loss or unsupported browser APIs MUST leave keyboard and pointer
+  controls usable; keyboard and pointer dispatch remain store/App-owned and
+  guarded by the existing semantic translator and order preflight.
 
 **Non-goals:** No accounts, server/protocol/engine changes, storage or
 persistence, raw device data on the wire, touch input, vendor SDK, arbitrary
@@ -783,3 +816,49 @@ than 155,648 bytes (152 KiB), an increase of 2,048 bytes from 153,600 bytes.
   post-reconciliation tree. The recorded pass is local, not GitHub CI evidence,
   and does not resolve hook/signing gates. Run a fresh full gate before any
   future code publication.
+
+### v1.15 (2026-10-23) — Lobby and pre-entry Controls (issue #201)
+
+The user approved the follow-on amendment and both entry-surface choices in the
+saved plan `1792769828093-issue-201-configure-controls-in-the-lobby-before-play.md`
+(knowledge id `cc595ad9-b84f-4b8a-9020-6f28cee9bcfd`). The approved decisions are:
+the existing editor is available both in the lobby and on the existing pre-join
+screen (before Play), and embedded `ConsoleRuntime` hosts retain an editor
+launcher in their shell outside the production match sidebar. No new
+person-specific approval gate was introduced.
+
+FR-051 and FR-053 are clarified above to make the owner lifetime and pre-store
+Gamepad capture explicit. FR-056 and FR-057 add entry availability and safe
+ownership/lifecycle requirements. The runtime foundation and approved lobby,
+pre-join, and embedding-host UI surfaces plus manual updates are implemented in
+the current worktree under [`issue-201-lobby-controls-plan.md`](./issue-201-lobby-controls-plan.md)
+and [`issue-201-lobby-controls-tasks.md`](./issue-201-lobby-controls-tasks.md).
+At the initial UI implementation checkpoint, the browser bundle measured 1,006
+bytes above the 155,648-byte reference and the then-current self-host script
+exited before its HTTP/WS smoke. That result is historical; v1.16 changes only
+the payload metric's severity. Matchmaking continues to start immediately
+under its existing behavior: no countdown, configuration gate, waiting phase,
+or entry delay is added.
+
+### v1.16 (2026-10-23) — Q-P03 advisory reference target
+
+The owner comment on PR #210 says: “Yep! I think payload size checks are there
+just as a gate vs a hard limit.” The user clarified that this means the
+155,648-byte value is advisory, not a strict line, and explicitly authorized
+the corresponding contract/test behavior change. The comment does not specify
+a new numeric threshold or prescribe warning wording.
+
+- Keep 155,648 bytes (152 KiB) as the reference target and retain the exact
+  existing measurement: sum every per-file gzip size for every `.js` and `.css`
+  file under `dist/assets`.
+- At or above the reference target, `test:selfhost` MUST print the measured
+  total and excess as a warning and continue to the one-port HTTP/WS smoke. The
+  numeric result alone MUST NOT fail `test:selfhost` or `pnpm verify`.
+- Build failures, URL-scan violations/tool failures, invalid measurements,
+  asset/probe failures, and HTTP/WS smoke failures remain blocking. No assets
+  are excluded, no other performance/design budget changes, and no warning
+  wrapper may turn those failures into success.
+- The earlier v1.14 description of a strict numeric failure remains a
+  historical record of the implementation at that time; this v1.16 clause
+  supersedes only that enforcement interpretation. The measured value itself
+  and all other verification gates are unchanged.

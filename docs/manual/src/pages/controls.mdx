@@ -7,7 +7,7 @@ import { EuropaBadge } from '@europa/design/components';
 
 # Controls
 
-This page lists every pointer gesture and keyboard command available during a match. Keep it open during your first game. For what these commands do to the board, see [Pipes](./pipes), [Reserves](./reserves), and [Special weapons](./special-weapons).
+This page lists every pointer gesture and keyboard command available during a match. Open **Configure controls…** from the lobby before creating or joining, or from the existing pre-join screen before choosing **Play**. Configuration is optional and does not delay entry. Keep this page open during your first game. For what these commands do to the board, see [Pipes](./pipes), [Reserves](./reserves), and [Special weapons](./special-weapons).
 
 Most commands act on your **selected cell** — the one highlighted by your last click or arrow-key move. The selected cell is also the launch point for paratroopers and guns.
 
@@ -53,11 +53,11 @@ Most commands act on your **selected cell** — the one highlighted by your last
 | <EuropaBadge>-</EuropaBadge> / <EuropaBadge>_</EuropaBadge> | Zoom out one step |
 | <EuropaBadge>Home</EuropaBadge> | Reset to 100% (measured fit) |
 
-The Controls dialog offers **Original**, **MMO / WASD selection**, and **Custom** keyboard profiles. Original is the default; MMO/WASD changes only selection movement to W/A/S/D and does not move troops, create pipes, or pan the camera. Custom edits and the selected profile remain in memory for the current runtime only. Applying a keyboard profile keeps non-keyboard Gamepad bindings; reloading returns to Original.
+The Controls editor offers **Original**, **MMO / WASD selection**, and **Custom** keyboard profiles before match entry. Original is the default; MMO/WASD changes only selection movement to W/A/S/D and does not move troops, create pipes, or pan the camera. Custom edits and the selected profile remain in memory for the current runtime, including lobby-to-match navigation and rematches. Applying a keyboard profile keeps non-keyboard Gamepad bindings; reloading returns to Original.
 
 ## Gamepad
 
-When the browser exposes the standard-mapped Gamepad API, the D-pad and left stick move the selected cell only. Holding a direction repeats selection movement at a bounded rate. Gamepad controls do not move troops, pan the camera, or create pipe orders by default. Open **Configure controls…** in the match sidebar to inspect or change bindings. Supported discrete buttons and signed-axis activations can be assigned to compatible existing actions; capture is local to the current runtime, is not saved, and resets when the page reloads. Without Gamepad API support, keyboard and pointer controls remain available. This behavior is not a guarantee for every controller or browser. **Physical controller smoke testing has not been performed for this change; no hardware-validation claim is made.**
+When the browser exposes the standard-mapped Gamepad API, the D-pad and left stick move the selected cell only. Holding a direction repeats selection movement at a bounded rate. Gamepad controls do not move troops, pan the camera, or create pipe orders by default. Open **Configure controls…** in the lobby or on the pre-join screen to inspect or change bindings before entering. Supported discrete buttons and signed-axis activations can be assigned to compatible existing actions; capture is local to the current runtime, is not saved, and resets when the page reloads. Without Gamepad API support, keyboard and pointer controls remain available. This behavior is not a guarantee for every controller or browser. **Physical controller smoke testing has not been performed; no hardware-validation claim is made.**
 
 ### Aiming paratroopers and guns
 
@@ -100,9 +100,9 @@ The console's clickable controls mirror the keyboard commands, so mouse-only pla
 | Reserves slider | Reserves panel | Drag or arrow-key a value from 0% to 90% in 10% steps for the selected cell. |
 | Digit buttons 0–9 | Reserves panel | One-click presets matching the number keys ("Set reserves to 70%", and so on). |
 | **Surrender…** | Below the order bar | Opens the confirmation dialog. Confirming eliminates you on the spot (see [Objective](./objective)); Cancel or <EuropaBadge>Escape</EuropaBadge> backs out. |
-| **Configure controls…** | Help section in the sidebar | Opens the runtime-local binding editor for keyboard and standard Gamepad controls. Changes apply only after Apply; Cancel discards the draft and Reset to Original restores the runtime's initial controls. |
-
 All order buttons disable themselves when orders cannot be sent — while connecting, reconnecting, spectating, or after the match ends.
+
+The production active-match sidebar does not open the Controls editor. For embedded consoles, the host shell provides a separate launcher outside that sidebar.
 
 ---
 

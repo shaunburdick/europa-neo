@@ -1,0 +1,6 @@
+.europa-controls-host__launcher {
+    position: fixed;
+    top: var(--europa-spacing-sm);
+    right: calc(280px + var(--europa-spacing-sm));
+    z-index: 20;
+}
