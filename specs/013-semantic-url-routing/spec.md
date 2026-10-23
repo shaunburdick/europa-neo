@@ -3,9 +3,9 @@
 **Feature Branch**: `issue-35-semantic-url-scheme` (original); `issue-75-console-router` (v1.1 TanStack Router migration)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment), Feature 015 (profile route), Feature 017 (welcome landing screen) — Features 015 and 017 are absorbed into this spec by issue #139 consolidation (v1.4); their requirements are folded in below.
 **Created**: 2026-08-30
-**Last Updated**: 2026-10-11 (v1.5; issue #129 transport override + routing/debug seam retirement)
-**Version**: 1.5
-**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment implemented (2026-10-12, security-sweep branch)
+**Last Updated**: 2026-10-23 (v1.6; issue #202 guard coverage for `.mdx` surfaces)
+**Version**: 1.6
+**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment implemented (2026-10-12, security-sweep branch); v1.6 guard-coverage correction implemented (2026-10-23)
 **GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
 ## Problem Statement
@@ -302,6 +302,12 @@ Rationale: review finding C-030/L-12 verified that `bootstrapProductionRoute` ca
 - **FR-035**: Test infrastructure that patches browser APIs (today: the `history.replaceState` preserve-the-query init script) MUST scope the patch to the test entry/fixtures that need it and MUST NOT be a correctness dependency of any production path. The production bootstrap MUST capture the query before stripping (FR-025) and MUST tolerate an unpatched `history.replaceState`, including TanStack Router's two-argument normalization call, without corrupting the pathname. The dead `mountLobbyRuntime` compat export and the `?live`/`?match=`/`?name=`/`?token=` query consumption in `live-runtime.tsx` MUST be deleted; the `window.__europaTestMatch` seam and the `?e2e` harness are the only remaining test entries and MUST keep their fixtures green after the migration (FR-025).
 - **Cross-spec note**: debug-global gating (spec 005 FR-037) and `@internal` barrel hygiene (spec 005 FR-038) are specified in the console spec; this spec owns only the routing/query surface. The `?ws=` same-host/loopback/no-credentials policy (spec 010 implementation notes) is unchanged — FR-025 makes it reachable, it does not widen it.
 
+### v1.6 (2026-10-23) — Retired-query/privacy guard coverage includes the manual's `.mdx` pages (issue #202)
+
+- The guard named in the Implementation Notes above ("Add a guard for retired production `?live` references while allowing historical clarification text and unchanged `?e2e` references") MUST cover the manual's `.mdx` page sources in addition to the other allowlisted text surfaces under its production roots. A guard that silently skips a production extension is non-conforming even while it passes, because FR-015's manual/documentation clause and FR-016's credential rule are enforced only where the guard actually reads.
+- The guard MUST fail when a production text extension regresses out of the allowlist: a non-vacuity test asserts that every tracked manual `.mdx` page is present in the scanned set. Historical clarification notes (`isAllowedHistoricalNote`) and the unchanged test-only `?e2e` marker remain the only sanctioned exceptions.
+- Provenance: `packages/console/tests/integration/semantic-url-privacy.test.ts` carried `.md` but not `.mdx`; all 15 manual pages are `.mdx`, so the manual — the primary copy-paste surface for match URLs — was never scanned. No live violation existed at the time of the fix; the defect was the coverage hole.
+
 ## Change Log
 
 | Version | Date | Change |
@@ -311,3 +317,4 @@ Rationale: review finding C-030/L-12 verified that `bootstrapProductionRoute` ca
 | 1.3 | 2026-09-11 | Amendment (issue #74): mounted-router handoff and 12-character identity contract. Added FR-031..FR-033, Clarifications v1.3. |
 | 1.4 | 2026-09-12 | Amendment (issue #139): spec consolidation — absorbed features 017 (welcome landing screen) and 015 (profile route). Added the v1.4 amendment section, route-contract updates (`/` serves the welcome page, `/profile` added), and the Dependencies note. |
 | 1.5 | 2026-10-11 | Amendment (issue #129, security-sweep): FR-025 rewritten so `?ws=` is honored in production boots (capture query before stripping; correctness must not depend on a test `history.replaceState` patch) and the direct-match seam narrows to `window.__europaTestMatch` (the `?token=` query bearer path is retired). Added FR-034 (`returnTo` single-sourcing), FR-035 (test-patch scoping + dead-seam deletion), AC-018..AC-020, the v1.5 amendment section, and this row. Also amended AC-014 in place (v1.1 text: seam = `window.__europaTestMatch` fixtures only, self-tagged "(v1.1; amended v1.5)") and scoped the Route Contract preamble (line 46) so the operator-typed `?ws=` transport override is its sole excepted query value. |
+| 1.6 | 2026-10-23 | Correction (issue #202): the retired-query/privacy guard named in the Implementation Notes must cover the manual's `.mdx` page sources as well as the other allowlisted text surfaces, and must fail if that coverage regresses. No FR text changes; the guard's allowlist and its non-vacuity coverage are fixed in the same change set. |
