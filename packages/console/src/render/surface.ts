@@ -73,6 +73,19 @@ export function snappedLineStart(edge: number, offset: number, width: number): n
 }
 
 /**
+ * Center of a 1 px stroke marking `edge`, snapped to the whole bitmap pixel
+ * at the nearest integer coordinate. This is the stroke-center form of the
+ * round-in-bitmap-frame rule {@link snappedLineStart} applies; the minimap
+ * paints untranslated, so there is no offset. On an integer edge it equals
+ * the `edge + 0.5` alignment the indicator used before the snap.
+ *
+ * @param edge Edge coordinate in bitmap px.
+ */
+export function snappedStrokeCenter(edge: number): number {
+    return Math.round(edge) + 0.5;
+}
+
+/**
  * The contour band an elevation falls in; two neighbours are separated by
  * a contour line exactly when their bands differ (FR-004).
  *

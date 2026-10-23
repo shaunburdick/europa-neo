@@ -19,6 +19,7 @@ import {
     landFaceGrainOffset,
     SEAM_WIDTH_PX,
     snappedLineStart,
+    snappedStrokeCenter,
 } from '../../../src/render/surface';
 import { relativeLuminance } from '../../fixtures/contrast';
 
@@ -113,5 +114,19 @@ describe('surface mappings (018 FR-001…FR-003)', () => {
             worst = Math.max(worst, Math.abs(start + 1 - edge));
         }
         expect(worst).toBeLessThanOrEqual(0.5);
+    });
+
+    test('a 1 px stroke center snaps to a whole bitmap pixel', () => {
+        expect(snappedStrokeCenter(220)).toBe(220.5);
+        // The whole column at the nearest integer coordinate, not the old
+        // half-pixel center that split the stroke over two columns.
+        expect(snappedStrokeCenter(32.505)).toBe(33.5);
+        expect(snappedStrokeCenter(32.145)).toBe(32.5);
+
+        for (const edge of [32, 32.15, 32.5, 32.85, 95.7, 96]) {
+            const center = snappedStrokeCenter(edge);
+            expect(center - 0.5, `edge ${edge}`).toBe(Math.round(edge));
+            expect(Math.abs(center - 0.5 - edge), `edge ${edge}`).toBeLessThanOrEqual(0.5);
+        }
     });
 });
