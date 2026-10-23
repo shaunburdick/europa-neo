@@ -2,6 +2,7 @@
     "name": "@europa/engine",
     "version": "0.2.0",
     "private": true,
+    "sideEffects": false,
     "description": "Europa Neo core game engine — deterministic, pure, server-authoritative tick simulation (cities, pipes, fog, combat, decay, paratroopers, guns, victory).",
     "type": "module",
     "exports": {
