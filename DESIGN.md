@@ -862,6 +862,7 @@ Change policy:
 **Migration note (`.europa-modal__dialog` → `.europa-modal`)**: the `__dialog` class was removed from
 the catalog; it was a byte-identical duplicate of `.europa-modal`. Replace `.europa-modal__dialog` with
 `.europa-modal` — no visual or behavioural change is required.
+A byte-identical duplicate that no markup applies is not a catalogue-class removal for FR-007 purposes, and no bump applies.
 
 ---
 

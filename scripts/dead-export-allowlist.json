@@ -294,6 +294,12 @@
             "file": "packages/networking/src/types.ts",
             "symbol": "LobbySubscribePayload",
             "reason": "Wire-contract re-export consumed by tests/fixtures/lobbyWire.ts; the canonical definition lives in src/contracts/network-types.ts."
+        },
+        {
+            "package": "@europa/networking",
+            "file": "packages/networking/src/errors.ts",
+            "symbol": "ProtocolErrorCode",
+            "reason": "Documented protocol error-code surface per spec 004; kept in errors.ts for call sites importing the shared base type."
         }
     ]
 }

@@ -12,8 +12,7 @@
  *       canonical declarations. Enforced by `pnpm typecheck:conformance`
  *       (a dedicated strict tsc program over this file — tests are
  *       otherwise excluded from every package's tsconfig, a known
- *       repo-wide gap documented in spec Implementation Notes); the
- *       runtime assertions below keep the witnesses "used".
+ *       repo-wide gap documented in spec Implementation Notes).
  *
  *   (c) **Surface completeness** — every type/const name exported by
  *       any of the four contract mirrors is reachable from the built
@@ -43,7 +42,7 @@ import { MATCHMAKING_API_VERSION } from '@europa/matchmaking';
 import type { ConnectionState, MatchClient } from '@europa/networking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { TERRAIN_API_VERSION } from '@europa/terrain';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 // Type-only namespace (erased at runtime; checked by tsc program).
 import type * as DistTypes from '../../src/index';
 // Runtime value surface of the package source (no build needed).
@@ -68,30 +67,10 @@ function packagePath(relativePath: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// (b) Compile-time type conformance. Mutual assignability proves set
-// equality for unions and field-for-field equality for objects. These
-// aliases are enforced by `pnpm typecheck:conformance`.
+// (b) Compile-time type conformance. `expectTypeOf` mutual assignability
+// proves set equality for unions and field-for-field equality for objects;
+// `pnpm typecheck:conformance` enforces it.
 // ---------------------------------------------------------------------------
-
-/**
- * Mutual-assignability witness: `true` exactly when A and B are
- * mutually assignable (set equality for unions, field-for-field
- * equality for objects). The conditional form avoids the circular-
- * constraint error a two-parameter `extends` pair would raise.
- */
-type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
-
-type OrderConforms = AssertMutuallyAssignable<Order, OrderReexport>;
-type WorldConforms = AssertMutuallyAssignable<World, WorldReexport>;
-type PlayerViewConforms = AssertMutuallyAssignable<PlayerView, PlayerViewReexport>;
-type ConnectionStateConforms = AssertMutuallyAssignable<ConnectionState, ConnectionStateReexport>;
-type MatchClientConforms = AssertMutuallyAssignable<MatchClient, MatchClientReexport>;
-
-const ORDER_CONFORMS: OrderConforms = true;
-const WORLD_CONFORMS: WorldConforms = true;
-const PLAYER_VIEW_CONFORMS: PlayerViewConforms = true;
-const CONNECTION_STATE_CONFORMS: ConnectionStateConforms = true;
-const MATCH_CLIENT_CONFORMS: MatchClientConforms = true;
 
 /**
  * Exhaustive witness for the engine `Order` union: each of the eight
@@ -284,13 +263,17 @@ function expectedContractNames(): Set<string> {
 describe('contract conformance (T089)', () => {
     describe('(b) upstream types re-exported from src/state/types conform', () => {
         it('engine/fog/networking declarations are mutually assignable with canon', () => {
-            // Compile-time proof lives in the aliases above (enforced by
-            // typecheck:conformance); these assertions keep them used.
-            expect(ORDER_CONFORMS).toBe(true);
-            expect(WORLD_CONFORMS).toBe(true);
-            expect(PLAYER_VIEW_CONFORMS).toBe(true);
-            expect(CONNECTION_STATE_CONFORMS).toBe(true);
-            expect(MATCH_CLIENT_CONFORMS).toBe(true);
+            // Compile-time proof: mutual assignability, enforced by tsc.
+            expectTypeOf<OrderReexport>().toExtend<Order>();
+            expectTypeOf<Order>().toExtend<OrderReexport>();
+            expectTypeOf<WorldReexport>().toExtend<World>();
+            expectTypeOf<World>().toExtend<WorldReexport>();
+            expectTypeOf<PlayerViewReexport>().toExtend<PlayerView>();
+            expectTypeOf<PlayerView>().toExtend<PlayerViewReexport>();
+            expectTypeOf<ConnectionStateReexport>().toExtend<ConnectionState>();
+            expectTypeOf<ConnectionState>().toExtend<ConnectionStateReexport>();
+            expectTypeOf<MatchClientReexport>().toExtend<MatchClient>();
+            expectTypeOf<MatchClient>().toExtend<MatchClientReexport>();
             expect(TYPE_ONLY_WITNESSES.length).toBeGreaterThan(0);
         });
 

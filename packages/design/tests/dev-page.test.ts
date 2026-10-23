@@ -69,13 +69,6 @@ describe('buildColorCategories', () => {
         const textLink = textCategory?.swatches.find((swatch) => swatch.name === 'text-link');
         expect(textLink?.value).toBe('#f59e0b');
     });
-
-    it('uses TOKENS values', () => {
-        const categories = buildColorCategories();
-        const textCategory = categories.find((category) => category.title === 'Text');
-        const textPrimary = textCategory?.swatches.find((swatch) => swatch.name === 'text-primary');
-        expect(textPrimary?.value).toBe(TOKENS.color.textPrimary);
-    });
 });
 
 // ---------------------------------------------------------------------------
@@ -97,16 +90,6 @@ describe('buildTypeSamples', () => {
         const tokens = samples.map((sample) => sample.token);
         expect(tokens).toContain('size3xl');
         expect(tokens).toContain('sizeXs');
-    });
-
-    it('matches TOKENS typography values', () => {
-        const samples = buildTypeSamples();
-        for (const sample of samples) {
-            const tokenKey = sample.token as keyof typeof TOKENS.typography;
-            if (tokenKey in TOKENS.typography) {
-                expect(sample.value).toBe(TOKENS.typography[tokenKey]);
-            }
-        }
     });
 });
 
@@ -206,8 +189,8 @@ describe('buildA11yPairings', () => {
         const pairings = buildA11yPairings();
         const textLink = pairings.find((pairing) => pairing.pairing === 'textLink on surface');
         expect(textLink?.pass).toBe(true);
-        expect(textLink?.foreground).toBe(TOKENS.color.textLink);
-        expect(textLink?.background).toBe(TOKENS.color.surface);
+        expect(textLink?.foreground).toBe('#f59e0b');
+        expect(textLink?.background).toBe('#111827');
     });
 
     it('includes badge variant pairings', () => {

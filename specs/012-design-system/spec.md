@@ -364,6 +364,7 @@ As a contributor or maintainer, I want a single `pnpm dev` page that combines th
 
 - The catalogue no longer lists `.europa-modal__dialog`: its rule was byte-identical to `.europa-modal`, so `.europa-modal` is the single shell for the backdrop's child.
 - FR-007 migration note recorded in `DESIGN.md` (`.europa-modal__dialog` → `.europa-modal`, no visual change).
+- A byte-identical duplicate that no markup applies is not a catalogue-class removal for FR-007 purposes, and no bump applies.
 
 ## Addendum — Branded Footer (sidecar, in PR #31)
 

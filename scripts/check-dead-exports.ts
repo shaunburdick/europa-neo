@@ -165,6 +165,35 @@ for (const entry of readdirSync(join(REPO_ROOT, PACKAGES_DIR))) {
     }
 }
 
+/** Declared `package.json#exports` entry points, keyed by package name. */
+const declaredEntryFiles = new Map<string, Set<string>>();
+for (const [packageName, packageRoot] of packageRoots) {
+    declaredEntryFiles.set(packageName, entryPointsForPackage(packageName, packageRoot));
+}
+
+function entryPointsForPackage(packageName: string, packageRoot: string): Set<string> {
+    const files = new Set<string>();
+    const manifestPath = join(REPO_ROOT, packageRoot, 'package.json');
+    if (!existsSync(manifestPath)) {
+        return files;
+    }
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as { exports?: unknown };
+    if (typeof manifest.exports !== 'object' || manifest.exports === null) {
+        return files;
+    }
+    for (const key of Object.keys(manifest.exports)) {
+        if (key.includes('*')) {
+            continue;
+        }
+        const specifier = key === '.' ? packageName : `${packageName}/${key.replace(/^\.\//, '')}`;
+        const resolved = resolvePackageModule(specifier);
+        if (resolved) {
+            files.add(resolved);
+        }
+    }
+    return files;
+}
+
 function sourceKind(path: string): ts.ScriptKind {
     if (path.endsWith('.tsx')) {
         return ts.ScriptKind.TSX;
@@ -490,9 +519,9 @@ function candidatePaths(base: string): string[] {
         `${base}.js`,
         `${base}.mjs`,
         `${base}.cjs`,
-        join(base, 'index.ts'),
-        join(base, 'index.tsx'),
-        join(base, 'index.js'),
+        `${base}/index.ts`,
+        `${base}/index.tsx`,
+        `${base}/index.js`,
     ];
 }
 
@@ -712,6 +741,12 @@ function buildBarrelCoverage(entries: AllowlistEntry[]): Set<string> {
         if (entry.symbol !== '*') {
             continue;
         }
+        if (!declaredEntryFiles.get(entry.package)?.has(entry.file)) {
+            fail([
+                `${ALLOWLIST_PATH}: "${entry.file}" is not a declared ${entry.package} package.json#exports entry point — ` +
+                    `"*" is valid only on a declared entry file; give the symbol a per-symbol reason instead.`,
+            ]);
+        }
         const facts = factsFor(entry.file);
         if (!facts || facts.directExports.size === 0) {
             fail([`${ALLOWLIST_PATH}: stale barrel entry "${entry.file}" — it declares no exports.`]);
@@ -767,6 +802,12 @@ const markNameEverywhere = (name: string): void => {
         }
     }
 };
+/** Only an unresolved workspace import can name one of our exports. */
+const markUnresolved = (module: string, name: string): void => {
+    if (module.startsWith('@europa/')) {
+        markNameEverywhere(name);
+    }
+};
 
 for (const source of referenceSources) {
     const facts = factsFor(source.path);
@@ -778,7 +819,7 @@ for (const source of referenceSources) {
         if (target) {
             mark(resolveExportPairs(target, entry.name));
         } else {
-            markNameEverywhere(entry.name);
+            markUnresolved(entry.module, entry.name);
         }
     }
     for (const entry of facts.defaultImports) {
@@ -786,7 +827,7 @@ for (const source of referenceSources) {
         if (target) {
             mark(resolveExportPairs(target, 'default'));
         } else {
-            markNameEverywhere('default');
+            markUnresolved(entry.module, 'default');
         }
     }
     for (const entry of facts.namespaceImports) {
@@ -795,7 +836,7 @@ for (const source of referenceSources) {
             if (target) {
                 mark(resolveExportPairs(target, name));
             } else {
-                markNameEverywhere(name);
+                markUnresolved(entry.module, name);
             }
         }
     }

@@ -47,8 +47,8 @@ import { profileSearchParams } from './search-params';
  * Typed context available to all routes via `beforeLoad` and `useRouteContext`.
  *
  * The lobby controller is the primary dependency: it owns the Zustand store
- * that holds the connection/identity state the root route's `beforeLoad`
- * gates on, and child components consume it via {@link useLobbyLayout}.
+ * whose connection/identity state drives {@link LobbyLayout}'s identity gate,
+ * and child components consume it via {@link useLobbyLayout}.
  */
 export interface RouterContext {
     /** The page-lifetime lobby controller (created before the router mounts). */
