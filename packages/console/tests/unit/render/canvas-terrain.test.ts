@@ -41,11 +41,24 @@ interface RecordedPolygon {
     readonly fillStyle: unknown;
 }
 
+/** One colour stop the mock recorded on a gradient. */
+interface RecordedStop {
+    readonly offset: number;
+    readonly color: string;
+}
+
+/** One gradient the mock created, in paint order. */
+interface RecordedGradient {
+    readonly kind: 'linear' | 'radial';
+    readonly stops: RecordedStop[];
+}
+
 /** A mock 2D context plus every fill it recorded. */
 interface RecordingMockCtx {
     readonly ctx: CanvasRenderingContext2D;
     readonly fills: RecordedFill[];
     readonly polygons: RecordedPolygon[];
+    readonly gradients: RecordedGradient[];
 }
 
 /**
@@ -58,15 +71,13 @@ function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
     const props = new Map<string | symbol, unknown>();
     const fills: RecordedFill[] = [];
     const polygons: RecordedPolygon[] = [];
+    const gradients: RecordedGradient[] = [];
     // Sub-pass 1d batches relief bands into one path per distinct colour,
     // so a fill arrives as one or more `moveTo`/`lineTo` subpaths flushed
     // by `fill`.
     const pathRects: { x: number; y: number; width: number; height: number }[] = [];
     const pathPolygons: number[][] = [];
     let currentPoints: number[] = [];
-    const gradient = {
-        addColorStop: vi.fn(),
-    };
 
     const handler: ProxyHandler<object> = {
         get(_target, prop) {
@@ -79,7 +90,18 @@ function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
                 if (prop === 'createLinearGradient' || prop === 'createRadialGradient') {
                     mocks.set(
                         prop,
-                        vi.fn(() => ({ ...gradient, addColorStop: vi.fn() })),
+                        vi.fn(() => {
+                            const recorded: RecordedGradient = {
+                                kind: prop === 'createLinearGradient' ? 'linear' : 'radial',
+                                stops: [],
+                            };
+                            gradients.push(recorded);
+                            return {
+                                addColorStop: vi.fn((offset: number, color: string) => {
+                                    recorded.stops.push({ offset, color });
+                                }),
+                            };
+                        }),
                     );
                 } else if (prop === 'fillRect') {
                     mocks.set(
@@ -157,7 +179,7 @@ function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
         },
     };
 
-    return { ctx: new Proxy({} as CanvasRenderingContext2D, handler), fills, polygons };
+    return { ctx: new Proxy({} as CanvasRenderingContext2D, handler), fills, polygons, gradients };
 }
 
 /** Build a minimal mock CanvasRenderingContext2D with tracked calls. */
@@ -237,14 +259,22 @@ function makePipeCell(
 }
 
 describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
-    test('water cells use linear gradient (not flat fill)', () => {
-        const ctx = createMockCtx();
+    test('water cells use a linear gradient with brightness-adjusted stops', () => {
+        const { ctx, gradients } = createRecordingCtx();
         const canvas = new MapCanvas();
         const view = makeMapView([makeWaterCell(0, 0)]);
         canvas.paint(view, ctx);
 
-        // Verify createLinearGradient was called (water gradient fill).
-        expect(ctx.createLinearGradient).toHaveBeenCalled();
+        // One water cell, one linear gradient: the base water colour at
+        // 0.33, ±20 % at the ends, −10 % at 0.66.
+        const water = gradients.filter((gradient) => gradient.kind === 'linear');
+        expect(water).toHaveLength(1);
+        expect(water[0]?.stops).toEqual([
+            { offset: 0, color: '#5081ff' },
+            { offset: 0.33, color: '#1d4ed8' },
+            { offset: 0.66, color: '#0435bf' },
+            { offset: 1, color: '#001ba5' },
+        ]);
     });
 
     test('land cells paint their zone face without a per-cell gradient', () => {

@@ -14,6 +14,7 @@ import {
     buildTypeSamples,
     toKebabCase,
 } from '../dev/lib/token-utils';
+import { TOKENS } from '../src/tokens.ts';
 
 // ---------------------------------------------------------------------------
 // toKebabCase
@@ -22,6 +23,9 @@ describe('toKebabCase', () => {
     it('converts camelCase to kebab-case', () => {
         expect(toKebabCase('fontSize')).toBe('font-size');
         expect(toKebabCase('pageBg')).toBe('page-bg');
+        expect(toKebabCase('surfaceRaised')).toBe('surface-raised');
+        expect(toKebabCase('textLink')).toBe('text-link');
+        expect(toKebabCase('cardHoverBorder')).toBe('card-hover-border');
     });
 
     it('leaves single words unchanged', () => {
@@ -41,34 +45,36 @@ describe('toKebabCase', () => {
 // buildColorCategories
 // ---------------------------------------------------------------------------
 describe('buildColorCategories', () => {
-    it('returns at least one category with swatches', () => {
+    it('builds the three categories in display order', () => {
         const categories = buildColorCategories();
-        expect(categories.length).toBeGreaterThan(0);
-        for (const cat of categories) {
-            // ColorCategory uses `title` (not `name`)
-            expect(cat.title).toBeTruthy();
-            expect(cat.swatches.length).toBeGreaterThan(0);
-        }
+        expect(categories.map((category) => category.title)).toEqual(['Surfaces', 'Text', 'Semantic']);
     });
 
-    it('every swatch has name, value, and contrast ratio', () => {
+    it('every swatch has a name, value, contrast ratio, and pass flag', () => {
         const categories = buildColorCategories();
-        for (const cat of categories) {
-            for (const swatch of cat.swatches) {
+        for (const category of categories) {
+            expect(category.swatches.length).toBeGreaterThan(0);
+            for (const swatch of category.swatches) {
                 expect(swatch.name).toBeTruthy();
                 expect(swatch.value).toBeTruthy();
-                expect(swatch.contrastRatio).toMatch(/^\d+\.\d+:1$/);
+                expect(swatch.contrastRatio).toMatch(/^\d+\.\d+:\d+$/);
                 expect(typeof swatch.contrastPass).toBe('boolean');
             }
         }
     });
 
-    it('includes Surfaces, Text, and Semantic categories', () => {
+    it('includes the text-link swatch with the accent value', () => {
         const categories = buildColorCategories();
-        const titles = categories.map((c) => c.title);
-        expect(titles).toContain('Surfaces');
-        expect(titles).toContain('Text');
-        expect(titles).toContain('Semantic');
+        const textCategory = categories.find((category) => category.title === 'Text');
+        const textLink = textCategory?.swatches.find((swatch) => swatch.name === 'text-link');
+        expect(textLink?.value).toBe('#f59e0b');
+    });
+
+    it('uses TOKENS values', () => {
+        const categories = buildColorCategories();
+        const textCategory = categories.find((category) => category.title === 'Text');
+        const textPrimary = textCategory?.swatches.find((swatch) => swatch.name === 'text-primary');
+        expect(textPrimary?.value).toBe(TOKENS.color.textPrimary);
     });
 });
 
@@ -78,7 +84,7 @@ describe('buildColorCategories', () => {
 describe('buildTypeSamples', () => {
     it('returns samples for all typography size tokens', () => {
         const samples = buildTypeSamples();
-        expect(samples.length).toBeGreaterThan(0);
+        expect(samples.length).toBeGreaterThanOrEqual(7);
         for (const sample of samples) {
             expect(sample.token).toBeTruthy();
             expect(sample.value).toBeTruthy();
@@ -88,9 +94,19 @@ describe('buildTypeSamples', () => {
 
     it('includes the 3xl and xs extremes', () => {
         const samples = buildTypeSamples();
-        const tokens = samples.map((s) => s.token);
+        const tokens = samples.map((sample) => sample.token);
         expect(tokens).toContain('size3xl');
         expect(tokens).toContain('sizeXs');
+    });
+
+    it('matches TOKENS typography values', () => {
+        const samples = buildTypeSamples();
+        for (const sample of samples) {
+            const tokenKey = sample.token as keyof typeof TOKENS.typography;
+            if (tokenKey in TOKENS.typography) {
+                expect(sample.value).toBe(TOKENS.typography[tokenKey]);
+            }
+        }
     });
 });
 
@@ -98,30 +114,70 @@ describe('buildTypeSamples', () => {
 // buildTokenGroups
 // ---------------------------------------------------------------------------
 describe('buildTokenGroups', () => {
-    it('returns all token groups with entries', () => {
+    it('returns one group per TOKENS category with entries', () => {
         const groups = buildTokenGroups();
-        expect(groups.length).toBeGreaterThan(0);
+        expect(groups.length).toBe(Object.keys(TOKENS).length);
         for (const group of groups) {
             expect(group.title).toBeTruthy();
             expect(group.entries.length).toBeGreaterThan(0);
+            expect(typeof group.isNew).toBe('boolean');
         }
     });
 
     it('marks shadow and motion groups as new', () => {
         const groups = buildTokenGroups();
-        const shadow = groups.find((g) => g.title === 'Shadows Tokens');
-        const motion = groups.find((g) => g.title === 'Motion Tokens');
+        const shadow = groups.find((group) => group.title === 'Shadows Tokens');
+        const motion = groups.find((group) => group.title === 'Motion Tokens');
         expect(shadow?.isNew).toBe(true);
         expect(motion?.isNew).toBe(true);
     });
 
-    it('every entry has a europa CSS variable', () => {
+    it('every entry has a europa CSS variable and a value', () => {
         const groups = buildTokenGroups();
         for (const group of groups) {
             for (const entry of group.entries) {
+                expect(entry.name).toBeTruthy();
                 expect(entry.cssVar).toMatch(/^--europa-.+/);
+                expect(entry.value).toBeTruthy();
             }
         }
+    });
+
+    it('color group has all expected entries', () => {
+        const groups = buildTokenGroups();
+        const colorGroup = groups.find((group) => group.title === 'Color Tokens');
+        const cssVarNames = colorGroup?.entries.map((entry) => entry.cssVar) ?? [];
+        expect(cssVarNames).toContain('--europa-color-accent');
+        expect(cssVarNames).toContain('--europa-color-text-link');
+        expect(cssVarNames).toContain('--europa-color-divider');
+        expect(cssVarNames).toContain('--europa-color-card-hover-border');
+        expect(cssVarNames).toContain('--europa-color-accent-active');
+    });
+
+    it('shadow group has all six entries', () => {
+        const groups = buildTokenGroups();
+        const shadowGroup = groups.find((group) => group.title === 'Shadows Tokens');
+        expect(shadowGroup?.entries.length).toBe(6);
+        const cssVarNames = shadowGroup?.entries.map((entry) => entry.cssVar) ?? [];
+        expect(cssVarNames).toContain('--europa-shadows-card-hover');
+        expect(cssVarNames).toContain('--europa-shadows-card-active');
+        expect(cssVarNames).toContain('--europa-shadows-hud');
+        expect(cssVarNames).toContain('--europa-shadows-board');
+        expect(cssVarNames).toContain('--europa-shadows-modal');
+        expect(cssVarNames).toContain('--europa-shadows-plate');
+    });
+
+    it('motion group has all seven new entries', () => {
+        const groups = buildTokenGroups();
+        const motionGroup = groups.find((group) => group.title === 'Motion Tokens');
+        const cssVarNames = motionGroup?.entries.map((entry) => entry.cssVar) ?? [];
+        expect(cssVarNames).toContain('--europa-motion-duration');
+        expect(cssVarNames).toContain('--europa-motion-transition-fast');
+        expect(cssVarNames).toContain('--europa-motion-transition-default');
+        expect(cssVarNames).toContain('--europa-motion-transition-slow');
+        expect(cssVarNames).toContain('--europa-motion-transition-spring');
+        expect(cssVarNames).toContain('--europa-motion-easing-out');
+        expect(cssVarNames).toContain('--europa-motion-easing-in-out');
     });
 });
 
@@ -129,18 +185,39 @@ describe('buildTokenGroups', () => {
 // buildA11yPairings
 // ---------------------------------------------------------------------------
 describe('buildA11yPairings', () => {
-    it('returns at least 10 pairings', () => {
+    it('returns at least 10 contrast pairings', () => {
         const pairings = buildA11yPairings();
         expect(pairings.length).toBeGreaterThanOrEqual(10);
     });
 
-    it('every pairing has a ratio string and pass flag', () => {
+    it('every pairing has its colours, ratio, target, and pass flag', () => {
         const pairings = buildA11yPairings();
-        for (const p of pairings) {
-            expect(p.ratio).toMatch(/^\d+\.\d+:1$/);
-            expect(typeof p.pass).toBe('boolean');
-            expect(p.target).toBeTruthy();
+        for (const pairing of pairings) {
+            expect(pairing.pairing).toBeTruthy();
+            expect(pairing.foreground).toMatch(/^#[0-9a-fA-F]{6}$/);
+            expect(pairing.background).toMatch(/^#[0-9a-fA-F]{6}$/);
+            expect(pairing.ratio).toMatch(/^\d+\.\d+:\d+$/);
+            expect(pairing.target).toMatch(/^\d+\.?\d*:\d+$/);
+            expect(typeof pairing.pass).toBe('boolean');
         }
+    });
+
+    it('includes the textLink on surface pairing', () => {
+        const pairings = buildA11yPairings();
+        const textLink = pairings.find((pairing) => pairing.pairing === 'textLink on surface');
+        expect(textLink?.pass).toBe(true);
+        expect(textLink?.foreground).toBe(TOKENS.color.textLink);
+        expect(textLink?.background).toBe(TOKENS.color.surface);
+    });
+
+    it('includes badge variant pairings', () => {
+        const pairings = buildA11yPairings();
+        const names = pairings.map((pairing) => pairing.pairing);
+        expect(names).toContain('success on successBg');
+        expect(names).toContain('warning on warningBg');
+        expect(names).toContain('error on errorBg');
+        expect(names).toContain('info on infoBg');
+        expect(names).toContain('accent on chipBg');
     });
 });
 
@@ -169,5 +246,23 @@ describe('contrast helpers', () => {
 
     it('contrastRatioNumeric returns > 1 for different colors', () => {
         expect(contrastRatioNumeric('#ffffff', '#000000')).toBeGreaterThan(1);
+    });
+
+    it('contrastRatioNumeric measures a text pairing against its AA threshold', () => {
+        expect(contrastRatioNumeric('#f59e0b', '#111827')).toBeGreaterThanOrEqual(4.5);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TOKENS contract
+// ---------------------------------------------------------------------------
+describe('TOKENS shadow contract', () => {
+    it('shadow tokens are no longer "none"', () => {
+        expect(TOKENS.shadows.board).not.toBe('none');
+        expect(TOKENS.shadows.modal).not.toBe('none');
+        expect(TOKENS.shadows.plate).not.toBe('none');
+        expect(TOKENS.shadows.cardHover).toBeDefined();
+        expect(TOKENS.shadows.cardActive).toBeDefined();
+        expect(TOKENS.shadows.hud).toBeDefined();
     });
 });

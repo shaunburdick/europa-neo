@@ -587,7 +587,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // binding the replacement to the released port. This exercises the
         // actual socket reconnect path and the low-revision baseline adoption,
         // rather than replacing a dependency with a test double.
-        const restartedStack = buildLobbyStack(wsPort);
+        const restartedStack = buildLobbyStack({ port: wsPort });
         await restartedStack.server.listen();
         server = restartedStack.server;
         matchmaker = restartedStack.matchmaker;

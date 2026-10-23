@@ -12,21 +12,12 @@
  * generator "rewrote" their input. (Added in T046, PM-approved
  * additive change to `TerrainGenerationResult` and `MapStats`.)
  *
- * **Generator edge-case note**: the generator has known
- * difficulty at the *extreme* edge of the safe range — specifically
- * `waterRatio` near the upper bound (≥ 0.13) combined with
- * `citiesPerPlayer` near the upper bound (≥ 4) can exhaust the
- * retry budget on a 32×32 board because there's not enough
- * contiguous land to satisfy the min-city-spacing invariant. This
- * is a pre-existing generator limitation, not a clamping bug.
- * The integration test therefore asserts:
- *
- *   - "clamping happens" tests: use *moderate* out-of-range values
- *     that, after clamping, sit at known-good settings; the Board
- *     must be valid.
- *   - "extreme clamping" tests: use the prompt's `0.99` / `100` /
- *     `99` values to prove clamping happens regardless of Board
- *     validity — these tests assert on `effectiveSettings` only.
+ * The "extreme clamping" test uses the prompt's `0.99` / `100` / `99`
+ * values. After clamping that request lands on `waterRatio: 0.25` and
+ * `citiesPerPlayer: 4`, which still generates on a 32×32 board, so the
+ * test asserts the clamped `effectiveSettings`. The request carries
+ * every field so it reaches clamping; a partial object fails shape
+ * validation before any clamping runs.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -136,6 +127,7 @@ describe('clamp integration (US3 / FR-008)', () => {
     describe('extreme out-of-range inputs (FR-008 prompt example)', () => {
         it('waterRatio: 0.99, octaves: 100, citiesPerPlayer: 99 — effectiveSettings shows clamped values', () => {
             const outOfRange: GenerationSettings = {
+                ...DEFAULT_GENERATION_SETTINGS,
                 waterRatio: 0.99, // above upper (0.25)
                 roughness: -1, // below lower (0.1)
                 octaves: 100, // above upper (6)
@@ -152,29 +144,16 @@ describe('clamp integration (US3 / FR-008)', () => {
                 rng: engineSfc32(42),
                 settings: outOfRange,
             };
-            // Generator may throw GenerationError at the extreme edge of
-            // the safe range (see module-level note). Catch and verify
-            // that — if generation succeeded — effectiveSettings is
-            // clamped. (Successful extreme clamping is verified by the
-            // moderate tests above; this test pins the prompt example.)
-            try {
-                const result = generateBoard(req);
-                // If generation succeeds at the extreme, verify clamping.
-                expect(result.effectiveSettings.waterRatio).toBe(WATER_RATIO_MAX);
-                expect(result.effectiveSettings.octaves).toBe(OCTAVES_MAX);
-                expect(result.effectiveSettings.citiesPerPlayer).toBe(CITIES_PER_PLAYER_MAX);
-                expect(result.effectiveSettings.maxRegenAttempts).toBe(MAX_REGEN_ATTEMPTS_MAX);
-                expect(result.effectiveSettings.roughness).toBe(ROUGHNESS_MIN);
-                expect(result.effectiveSettings.minCityWaterDistance).toBe(MIN_CITY_WATER_DISTANCE_MIN);
-                expect(result.effectiveSettings.minCityCityDistance).toBe(MIN_CITY_CITY_DISTANCE_MIN);
-            } catch {
-                // Generator exhausted retries at the extreme edge of the
-                // safe range — this is a known limitation (not a clamping
-                // bug). The clamping logic itself is exhaustively verified
-                // by `tests/unit/clamp.test.ts`; this test exists to pin
-                // the prompt example.
-                expect(true).toBe(true);
-            }
+            // The request is complete and the clamped settings generate, so
+            // any throw here is a real failure, not an accepted outcome.
+            const result = generateBoard(req);
+            expect(result.effectiveSettings.waterRatio).toBe(WATER_RATIO_MAX);
+            expect(result.effectiveSettings.octaves).toBe(OCTAVES_MAX);
+            expect(result.effectiveSettings.citiesPerPlayer).toBe(CITIES_PER_PLAYER_MAX);
+            expect(result.effectiveSettings.maxRegenAttempts).toBe(MAX_REGEN_ATTEMPTS_MAX);
+            expect(result.effectiveSettings.roughness).toBe(ROUGHNESS_MIN);
+            expect(result.effectiveSettings.minCityWaterDistance).toBe(MIN_CITY_WATER_DISTANCE_MIN);
+            expect(result.effectiveSettings.minCityCityDistance).toBe(MIN_CITY_CITY_DISTANCE_MIN);
         });
     });
 
