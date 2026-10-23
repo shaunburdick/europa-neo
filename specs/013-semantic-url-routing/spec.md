@@ -3,9 +3,9 @@
 **Feature Branch**: `issue-35-semantic-url-scheme` (original); `issue-75-console-router` (v1.1 TanStack Router migration)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment), Feature 015 (profile route), Feature 017 (welcome landing screen) — Features 015 and 017 are absorbed into this spec by issue #139 consolidation (v1.4); their requirements are folded in below.
 **Created**: 2026-08-30
-**Last Updated**: 2026-10-11 (v1.5; issue #129 transport override + routing/debug seam retirement)
-**Version**: 1.5
-**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment implemented (2026-10-12, security-sweep branch)
+**Last Updated**: 2026-10-22 (v1.6; owner-approved browser payload budget amendment)
+**Version**: 1.6
+**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment implemented (2026-10-12, security-sweep branch); v1.6 updates FR-030 to the owner-approved 155,648-byte gate.
 **GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
 ## Problem Statement
@@ -93,7 +93,7 @@ The following requirements amend this spec to cover the migration of the console
 - **FR-027**: Loader/caching patterns introduced by the migration MUST NOT change route-entry authority: a match route MUST still resolve against the authoritative lobby snapshot before any player/spectator leg attaches, and a missing snapshot MUST still produce `resolve` (no premature match connection). Any loader cache MUST be invalidated by snapshot changes, not by wall-clock or navigation alone.
 - **FR-028**: The migration MUST preserve the deep-link join/spectate semantics (FR-004..FR-006), the unnamed-identity redirects to `/profile?returnTo=<pathname>` (feature 015 US3), the welcome-screen route semantics (feature 017 FR-010/FR-011), and the unknown-route recovery to `/lobby` with the accessible "Page not found. Returning to lobby." notice (FR-012).
 - **FR-029**: The migration MUST NOT change browser-visible URL shapes, Back/Forward behavior, reload behavior, bookmarkability, or the redirect-history-loop guard (FR-013). The `europa:pathchange`/`popstate` observation currently in `lobby-runtime.tsx` MAY be replaced by TanStack Router's navigation lifecycle, but observable route/state behavior MUST be identical.
-- **FR-030**: The migration MUST keep the production browser-delivered bundle under the existing budget (current ~81 KB gz < 150 KB over `dist/assets`, per feature 005 Implementation Note 4), accounting for the added router dependency. If the router dependency pushes the bundle over budget, the implementation MUST tree-shake or lazy-load route chunks to stay under it.
+- **FR-030**: The production browser-delivered bundle MUST remain strictly below the current feature 005 Q-P03 budget of 155,648 bytes (152 KiB), measured as the sum of per-file gzip sizes for `.js` and `.css` assets under `dist/assets`. If the router dependency or later implementation changes push the bundle to or above the budget, the implementation MUST tree-shake or lazy-load route chunks to stay under it. The current issue #201 tree measured 155,540 bytes before the owner-approved v1.6 budget amendment.
 
 ## Non-Functional Requirements
 
@@ -165,7 +165,7 @@ These links contain no `?live`, `?ws`, `name`, `token`, guest ID, or opaque sess
 - [ ] **AC-013 (v1.1)**: Route-entry adaptation against lobby snapshots produces the same eight `RouteEntry` kinds with the same eligibility rules as the pre-migration adapter (FR-023).
 - [ ] **AC-014 (v1.1; amended v1.5)**: The direct-match E2E seam — driven exclusively through `window.__europaTestMatch` fixtures, since the `?live`/`?match=`/`?name=`/`?token=` query consumption is retired (FR-025, FR-035) — and the `?e2e` harness pass unchanged after the migration (FR-011).
 - [ ] **AC-015 (v1.1)**: The `returnTo` deep-link round-trip (unnamed visitor → `/profile?returnTo=<pathname>` → named → back to match route) works identically through TanStack Router's typed search params (FR-024, FR-028).
-- [ ] **AC-016 (v1.1)**: The production browser-delivered bundle stays under 150 KB gz over `dist/assets` with the router dependency included (FR-030).
+- [ ] **AC-016 (v1.1; amended v1.6)**: The production browser-delivered bundle stays strictly below 155,648 bytes (152 KiB) gz over `dist/assets` with the router dependency included (FR-030).
 - [ ] **AC-017 (v1.1)**: All existing console suites (unit, component, a11y, E2E, perf, determinism, parity, conformance, keepalive) pass and `pnpm verify` is green (NFR-008).
 - [ ] **AC-018 (v1.5)**: `?ws=` on a semantic path points the console at a non-default server in a real browser with NO test patch installed over `history.replaceState`, proven by a unit/component test of the bootstrap capture order plus an agent-browser smoke against `pnpm host` (FR-025, FR-035).
 - [ ] **AC-019 (v1.5)**: Exactly one `returnTo` validator is exported and used by every routing surface; an open-redirect corpus (`//evil.com`, `https://evil.com`, `/%2e%2e/x`, double-encoded variants, backslash and encoded-slash variants, embedded query strings) is uniformly treated as absent (FR-034).
@@ -219,7 +219,7 @@ The following decisions are recorded from the issue's acceptance criteria, the e
 | 4 | `returnTo` handling | Migrates to TanStack Router typed search params with the existing safety contract (relative-pathname-only; unsafe → absent) preserved exactly. | FR-024, FR-028 |
 | 5 | Nested/layout routes | The lobby connection/identity context becomes a layout route wrapping lobby/profile/match views; deferred-resolution gates (identity + connection) preserved. | FR-026 |
 | 6 | Loader/caching | Route entry MUST still resolve against the authoritative lobby snapshot before any match connection; caches invalidate on snapshot change. | FR-027 |
-| 7 | Bundle budget | Production browser-delivered bundle stays under 150 KB gz over `dist/assets` with the router dependency included. | FR-030 |
+| 7 | Bundle budget | Production browser-delivered bundle stays strictly below 155,648 bytes (152 KiB) gz over `dist/assets` with the router dependency included. | FR-030 |
 | 8 | Public module surface | **Full Replacement.** `parseRoute`/`adaptRoute`/`executeRouteEntry` functions and `Route`/`RouteEntry`/`RouteRejection` types are fully replaced by TanStack Router's route tree and typed definitions. Existing `tests/unit/routing/*` suites are rewritten in the same change set to test the new routing surface. | NFR-008 |
 | 9 | SWR loader caching scope | **Defer.** The `?swr` library is NOT added as a dependency. Loader/caching is handled by TanStack Router's built-in loader caching (if applicable) or deferred to a future change. No new external caching dependency. | FR-027, FR-030 |
 | 10 | `?ws=` seam vs. typed search params | **Keep it untyped.** The `?ws=` transport override stays as an untyped escape hatch read by `resolveLobbyServerUrl` outside the router. It is NOT declared as a TanStack typed search param. The `?e2e` flag also stays untyped and unchanged. | FR-024, FR-025 |
@@ -259,7 +259,7 @@ The following decisions are recorded from the issue's acceptance criteria, the e
 - `lobby-runtime.tsx`'s `usePathname`/`patchHistoryForPathChanges` (`europa:pathchange` custom event) and its `popstate` listener MAY be replaced by TanStack Router's navigation lifecycle, but the deferred-resolution gates (identity `named` + connection `ready`) and the one-shot redirect guards MUST be preserved (FR-026, FR-028).
 - The `?ws=` transport override is consumed by `resolveLobbyServerUrl` in `state/lobby-view.ts`; it stays as an untyped escape hatch outside the router's typed search-param surface (clarification #10). The migration must not break this read path.
 - The direct-match E2E seam (`live-runtime.tsx` reading `?live`/`?match=`/`?name=`/`?token=` or `window.__europaTestMatch`) is a test-only compatibility path, not a production launch path; the migration must keep it reachable for the E2E fixtures that use it (FR-025). *(Superseded by v1.5 FR-025/FR-035: the query-parameter form of this seam is retired; only `window.__europaTestMatch` remains.)*
-- Bundle budget: `@tanstack/react-router` adds a real dependency weight; the implementation should verify the gzipped `dist/assets` payload stays under 150 KB (FR-030) and prefer lazy route chunks for the welcome screen and match views if needed.
+- Bundle budget: `@tanstack/react-router` adds a real dependency weight; the implementation should verify the gzipped `dist/assets` payload stays strictly below 155,648 bytes (152 KiB) (FR-030) and prefer lazy route chunks for the welcome screen and match views if needed.
 
 ### v1.4 (2026-09-12) — Issue #139 spec consolidation (absorbed features 017, 015-profile)
 
@@ -302,6 +302,20 @@ Rationale: review finding C-030/L-12 verified that `bootstrapProductionRoute` ca
 - **FR-035**: Test infrastructure that patches browser APIs (today: the `history.replaceState` preserve-the-query init script) MUST scope the patch to the test entry/fixtures that need it and MUST NOT be a correctness dependency of any production path. The production bootstrap MUST capture the query before stripping (FR-025) and MUST tolerate an unpatched `history.replaceState`, including TanStack Router's two-argument normalization call, without corrupting the pathname. The dead `mountLobbyRuntime` compat export and the `?live`/`?match=`/`?name=`/`?token=` query consumption in `live-runtime.tsx` MUST be deleted; the `window.__europaTestMatch` seam and the `?e2e` harness are the only remaining test entries and MUST keep their fixtures green after the migration (FR-025).
 - **Cross-spec note**: debug-global gating (spec 005 FR-037) and `@internal` barrel hygiene (spec 005 FR-038) are specified in the console spec; this spec owns only the routing/query surface. The `?ws=` same-host/loopback/no-credentials policy (spec 010 implementation notes) is unchanged — FR-025 makes it reachable, it does not widen it.
 
+### v1.6 (2026-10-22) — Owner-approved browser payload budget amendment
+
+Feature 005's owner-approved Q-P03 increase is mirrored here so FR-030 and
+AC-016 use the same strict `< 155,648 bytes (152 KiB)` limit. Approval and
+rationale are recorded in [PR #210 comment 6348411040](https://github.com/shaunburdick/europa-neo/pull/210#issuecomment-6348411040)
+and feature 005 v1.14. The issue #201 `pnpm verify` run passed all 13 phases at
+exit 0 on 2026-10-22 19:33:10Z–19:38:47Z against manifest
+`611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`; its
+self-host gate measured 155,540/155,648 bytes. Run log:
+`/tmp/opencode/issue-201-budget-fullverify-20261022.log`; detailed provenance
+and the subsequent documentation-only readiness delta are recorded in the
+feature 005 issue #201 plan. That later delta is not included in the tested
+manifest, so no full-gate pass is claimed for the post-reconciliation tree.
+
 ## Change Log
 
 | Version | Date | Change |
@@ -311,3 +325,4 @@ Rationale: review finding C-030/L-12 verified that `bootstrapProductionRoute` ca
 | 1.3 | 2026-09-11 | Amendment (issue #74): mounted-router handoff and 12-character identity contract. Added FR-031..FR-033, Clarifications v1.3. |
 | 1.4 | 2026-09-12 | Amendment (issue #139): spec consolidation — absorbed features 017 (welcome landing screen) and 015 (profile route). Added the v1.4 amendment section, route-contract updates (`/` serves the welcome page, `/profile` added), and the Dependencies note. |
 | 1.5 | 2026-10-11 | Amendment (issue #129, security-sweep): FR-025 rewritten so `?ws=` is honored in production boots (capture query before stripping; correctness must not depend on a test `history.replaceState` patch) and the direct-match seam narrows to `window.__europaTestMatch` (the `?token=` query bearer path is retired). Added FR-034 (`returnTo` single-sourcing), FR-035 (test-patch scoping + dead-seam deletion), AC-018..AC-020, the v1.5 amendment section, and this row. Also amended AC-014 in place (v1.1 text: seam = `window.__europaTestMatch` fixtures only, self-tagged "(v1.1; amended v1.5)") and scoped the Route Contract preamble (line 46) so the operator-typed `?ws=` transport override is its sole excepted query value. |
+| 1.6 | 2026-10-22 | Owner-approved amendment (PR #210 comment 6348411040): align FR-030/AC-016 with feature 005 v1.14's strict `<155,648 B (152 KiB)` browser-payload budget; bundle composition and verification semantics unchanged. |

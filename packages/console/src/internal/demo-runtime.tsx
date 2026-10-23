@@ -21,6 +21,8 @@
 import type { JSX } from 'react';
 import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ControlMappingSession } from '../input/control-mapping';
+import { ControlMappingProvider } from '../input/control-mapping-context';
 import { App } from '../render/App';
 import { createOrderBridge } from '../state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
@@ -169,10 +171,13 @@ export function mountDemoRuntime(root: HTMLElement): void {
     };
 
     window.__europaE2E = { orders: client.sent, store };
+    const inputMappingSession = new ControlMappingSession();
 
     createRoot(root).render(
         <StrictMode>
-            <StoreApp store={store} />
+            <ControlMappingProvider session={inputMappingSession}>
+                <StoreApp store={store} />
+            </ControlMappingProvider>
         </StrictMode>,
     );
 }

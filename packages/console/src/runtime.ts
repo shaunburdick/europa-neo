@@ -47,6 +47,8 @@ import {
     type ConsoleSoundPlayer,
     NULL_LOGGER,
 } from './contracts/console-api';
+import { ControlMappingSession } from './input/control-mapping';
+import { ControlMappingProvider } from './input/control-mapping-context';
 import { createConsoleClient } from './net/client';
 import { App } from './render/App';
 import { ErrorBoundary } from './render/ErrorBoundary';
@@ -87,11 +89,15 @@ export interface ConsoleRuntimeArgs {
 function RuntimeApp(props: { readonly runtime: ConsoleRuntime }): JSX.Element {
     const { runtime } = props;
     const epoch = useSyncExternalStore(runtime.subscribeSurrenderEpoch, runtime.getSurrenderEpoch);
-    return createElement(App, {
-        store: runtime.store,
-        surrenderRequestEpoch: epoch,
-        onSurrenderRequest: runtime.config.onSurrenderRequest,
-    });
+    return createElement(
+        ControlMappingProvider,
+        { session: runtime.inputMappingSession },
+        createElement(App, {
+            store: runtime.store,
+            surrenderRequestEpoch: epoch,
+            onSurrenderRequest: runtime.config.onSurrenderRequest,
+        }),
+    );
 }
 
 /**
@@ -138,6 +144,9 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
     /** The bound Zustand store the renderer subscribes to. */
     readonly store: ConsoleStore;
 
+    /** One non-persistent input configuration per embedding runtime. */
+    readonly inputMappingSession: ControlMappingSession;
+
     private readonly deps: ConsoleDeps;
 
     private readonly logger: ConsoleLogger;
@@ -170,6 +179,7 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
         this.config = args.config;
         this.deps = args.deps ?? {};
         this.logger = args.config.logger ?? NULL_LOGGER;
+        this.inputMappingSession = new ControlMappingSession(args.config.inputMapping);
 
         // Seed the store with host-provided QoL settings + display name
         // (contract: the host passes previously-persisted values back on

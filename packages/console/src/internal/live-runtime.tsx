@@ -37,6 +37,8 @@
 import type { JSX } from 'react';
 import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ControlMappingSession } from '../input/control-mapping';
+import { ControlMappingProvider } from '../input/control-mapping-context';
 import { createConsoleClient } from '../net/client';
 import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
@@ -212,9 +214,12 @@ export function mountLiveRuntime(root: HTMLElement, seam: TestMatchSeam | undefi
     };
     void boot();
 
+    const inputMappingSession = new ControlMappingSession();
     createRoot(root).render(
         <StrictMode>
-            <StoreApp store={store} />
+            <ControlMappingProvider session={inputMappingSession}>
+                <StoreApp store={store} />
+            </ControlMappingProvider>
         </StrictMode>,
     );
 }

@@ -4,7 +4,7 @@
 # "Constitution Check", quickstart.md §8): builds the console, then
 # fails if the built JS/CSS references any http(s) URL that would
 # require internet access at runtime, and enforces the Q-P03
-# gzipped-bundle budget (SC-003: initial bundle < 150 KB gzipped).
+# gzipped-bundle budget (SC-003: initial bundle < 152 KiB / 155,648 bytes).
 #
 # Allowed URL occurrences (judged per extracted URL token):
 #   - Bare `http://` / `https://` schemes — no host, never a fetch
@@ -22,7 +22,7 @@
 # library tree also emitted into dist/ (index.js, src/, state/, …) is
 # consumed by bundling hosts, never fetched by a browser, so it is
 # out of scope for the Q-P03 "initial bundle" budget.
-# Override with SELFHOST_BUNDLE_BUDGET_BYTES (default 153600 = 150 KB).
+# Override with SELFHOST_BUNDLE_BUDGET_BYTES (default 155648 = 152 KiB).
 #
 # After the bundle checks, the script also boots the real one-port host and
 # checks the production HTTP/WS surface. This catches a surprisingly easy
@@ -82,7 +82,7 @@ if [ -n "${violations}" ]; then
   exit 1
 fi
 
-BUDGET_BYTES="${SELFHOST_BUNDLE_BUDGET_BYTES:-153600}"
+BUDGET_BYTES="${SELFHOST_BUNDLE_BUDGET_BYTES:-155648}"
 total_bytes=0
 while IFS= read -r asset; do
   gz="$(gzip -c "${asset}" | wc -c)"

@@ -164,8 +164,8 @@ import type {
   ConnectionState,
   ErrorCode,
   MatchId,
-  SessionToken,
   SequenceNumber,
+  SessionToken,
 } from '@europa/networking';
 
 // ----------------------------------------------------------------------------
@@ -825,18 +825,94 @@ export type PlayerAction =
 // InputMapping (control table)
 // ----------------------------------------------------------------------------
 
+/** Stable semantic actions which supported input sources can invoke. */
+export type ControlActionId =
+  | 'pipeNorth'
+  | 'pipeWest'
+  | 'pipeSouth'
+  | 'pipeEast'
+  | 'pipeNorthExclusive'
+  | 'pipeWestExclusive'
+  | 'pipeSouthExclusive'
+  | 'pipeEastExclusive'
+  | 'clearCellPipes'
+  | 'paratroop'
+  | 'gun'
+  | 'reserve0'
+  | 'reserve1'
+  | 'reserve2'
+  | 'reserve3'
+  | 'reserve4'
+  | 'reserve5'
+  | 'reserve6'
+  | 'reserve7'
+  | 'reserve8'
+  | 'reserve9'
+  | 'cancel'
+  | 'moveNorth'
+  | 'moveWest'
+  | 'moveSouth'
+  | 'moveEast'
+  | 'pointerPipeToggle'
+  | 'pointerPipeExclusive'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'zoomReset'
+  | 'helpToggle';
+
+/** Modifier keys carried by a discrete keyboard or pointer binding. */
+export type ControlModifier = 'alt' | 'ctrl' | 'meta' | 'shift';
+
+/** A logical-key binding; physical `KeyboardEvent.code` mappings are not yet supported. */
+export interface KeyboardControlBinding {
+  readonly kind: 'keyboard';
+  readonly event: 'key';
+  readonly value: string;
+  readonly modifiers: ReadonlyArray<ControlModifier>;
+  /** Legacy defaults fold letter case; captured custom keys may preserve it. */
+  readonly caseSensitive: boolean;
+  /** `subset` preserves legacy shortcuts that tolerated extra modifiers. */
+  readonly modifierMatch: 'exact' | 'subset';
+}
+
+/** A pointer gesture binding for the board's region-based pipe controls. */
+export interface PointerControlBinding {
+  readonly kind: 'pointer';
+  readonly button: 'left' | 'middle' | 'right';
+  readonly modifiers: ReadonlyArray<ControlModifier>;
+}
+
+/** A standard-mapped Gamepad button; no device identifier is exposed. */
+export interface GamepadButtonControlBinding {
+  readonly kind: 'gamepad-button';
+  readonly mapping: 'standard';
+  readonly button: number;
+}
+
+/** A signed, thresholded standard Gamepad axis activation. */
+export interface GamepadAxisControlBinding {
+  readonly kind: 'gamepad-axis';
+  readonly mapping: 'standard';
+  readonly axis: number;
+  readonly direction: -1 | 1;
+}
+
+/** One supported discrete source binding for a semantic console action. */
+export type ControlBinding =
+  | KeyboardControlBinding
+  | PointerControlBinding
+  | GamepadButtonControlBinding
+  | GamepadAxisControlBinding;
+
+/** Per-action bindings; each action may have any number of sources. */
+export type ControlMapping = Readonly<Record<ControlActionId, ReadonlyArray<ControlBinding>>>;
+
 /**
- * Declarative table of all input bindings. The console binds this
- * table once at construction; the input layer reads from it (and
- * the host can override per-binding via `ConsoleConfig.inputOverrides`).
- *
- * Keys are stable identifiers (NOT raw key codes), so locale /
- * keyboard-layout changes don't break the mapping. The default
- * table is exposed as `DEFAULT_INPUT_MAPPING` (below).
- *
- * The shape mirrors the original Europa control set (per
- * `europa-source/.../controls.html`) plus the additions required
- * by spec US2/US3/US4.
+ * Legacy table accepted by `ConsoleConfig.inputMapping`. A runtime adapts
+ * this initial configuration into its per-action `ControlMapping` session;
+ * it remains source-compatible for hosts that construct the console with
+ * the original one-binding-per-field shape. Keyboard strings use logical
+ * `KeyboardEvent.key` semantics, not physical `KeyboardEvent.code` semantics.
  */
 export interface InputMapping {
   /** Pipe toggle on each region. Mouse button is the primary. */
@@ -946,19 +1022,19 @@ export interface RenderFeedback {
  */
 export type {
   CellView,
+  ConnectionState,
   Coord,
   Direction,
+  ErrorCode,
+  MatchId,
   MatchResult,
   Order,
   PlayerId,
+  PlayerView,
   ReservesPct,
+  SequenceNumber,
+  SessionToken,
   TickEvents,
   ValidationError,
   World,
-  PlayerView,
-  ConnectionState,
-  ErrorCode,
-  MatchId,
-  SessionToken,
-  SequenceNumber,
 };

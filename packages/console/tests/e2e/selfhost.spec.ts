@@ -4,7 +4,7 @@
  * Invokes `scripts/test-selfhost.sh` exactly as a release engineer
  * would: builds the console for production, scans `dist/` for remote
  * URLs (constitution Principle VII — no CDN, no telemetry, no remote
- * fonts), and enforces the Q-P03 gzipped-bundle budget (< 150 KB).
+ * fonts), and enforces the Q-P03 gzipped-bundle budget (< 152 KiB / 155,648 bytes).
  *
  * The script performs its own build, so this spec needs no dev
  * server; Playwright still boots one via the shared webServer config,
@@ -32,7 +32,7 @@ test('selfhost smoke: production build has zero remote URLs and fits the bundle 
     const output = execFileSync('bash', [SCRIPT], {
         encoding: 'utf-8',
         timeout: 290_000,
-        env: { ...process.env, SELFHOST_BUNDLE_BUDGET_BYTES: '153600' },
+        env: { ...process.env, SELFHOST_BUNDLE_BUDGET_BYTES: '155648' },
     });
     expect(output).toContain('[test-selfhost] PASS');
 });

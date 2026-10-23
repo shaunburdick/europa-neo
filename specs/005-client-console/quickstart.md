@@ -249,7 +249,8 @@ Chromium via Vitest Browser Mode. It measures:
   to loosen ONLY this budget (default 1.0; see spec Clarifications
   v1.1).
 - `reduce(state, action)` under 1 ms (no DOM, pure JS).
-- Initial bundle (gzipped) under 150 KB.
+- Initial browser-delivered bundle (sum of per-file gzip sizes under `dist/assets`)
+  strictly below 155,648 bytes (152 KiB), enforced by `test:selfhost`.
 - 1000-tick deterministic replay produces byte-identical
   `MapView` snapshots (SC-002).
 
@@ -443,6 +444,16 @@ not 15 per-FR specs), the mapping notes the consolidation.
 | SC-002 determinism | `pnpm test:determinism` — 1000-tick scripted match vs committed golden fixture (`tests/fixtures/golden-1000-tick.json`); zero divergence | PASS |
 | SC-004 parity | `pnpm test:parity` vs `tests/fixtures/original-subcell.json` | PASS |
 | Constitution VII | remote-URL scan inside `scripts/test-selfhost.sh` | PASS |
+
+The Q-P03 row above is historical validation under the original 153,600-byte
+(150 KiB) threshold. The current owner-approved threshold is 155,648 bytes
+(152 KiB), as recorded in spec 005 v1.14. The issue #201 `pnpm verify` run
+passed all 13 phases at exit 0 on 2026-10-22 19:33:10Z–19:38:47Z against source
+manifest `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`;
+`test:selfhost` measured 155,540/155,648 bytes. The run log is
+`/tmp/opencode/issue-201-budget-fullverify-20261022.log`; full provenance is in
+`issue-201-plan.md`. Later readiness-document-only edits are not in the tested
+manifest, so this is not a full-gate claim for the post-reconciliation tree.
 
 §13 checklist status: every automated row green; the only manual
 item remaining is the 30-minute two-player smoke (needs the feature

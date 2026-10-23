@@ -37,7 +37,15 @@
 
 import { type FocusDirection, KeyboardNavigator } from '../a11y/keyboard';
 import type { ConsoleStore } from '../state/store';
-import type { ConsoleState, Coord, CursorTarget, Direction, InputMapping, PlayerAction } from '../state/types';
+import type {
+    ConsoleState,
+    ControlActionId,
+    Coord,
+    CursorTarget,
+    Direction,
+    InputMapping,
+    PlayerAction,
+} from '../state/types';
 import { DEFAULT_INPUT_MAPPING } from '../state/types';
 import { buildReservesAction, type ReservesOutcome } from './order-reserves';
 import { pipePresentInDirection } from './region-select';
@@ -189,6 +197,93 @@ export function translateKey(args: TranslateKeyArgs): DraftOutcome {
     return { kind: 'ignore', reason: 'unbound-key' };
 }
 
+/** Arguments for translating a source binding that already resolved to an action id. */
+export interface TranslateControlActionArgs {
+    readonly action: ControlActionId;
+    readonly state: ConsoleState;
+    readonly cursor: CursorTarget | null;
+    readonly cursorAgeMs: number | null;
+}
+
+/**
+ * Build the existing PlayerAction semantics after a source binding has
+ * resolved to a stable control action id. Targeting and preflight still
+ * flow through `translateKey` unchanged.
+ */
+export function translateControlAction(args: TranslateControlActionArgs): DraftOutcome {
+    const keyAndModifiers = keyForControlAction(args.action);
+    if (keyAndModifiers === null) {
+        return { kind: 'ignore', reason: 'unbound-key' };
+    }
+    return translateKey({
+        key: keyAndModifiers.key,
+        altKey: keyAndModifiers.altKey,
+        ctrlKey: false,
+        metaKey: false,
+        state: args.state,
+        cursor: args.cursor,
+        cursorAgeMs: args.cursorAgeMs,
+        mapping: DEFAULT_INPUT_MAPPING,
+    });
+}
+
+function keyForControlAction(action: ControlActionId): { readonly key: string; readonly altKey: boolean } | null {
+    switch (action) {
+        case 'pipeNorth':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeNorth, altKey: false };
+        case 'pipeWest':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeWest, altKey: false };
+        case 'pipeSouth':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeSouth, altKey: false };
+        case 'pipeEast':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeEast, altKey: false };
+        case 'pipeNorthExclusive':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeNorth, altKey: true };
+        case 'pipeWestExclusive':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeWest, altKey: true };
+        case 'pipeSouthExclusive':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeSouth, altKey: true };
+        case 'pipeEastExclusive':
+            return { key: DEFAULT_INPUT_MAPPING.pipeKeys.pipeEast, altKey: true };
+        case 'clearCellPipes':
+            return { key: DEFAULT_INPUT_MAPPING.clearCellPipes, altKey: false };
+        case 'paratroop':
+            return { key: DEFAULT_INPUT_MAPPING.paratroopPrimary, altKey: false };
+        case 'gun':
+            return { key: DEFAULT_INPUT_MAPPING.gunPrimary, altKey: false };
+        case 'reserve0':
+        case 'reserve1':
+        case 'reserve2':
+        case 'reserve3':
+        case 'reserve4':
+        case 'reserve5':
+        case 'reserve6':
+        case 'reserve7':
+        case 'reserve8':
+        case 'reserve9':
+            return { key: action.slice(-1), altKey: false };
+        case 'cancel':
+            return { key: DEFAULT_INPUT_MAPPING.cancel, altKey: false };
+        case 'moveNorth':
+            return { key: DEFAULT_INPUT_MAPPING.selectionMove.north, altKey: false };
+        case 'moveWest':
+            return { key: DEFAULT_INPUT_MAPPING.selectionMove.west, altKey: false };
+        case 'moveSouth':
+            return { key: DEFAULT_INPUT_MAPPING.selectionMove.south, altKey: false };
+        case 'moveEast':
+            return { key: DEFAULT_INPUT_MAPPING.selectionMove.east, altKey: false };
+        case 'pointerPipeToggle':
+        case 'pointerPipeExclusive':
+        case 'zoomIn':
+        case 'zoomOut':
+        case 'zoomReset':
+        case 'helpToggle':
+            return null;
+        default:
+            return action satisfies never;
+    }
+}
+
 /**
  * Convert a targeting or reserves outcome into a draft outcome (no
  * information loss). The two unions use different discriminants
@@ -311,7 +406,10 @@ export function shouldIgnoreKeyEvent(event: {
         return true;
     }
     const { target } = event;
-    if (target instanceof Element && target.closest('button, a, input, textarea, select, [role="toolbar"]') !== null) {
+    if (
+        target instanceof Element &&
+        target.closest('button, a, input, textarea, select, [role="toolbar"], [role="dialog"]') !== null
+    ) {
         return true;
     }
     return target instanceof HTMLElement && target.isContentEditable;
