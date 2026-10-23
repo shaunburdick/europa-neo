@@ -1,8 +1,8 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-20 (v1.16; decorative face texture — issue #182)
-**Version**: 1.16
+**Last Updated**: 2026-10-23 (v1.19; minimap viewport snap — issue #209)
+**Version**: 1.19
 
 **Created**: 2026-08-21
 
@@ -150,7 +150,7 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - **FR-016 (issue #76)**: The sidebar MUST remain static during board zoom and pan operations; only the board area's transform changes.
 - **FR-017 (issue #76; v1.10 ruling)**: The physical cell size MUST remain clamped to 32–96 CSS px. `100%` MUST mean the existing dynamic measured-fit baseline (`fitZoom`), initialized once both a ready view and viewport measurement are available, regardless of which arrives first. The effective zoom ceiling MUST be `min(96px, fitZoom * 3)`; it may therefore be below 300% of the current fit baseline. The percentage display MUST be relative to `fitZoom`, not a fixed 32px cell. `CameraState` values and pan offsets remain in CSS-pixel/cell-space terms as defined by the canonical contracts. At 100% fit, panning MUST allow each corner cell center to reach the viewport center within 1 CSS px. Pan MUST work on each axis whether the board fits or overflows, and blank space outside any board edge is allowed. While the current camera equals the last auto-fit-applied camera, a viewport resize MUST recompute and reapply fit. Once a user camera change makes the camera differ from that auto-fit-applied camera, a resize MUST preserve the changed camera rather than overwrite it with fit. The canvas MUST fill the available board area; zoom changes cell density, not canvas size.
 - **FR-018 (issue #76)**: The console MUST provide keyboard zoom shortcuts: `+` or `=` zooms in one step, `-` or `_` zooms out one step, `Home` resets to 100%. Shortcuts MUST be suppressed when focus is inside interactive chrome (buttons, inputs, toolbars, contenteditable) — reusing the existing `HotkeyController` focus guard. The `?` help-overlay toggle MUST reuse that same shared key focus guard. (`0` is NOT a zoom shortcut — it remains the `reserve0` digit key per the engine's 0–9 reserves domain.)
-- **FR-019 (issue #76; v1.10 ruling)**: The minimap MUST use the exact same rendered viewport transform as the main board. Its viewport indicator MUST show only the intersection of that viewport with board bounds. Clicking a minimap cell MUST target its center.
+- **FR-019 (issue #76; v1.10 ruling; v1.19 snap)**: The minimap MUST use the exact same rendered viewport transform as the main board. Its viewport indicator MUST show only the intersection of that viewport with board bounds. Its 1 CSS px indicator MUST cover one whole bitmap pixel column/row at a fractional minimap scale, snapped to the pixel nearest each edge; at whole-number scales the painted output MUST stay unchanged. Clicking a minimap cell MUST target its center.
 - **FR-020 (issue #76)**: The layout MUST fill the viewport at `100vw × 100vh` with no page scrolling. The minimum supported viewport width is 768px. The header and footer MUST remain fixed at the top and bottom respectively, never scrolling away.
 - **FR-021 (issue #76)**: The sidebar layout MUST apply equally to player and spectator views. In spectator mode, order-producing controls (Orders, Reserve, Surrender) MUST be rendered as disabled or visually inert; no orders are sent (this is already the structural invariant — spectators have no store, no order bridge, and the adapter refuses orders).
 - **FR-022 (issue #76)**: The sidebar MUST be owned by `App` (not the lobby runtime) so player and spectator share one render path. The match-leg host's slim chrome (title + leave button) remains in `lobby-runtime.tsx`'s `MatchLegHost`.
@@ -419,7 +419,7 @@ truthful).
 | FR-016 sidebar static during zoom/pan | `test:component` (sidebar ref unchanged across camera changes) | PASS |
 | FR-017 zoom 100%–300%, default 100% | `test:unit` (zoom math clamp) + `test:component` (indicator) | PASS |
 | FR-018 keyboard shortcuts | `test:unit` (HotkeyController zoom layer) + `test:e2e` (keypress) | PASS |
-| FR-019 minimap viewport rect | `test:component` (rect updates with zoom) | PASS |
+| FR-019 minimap viewport rect | `test:component` (rect updates with zoom; fractional-scale pixel readback) | PASS |
 | FR-020 full viewport, no scroll | `test:component` (layout fills viewport) | PASS |
 | FR-021 spectator parity | `test:e2e` (spectator sidebar) | PASS |
 | FR-022 sidebar owned by App | code review: `App.tsx` contains the sidebar, no lobby-runtime sidebar | PASS |
@@ -775,3 +775,18 @@ the zone 2–3 contour hint with real elevation isolines. Only the absorbed
 - **Verification**: `packages/console/tests/component/render/surface.test.tsx`
   (AC-006) and `tests/unit/render/surface.test.ts`; Q-P01 and the 017 relief
   addition are unchanged, and 017 v1.14 restates its sampling exclusion.
+
+### v1.19 (2026-10-23) — minimap viewport indicator snaps to whole pixels (issue #209)
+
+FR-019's 1 px viewport rectangle was stroked from fractional coordinates,
+so a non-whole minimap scale antialiased it into two half-tone columns. Each
+of its four edges now snaps independently to the nearest bitmap pixel at
+paint time (the shared `snappedStrokeCenter`, mirroring the board's
+`snappedLineStart` rule); `viewportRect` stays fractional and the 2 px
+minimum is unchanged.
+
+- **Verification**: `packages/console/tests/component/qol/minimap.test.tsx` —
+  a fractional-scale (20×20 board, scale 4.8) pixel readback asserts each edge
+  column is the full 0.8-white blend and both neighbours are byte-identical to
+  the backdrop, plus a whole-number-scale regression; `minimap-viewport.test.tsx`
+  keeps the live camera wiring.
