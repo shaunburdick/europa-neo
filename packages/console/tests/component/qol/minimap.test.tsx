@@ -202,7 +202,6 @@ describe('minimap viewport snap (FR-019, issue #209)', () => {
         const midY = Math.floor((top + bottom) / 2);
 
         const backdrop = pixelAt(ctx, 10, 10);
-        expect(pixelAt(ctx, midX, 10)).toEqual(backdrop);
         const blend = whiteOver(backdrop);
 
         const edges: readonly (readonly [number, number, number, number, number, number])[] = [

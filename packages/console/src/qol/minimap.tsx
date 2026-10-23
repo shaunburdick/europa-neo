@@ -49,7 +49,7 @@ export function minimapScale(board: MinimapGeometry): number {
 }
 
 /** A rectangle in minimap pixels. */
-export interface ViewportRect {
+interface ViewportRect {
     readonly x: number;
     readonly y: number;
     readonly w: number;
@@ -94,21 +94,21 @@ export function viewportRect(
 }
 
 /**
- * `strokeRect` arguments for the viewport indicator (FR-019): each edge
- * snaps independently to a whole bitmap pixel, so at a fractional minimap
- * scale the 1 px stroke has no antialiased neighbour. The 2 px minimum keeps
- * the indicator visible. Paint-time only — {@link viewportRect} stays exact.
+ * `strokeRect` arguments for the viewport indicator (FR-019). Each edge snaps
+ * to the nearest whole bitmap pixel so the 1 px stroke has no antialiased
+ * neighbour; the unchanged 2 px minimum and FR-019's board-bound intersection
+ * remain the exceptions. Paint-time only — {@link viewportRect} stays exact.
  *
  * @param rect Fractional viewport rectangle in minimap pixels.
  */
 export function viewportStrokeRect(rect: ViewportRect): ViewportRect {
-    const x = snappedStrokeCenter(rect.x, 0);
-    const y = snappedStrokeCenter(rect.y, 0);
+    const x = snappedStrokeCenter(rect.x);
+    const y = snappedStrokeCenter(rect.y);
     return {
         x,
         y,
-        w: Math.max(snappedStrokeCenter(rect.x + rect.w, 0) - x, 2),
-        h: Math.max(snappedStrokeCenter(rect.y + rect.h, 0) - y, 2),
+        w: Math.max(snappedStrokeCenter(rect.x + rect.w) - x, 2),
+        h: Math.max(snappedStrokeCenter(rect.y + rect.h) - y, 2),
     };
 }
 
