@@ -27,7 +27,7 @@ export default defineConfig({
         rollupOptions: {
             output: {
                 // Split vendor (React + Zustand) from console core so the
-                // <150 KB gzipped initial-budget check (plan.md "Performance
+                // <152 KiB (155,648 bytes) gzipped initial-budget check (plan.md "Performance
                 // Goals") can attribute bytes per chunk. Lazy sound chunks are
                 // introduced with the audio runtime in a later phase.
                 manualChunks: (id: string) => {

@@ -7,7 +7,7 @@ import { createOrderBridge } from '../../../src/state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../../../src/state/store';
 import type { ReducerEffect } from '../../../src/state/types';
 import '../../../src/styles/index.css';
-import { buildPlayerView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
+import { buildCellView, buildPlayerView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 afterEach(() => {
     cleanup();
@@ -16,6 +16,7 @@ afterEach(() => {
 async function bootApp(options?: {
     readonly onReturnToLobby?: (() => void) | undefined;
     readonly surrenderRequestEpoch?: number | undefined;
+    readonly orderableCell?: boolean | undefined;
 }): Promise<{
     readonly client: FakeMatchClient;
     readonly store: ConsoleStore;
@@ -25,6 +26,24 @@ async function bootApp(options?: {
         width: 10,
         height: 10,
         playerId: TEST_PLAYER_1,
+        ...(options?.orderableCell
+            ? {
+                  visibleCells: [
+                      buildCellView({
+                          coord: { x: 5, y: 5 },
+                          elevation: 60,
+                          troops: 10,
+                          owner: TEST_PLAYER_1,
+                      }),
+                      buildCellView({
+                          coord: { x: 5, y: 4 },
+                          elevation: 60,
+                          troops: 10,
+                          owner: TEST_PLAYER_1,
+                      }),
+                  ],
+              }
+            : {}),
     });
     const client = new FakeMatchClient();
     let forward: ((effect: ReducerEffect) => void) | null = null;
@@ -184,5 +203,50 @@ describe('modal exclusivity (FR-042)', () => {
 
         const surrender = document.querySelector<HTMLButtonElement>('.europa-hud__surrender');
         expect(surrender?.disabled).toBe(true);
+    });
+});
+
+describe('Controls capture dispatch safety', () => {
+    test('capturing a bound keyboard action in the mounted App emits no gameplay action or wire order', async () => {
+        const { client, store } = await bootApp({ orderableCell: true });
+        const user = userEvent.setup();
+        store.dispatch({ kind: 'selectCell', cell: { x: 5, y: 5 } });
+        const beforeCapture = store.getState();
+
+        const openControls = [...document.querySelectorAll('button')].find(
+            (button) => button.textContent?.trim() === 'Configure controls…',
+        );
+        expect(openControls).not.toBeNull();
+        await user.click(openControls as HTMLButtonElement);
+        await vi.waitFor(() => {
+            expect(document.querySelector('[aria-label="Toggle pipe North bindings"]')).not.toBeNull();
+        });
+
+        const changeNorth = document.querySelector<HTMLButtonElement>(
+            'button[aria-label="Change Primary binding for Toggle pipe North"]',
+        );
+        expect(changeNorth).not.toBeNull();
+        await user.click(changeNorth as HTMLButtonElement);
+        const captureButton = document.querySelector<HTMLButtonElement>(
+            'button[aria-label="Change Primary binding for Toggle pipe North"]',
+        );
+        expect(captureButton).not.toBeNull();
+        captureButton?.focus();
+        let capturedKeydown: KeyboardEvent | null = null;
+        const observeKeydown = (event: KeyboardEvent): void => {
+            if (event.key === 'i') capturedKeydown = event;
+        };
+        const documentKeydown = vi.fn();
+        window.addEventListener('keydown', observeKeydown, true);
+        document.addEventListener('keydown', documentKeydown);
+        await user.keyboard('i');
+        window.removeEventListener('keydown', observeKeydown, true);
+        document.removeEventListener('keydown', documentKeydown);
+
+        expect(document.body.textContent).toContain('Captured i for Toggle pipe North');
+        expect(capturedKeydown?.defaultPrevented).toBe(true);
+        expect(documentKeydown).not.toHaveBeenCalled();
+        expect(store.getState()).toBe(beforeCapture);
+        expect(client.orders).toHaveLength(0);
     });
 });

@@ -14,7 +14,7 @@
  *   6. Overview — minimap with live viewport rectangle
  *   7. Zoom     — percentage level indicator + in/out/reset controls
  *   8. Surrender — forfeit trigger
- *   9. Help     — help overlay toggle
+ *   9. Help     — help and local Controls overlays
  *
  * Spectator parity (FR-021): when `interactive` is false (no store),
  * order-producing controls (Orders, Reserve, Surrender) render
@@ -81,6 +81,10 @@ export interface SidebarProps {
     readonly onHelpToggle: () => void;
     /** Help button ref — focus return when the overlay closes. */
     readonly helpButtonRef?: RefObject<HTMLButtonElement | null> | undefined;
+    /** Open runtime-local Controls dialog. */
+    readonly onControlsToggle?: (() => void) | undefined;
+    /** Controls button ref — focus return when the dialog closes. */
+    readonly controlsButtonRef?: RefObject<HTMLButtonElement | null> | undefined;
     /**
      * Whether a live store is present. `false` = spectator/static boot:
      * order-producing controls render disabled/inert (FR-021).
@@ -110,6 +114,8 @@ export function Sidebar({
     onSurrenderRequest,
     onHelpToggle,
     helpButtonRef,
+    onControlsToggle = () => undefined,
+    controlsButtonRef,
     interactive,
     viewportOffset,
 }: SidebarProps): JSX.Element {
@@ -295,7 +301,7 @@ export function Sidebar({
                 </Tooltip>
             </section>
 
-            {/* 8. Help — help overlay toggle (? key). */}
+            {/* 8. Help — help overlay and local Controls editor. */}
             <section id="help" aria-label="Help" className="europa-sidebar__section">
                 <h2 className="europa-sidebar__heading">Help</h2>
                 <Tooltip content="Open help overlay (? key)">
@@ -307,6 +313,17 @@ export function Sidebar({
                         onClick={onHelpToggle}
                     >
                         ?
+                    </EuropaButton>
+                </Tooltip>
+                <Tooltip content="Configure keyboard and standard Gamepad bindings">
+                    <EuropaButton
+                        ref={controlsButtonRef}
+                        variant="secondary"
+                        className="europa-focus-ring"
+                        disabled={status === 'game_over'}
+                        onClick={onControlsToggle}
+                    >
+                        Configure controls…
                     </EuropaButton>
                 </Tooltip>
             </section>

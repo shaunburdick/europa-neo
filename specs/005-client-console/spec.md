@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-21 (v1.13; issue #201 dynamic control mapping planning amendment)
-**Version**: 1.13
+**Last Updated**: 2026-10-22 (v1.14; issue #201 owner-approved payload budget amendment)
+**Version**: 1.14
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.13 issue #201 scope and M1–M3 plan are user-approved; these requirements remain unimplemented, and implementation may start only after the PRE-M1 draft planning PR is remotely confirmed.
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.13 issue #201 M1–M3 implementation and v1.14 owner-approved payload-budget amendment are present in this branch. `pnpm verify` passed locally on 2026-10-22 against manifest `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`; the later readiness-document delta is not included in that run. Physical standard-controller smoke remains unperformed, so no hardware validation claim is made. Hook/signing gates remain separate requirements before code publication.
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -253,9 +253,10 @@ truthful).
    effects**: never emitted by the v1 reducer. The runtime handles
    them defensively (log / sound seam / modal epoch) so future
    emitters work without runtime changes.
-4. **Bundle budget scope (Q-P03)**: "initial bundle < 150 KB gzipped"
-   is enforced by `scripts/test-selfhost.sh` over the
-   browser-delivered payload (`dist/assets/**`, currently ~76.5 KB).
+4. **Bundle budget scope (Q-P03)**: the browser-delivered initial bundle
+   MUST remain strictly below 155,648 bytes (152 KiB). `scripts/test-selfhost.sh`
+   sums per-file gzip sizes over all `dist/assets/**/*.{js,css}`; the current
+   issue #201 tree measured 155,540 bytes (108 bytes below the amended gate).
    The tsc library tree also emitted into `dist/` is consumed by
    bundling hosts, never fetched by browsers, and is out of scope.
    The browser-mode perf suite cannot read the filesystem, hence the
@@ -652,13 +653,15 @@ heading above does not overclaim:**
   file is removed; the requirements-list copy is authoritative (no
   behavior change).
 
-### v1.13 (2026-10-21) — Dynamic control mapping (issue #201; PRE-M1)
+### v1.13 (2026-10-22) — Dynamic control mapping (issue #201)
 
-**Status:** The user approved the bounded scope and M1–M3 plan. These
-requirements describe future behavior; the planning amendment does not change
-shipped code. M1 implementation has not started and may begin only after the
-PRE-M1 draft planning PR is remotely confirmed; the current user assignment
-authorizes M1–M3 after that dependency without another approval pause.
+**Status:** The user approved the bounded scope and M1–M3 plan. PRE-M1 draft
+PR #210 was remotely confirmed before implementation. M1–M3 are implemented in
+the current worktree with focused verification. The full repository gate later
+passed against the manifest recorded in the v1.14 verification record; the
+subsequent documentation-only readiness delta is not included in that run. No
+physical controller smoke has been performed, so no hardware validation claim
+is made.
 
 **Scope and compatibility:** Dynamic resolution is client-only and maps
 supported device bindings to existing console actions. It MUST preserve the
@@ -678,10 +681,12 @@ changes MUST NOT alter `NETWORK_API_VERSION`.
   default and preserve the shipped keyboard behavior: I/J/K/L pipe directions,
   Alt+I/J/K/L exclusive variants, Space clears pipes, P/H paratroops, G/O
   guns, 0–9 reserves, Escape cancel, and arrows move selection. Existing
-  `KeyboardEvent.key` semantics MUST be retained for these defaults. A
-  physical `KeyboardEvent.code` binding, if supported for a custom mapping,
-  MUST be represented explicitly and MUST NOT silently replace `key` semantics
-  or change non-US layout behavior.
+  `KeyboardEvent.key` semantics MUST be retained for these defaults, including
+  legacy case-folding. Custom logical-key bindings MUST record case sensitivity
+  explicitly. Physical `KeyboardEvent.code` bindings are not currently
+  supported; if added later, they MUST be represented explicitly and MUST NOT
+  silently replace `key` semantics or change non-US layout behavior. Ctrl/Meta
+  browser chords remain reserved and MUST NOT be captured as keyboard actions.
 - **FR-050 — Runtime updates and validation:** A runtime mapping replacement
   MUST take effect without remounting input controllers. Validation MUST be
   atomic: a conflicting or unsupported assignment MUST NOT partially replace
@@ -744,5 +749,37 @@ as required by feature 007 FR-012.
    in-memory Custom editing; accurate active labels, conflict-safe atomic
    application, manual update, and reload-to-Original behavior.
 
-All milestone requirements remain unimplemented until their corresponding
-implementation and acceptance evidence are reviewed.
+M1–M3 requirements are implemented in the current worktree and their focused
+verification is recorded in `issue-201-plan.md`. The full repository gate is
+required before code push. Physical standard-controller smoke remains
+unperformed; hardware validation is not claimed.
+
+### v1.14 (2026-10-22) — Owner-approved browser payload budget amendment
+
+**Owner decision:** Shaun Burdick approved an increase to the Q-P03 payload
+budget in [PR #210 comment 6348411040](https://github.com/shaunburdick/europa-neo/pull/210#issuecomment-6348411040)
+(2026-10-22T18:38:13Z), describing the size checks as a gate rather than a
+permanent hard limit. The approved implementation target is the smallest whole-
+KiB ceiling above the measured 155,540-byte issue #201 payload: strictly less
+than 155,648 bytes (152 KiB), an increase of 2,048 bytes from 153,600 bytes.
+
+- The gate continues to count every per-file gzip size for every browser-
+  delivered `.js` and `.css` asset under `dist/assets/`; the boundary remains
+  strict (`total >= budget` fails).
+- The remote-URL scan, asset scope, test severity, and verifier invocation are
+  unchanged. No asset is excluded, no check is suppressed, and no full-gate
+  waiver is granted. Prior Q-P03 validation rows remain historical results
+  under the former 153,600-byte threshold; they are not relabeled as v1.14
+  verification.
+- Fresh verification: `pnpm verify` passed all 13 phases at exit 0 on 2026-10-22
+  19:33:10Z–19:38:47Z against manifest
+  `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`. The
+  self-host gate measured 155,540/155,648 bytes; run log and metadata:
+  `/tmp/opencode/issue-201-budget-fullverify-20261022.log` and
+  `/tmp/opencode/issue-201-budget-fullverify-20261022.meta`. After that run,
+  readiness status was reconciled only in this spec, the issue #201 plan/tasks
+  and quickstart, spec 012, and this spec 013. That documentation-only delta is
+  not included in the tested manifest; no full-gate pass is claimed for the
+  post-reconciliation tree. The recorded pass is local, not GitHub CI evidence,
+  and does not resolve hook/signing gates. Run a fresh full gate before any
+  future code publication.

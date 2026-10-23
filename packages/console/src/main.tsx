@@ -38,6 +38,8 @@ import '@europa/design/dist/design.css';
 import './styles/index.css';
 import './styles/logo.css';
 
+import { ControlMappingSession } from './input/control-mapping';
+import { ControlMappingProvider } from './input/control-mapping-context';
 import { type LobbyStoreDebugView, lobbyDebugHandle } from './internal/debug-views';
 // Type-only: erased at compile time, so the dynamically-imported
 // live-runtime chunk is NOT fetched by this static reference.
@@ -162,13 +164,17 @@ function bootstrapProductionRoute(root: HTMLElement): void {
         context: { controller, wsUrl },
     });
 
+    const inputMappingSession = new ControlMappingSession();
+
     // Mount the router into the DOM. The ErrorBoundary wraps the entire
     // tree so a bad frame never blanks the page silently (Q-B08).
     createRoot(root).render(
         <StrictMode>
-            <ErrorBoundary>
-                <RouterProvider router={router} />
-            </ErrorBoundary>
+            <ControlMappingProvider session={inputMappingSession}>
+                <ErrorBoundary>
+                    <RouterProvider router={router} />
+                </ErrorBoundary>
+            </ControlMappingProvider>
         </StrictMode>,
     );
 }

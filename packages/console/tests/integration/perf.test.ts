@@ -14,7 +14,7 @@
  *     (pure JS, no DOM).
  *   - Q-P04 `localPreflightOrder`: min-of-round-medians < 0.1 ms
  *     (security-relevant gate on the input path).
- *   - Q-P03 initial bundle < 150 KB gzipped: enforced post-build by
+ *   - Q-P03 initial bundle < 152 KiB (155,648 bytes) gzipped: enforced post-build by
  *     `scripts/test-selfhost.sh` (browser tests have no filesystem;
  *     deviation documented in spec Implementation Notes).
  *

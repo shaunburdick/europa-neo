@@ -31,7 +31,7 @@ pnpm install
 | `test:perf`           | Perf budgets in real Chromium: paint < 8 ms, reduce < 1 ms, preflight < 0.1 ms |
 | `test:determinism`    | SC-002: 1000-tick scripted match vs committed golden fixture         |
 | `test:parity`         | Subcell mapping vs the original's documented behavior                |
-| `test:selfhost`       | Production build → remote-URL scan → gzip bundle budget (< 150 KB)   |
+| `test:selfhost`       | Production build → remote-URL scan → gzip bundle budget (< 152 KiB / 155,648 bytes) |
 | `lint` / `format`     | Biome                                                                |
 | `typecheck`           | `tsc --noEmit` over `src/`                                           |
 | `typecheck:conformance` | Strict tsc program over `src/` + the conformance test              |
@@ -250,7 +250,7 @@ warmup + best-of-rounds medians — never single-shot wall-clock):
 | Full-board paint (32×32, 1024 cells) | < 8 ms | ~1.8 ms median          |
 | `reduce(state, action)`           | < 1 ms   | ~0.2 µs                 |
 | `localPreflightOrder`             | < 0.1 ms | ~0.3 µs                 |
-| Initial bundle (gzip, dist/assets)| < 150 KB | ~75 KB                  |
+| Initial bundle (gzip, dist/assets)| < 152 KiB (155,648 B) | 155,540 B (2026-10-22) |
 
 ## Self-hosting
 

@@ -228,7 +228,7 @@ As a contributor or maintainer, I want a single `pnpm dev` page that combines th
 - **NFR-002 (Self-hostable)**: Constitution VII — no external font, CDN, theme gem, or proprietary service may be required to render the console or the manual. The vendored stylesheet is the only new asset, and it is self-contained.
 - **NFR-003 (Type safety & coverage)**: TypeScript `strict: true` across `@europa/design` and consumers; no `any`, no lint suppressions except where the root `biome.jsonc` already permits narrowly-scoped overrides (documented). Any new testable logic (drift helpers, token tests, asset-identity checks) meets the ≥ 80% coverage merge gate on every metric (constitution Principle III).
 - **NFR-004 (Simplicity)**: Constitution Principle V — a single package, a single stylesheet, a single contract file, one vendored copy. No Storybook, no theme engine, no runtime theming framework; the token layer is a thin variable + constant mapping that future work can extend additively.
-- **NFR-005 (Performance)**: The shared stylesheet MUST NOT materially regress console bundle cost: the browser-payload gzip budget (previously < 150 KB in spec 005) and the manual's Pages payload remain bounded — adding the design package MUST net-remove console CSS literals (duplication out, indirection in), not bloat.
+- **NFR-005 (Performance)**: The shared stylesheet MUST NOT materially regress console bundle cost: the current browser-payload gzip gate is strictly <155,648 bytes (152 KiB) per spec 005 v1.14 Q-P03 and the manual's Pages payload remains bounded — adding the design package MUST net-remove console CSS literals (duplication out, indirection in), not bloat. The earlier 150 KiB limit is historical.
 - **NFR-006 (License hygiene)**: Zero runtime dependencies means trivially compatible licensing; any tooling added for the drift/build steps MUST be permissive-licensed per constitution Additional Constraints.
 
 ## Success Criteria *(mandatory)*
@@ -334,7 +334,7 @@ As a contributor or maintainer, I want a single `pnpm dev` page that combines th
   - **015-FR-018**: The logo MUST be documented in the manual.
   - **015-FR-019**: The logo MUST be included in the design system's test suite.
 - **Absorbed feature 062 (design polish, issue #62)** — condensed phase-by-phase summary (FR-001..FR-047 incl. FR-040a):
-  - Foundation tokens (FR-001..FR-010): additive tokens only; zero new runtime dependencies; ≤ 5 KB new CSS; < 150 KB gzip bundle budget.
+  - Foundation tokens (FR-001..FR-010): additive tokens only; zero new runtime dependencies; ≤ 5 KB new CSS; remain within the current console browser-payload gate of <155,648 bytes (152 KiB) gzip.
   - Console polish (FR-011..FR-020): spacing/typography/color alignment across lobby, match, and profile surfaces.
   - New components (FR-021..FR-030): banner, chip, grid, waiting, badge, container, stack, plate, page, card — all from existing tokens.
   - Responsive (FR-031..FR-035): mobile-first breakpoints, touch targets ≥ 44 px, no horizontal scroll.
