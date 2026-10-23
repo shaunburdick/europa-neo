@@ -16,7 +16,6 @@
                 "src/resolution/gun.ts",
                 "src/resolution/paratroop.ts",
                 "src/resolution/production.ts",
-                "src/rng.ts",
                 "src/serialize.ts",
                 "src/tick.ts",
                 "src/validate.ts"
@@ -32,13 +31,10 @@
         {
             // Tests assert fixed board vectors, wire values, and deterministic tick outcomes.
             "includes": [
-                "src/rng.ts",
                 "src/serialize.ts",
                 "src/resolution/flow.ts",
                 "src/validate.ts",
-                "tests/contracts-drift.test.ts",
                 "tests/determinism.test.ts",
-                "tests/fixtures/board.test.ts",
                 "tests/fixtures/board.ts",
                 "tests/perf/tick-perf.bench.ts",
                 "tests/quickstart/combat.test.ts",
@@ -59,7 +55,6 @@
                 "tests/unit/paratroop.test.ts",
                 "tests/unit/production.test.ts",
                 "tests/unit/read.test.ts",
-                "tests/unit/rng.test.ts",
                 "tests/unit/scenarios.test.ts",
                 "tests/unit/serialize.test.ts",
                 "tests/unit/terminal.test.ts",
@@ -106,7 +101,7 @@
             "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
         },
         {
-            "includes": ["tests/unit/flow.test.ts", "tests/unit/rng.test.ts", "tests/unit/tick.test.ts"],
+            "includes": ["tests/unit/flow.test.ts", "tests/unit/tick.test.ts"],
             "linter": {
                 "rules": {
                     "suspicious": {

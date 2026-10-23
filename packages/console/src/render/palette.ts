@@ -72,7 +72,6 @@ export const PIPE_OUTLINE_COLOR = TOKENS.color.pipeOutline;
 
 /** City outline + pipe indicator color — amber family. */
 export const CITY_COLOR = TOKENS.color.city;
-export const PIPE_COLOR = TOKENS.color.accent;
 
 /**
  * Pipe slope indicator colors (005 FR-013) — downhill green, flat
@@ -134,9 +133,6 @@ export const LAND_BAND_LIGHTNESS = [
     Math.round((biomeZoneAt(2).lightnessMin + biomeZoneAt(2).lightnessMax) / 2),
     Math.round((biomeZoneAt(3).lightnessMin + biomeZoneAt(3).lightnessMax) / 2),
 ] as const;
-
-/** City glow color (semi-transparent amber overlay). */
-export const CITY_GLOW_COLOR = TOKENS.color.cityGlow;
 
 /** City glow strong color (center dot + border glow). */
 export const CITY_GLOW_STRONG_COLOR = TOKENS.color.cityGlowStrong;

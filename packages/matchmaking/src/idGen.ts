@@ -20,7 +20,7 @@
  */
 
 import type { GuestPlayerId, PlayerId, RandomBytesSource } from '@europa/core';
-import { DEFAULT_PLAYER_ID_MAX_ATTEMPTS, generatePlayerId, parseGuestPlayerId } from '@europa/core';
+import { generatePlayerId, parseGuestPlayerId } from '@europa/core';
 import type { MatchId } from '@europa/networking';
 import type { PlayerSessionId } from './contracts/match-types';
 import { getRandomValues, randomUUID } from './crypto';
@@ -110,9 +110,6 @@ export function allocatePlayerId(options: AllocatePlayerIdOptions = {}): PlayerI
 export function allocateGuestPlayerId(options: AllocatePlayerIdOptions = {}): GuestPlayerId {
     return parseGuestPlayerId(allocatePlayerId(options));
 }
-
-/** Default bounded retry budget re-exported for registry callers/tests. */
-export { DEFAULT_PLAYER_ID_MAX_ATTEMPTS };
 
 /**
  * Case-insensitive RFC 9562 §5.4 UUID v4 shape: version nibble `4`,

@@ -3,8 +3,8 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-10-13 (v1.10; issue #144 conformance-witness enforcement)
-**Version**: 1.10
+**Last Updated**: 2026-10-23 (v1.11; issue #140 `testRadius` removal and `FOG_API_VERSION` 0.2.0)
+**Version**: 1.11
 
 **Status**: Implemented (2026-09-12; issue #143 event filtering fix — all 5 TickEvents categories filtered per FR-012); v1.10 conformance-witness wiring implemented 2026-10-13 (fog `typecheck:conformance` compiled + wired into `fog-ci.yml` and `verify.sh`; red-witness drill recorded — branch `ci/verify-conformance-parity`)
 
@@ -154,3 +154,8 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 Rationale (honest conformance record — constitution IV): the engine↔fog boundary conformance test (`packages/fog/tests/conformance.test.ts`, feature-002 T039) documents that its mutual-assignability aliases for `VisibleSet`/`PlayerView` and its `computeVisibleSet` signature assignability check "fail `pnpm typecheck`" on field drift — but that claim was aspirational at amendment time: `packages/fog` ships no `tsconfig.conformance.json` and no `typecheck:conformance` script, its tsconfig excludes `tests/` by design, and vitest does not type-check. The compile-time proof never compiled; the runtime assertions that keep the witnesses "used" (`expect(true).toBe(true)`) cannot fail when a field drifts. (The test's parts (a)/(a2) — byte-identity comparisons against spec-side `.ts` copies — were already removed when the spec-side copies were deleted by hygiene pass #160; the package copy `packages/fog/src/contracts/engine-to-fog.ts` is the sole source of truth and this plan-era "byte-identical mirror" wording is historical.) Issue #144 closes the gap; the requirement is recorded here because the witnesses pin THIS specification's engine↔fog boundary.
 
 - **FR-013**: The engine↔fog boundary witnesses MUST be compiled by a dedicated strict program `packages/fog/tsconfig.conformance.json`, run via `pnpm --filter @europa/fog typecheck:conformance`, invoked by `fog-ci.yml` AND by `scripts/verify.sh` (spec 008 v1.4 FR-029/FR-030). Drift between fog's re-declared `VisibleSet`/`PlayerView` and the `src/contracts/engine-to-fog.ts` originals, or a `computeVisibleSet` signature change that breaks the declared function type, MUST fail that compilation. A vitest run of the same test file is NOT proof — the runtime `expect(true).toBe(true)` assertions exist only to keep the type witnesses "used". The red-witness drill (spec 008 v1.4 FR-032) demonstrates enforcement.
+
+### v1.11 (2026-10-23) — `testRadius` removed from the fog contract (issue #140)
+
+- `FogConstants` ships `maskUnknown`, `maskVisible`, and `defaultRadiusFallback` only; `testRadius` is removed. Test scenarios declare their radius in fixtures.
+- `FOG_API_VERSION` is `0.2.0` for the narrowing. No visibility behaviour changes.

@@ -1,0 +1,72 @@
+# Dead Export Guard — fails when an exported symbol under packages/*/src has
+# no production reference and no allowlist justification (008 FR-034, issue
+# #140). Path-gated so the static check only runs where it can regress. The
+# `changes` job gates the verify job via a job-level `if:` skip, which
+# reports "skipped" and satisfies the required check (see
+# docs.github.com troubleshooting-required-status-checks).
+name: Dead Export Guard
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'scripts/**'
+      - 'docs/manual/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/dead-exports.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Detects whether this workflow's relevant paths changed on the PR. The
+  # verify job below gates on this output; when it skips, the check reports
+  # "skipped" (a successful status) so the required check is satisfied.
+  # dorny/paths-filter reads changed files via the REST API on PRs and diffs
+  # against the previous commit on push. This job must never fail: a failure
+  # would skip its dependents silently (dependent-job-skip).
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # dorny/paths-filter: on PRs it reads changed files via the REST API
+      # (no git history needed); on push it diffs against the previous
+      # commit. Filters mirror the workflow-level paths lists above.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'packages/**'
+              - 'scripts/**'
+              - 'docs/manual/**'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/dead-exports.yml'
+
+  verify:
+    name: Dead export check
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4 # v3.1.1
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Run dead-export guard
+        run: pnpm exec tsx scripts/check-dead-exports.ts

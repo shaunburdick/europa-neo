@@ -139,4 +139,11 @@ echo "--- Phase 13: Referenced-contract-file guard ---"
 pnpm exec tsx scripts/check-referenced-contract-files.ts
 echo ""
 
+# Phase 14: Dead-export guard (008 FR-034 / issue #140). Fails when an
+# export under packages/*/src has no production reference and no allowlist
+# entry. Tests, contracts, and generated output are not callers.
+echo "--- Phase 14: Dead-export guard ---"
+pnpm exec tsx scripts/check-dead-exports.ts
+echo ""
+
 echo "=== All verification checks passed ==="

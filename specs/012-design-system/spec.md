@@ -3,8 +3,8 @@
 **Feature Branch**: `012-design-system`
 
 **Created**: 2026-08-30
-**Last Updated**: 2026-10-23 (v1.7; issue #142 packaging note)
-**Version**: 1.7
+**Last Updated**: 2026-10-23 (v1.8; issue #140 removed-catalogue-class migration note)
+**Version**: 1.8
 
 **Status**: Implemented (2026-08-30) — branded-footer addendum shipped in PR #31; unified-dev-page addendum (issue #68) in review
 
@@ -360,6 +360,11 @@ As a contributor or maintainer, I want a single `pnpm dev` page that combines th
 - `@europa/design` declares `"sideEffects": ["./dist/design.css", "**/*.css"]` so bundlers retain the shipped stylesheet; the package emits no other import-time behaviour.
 - Unchanged: token values, the component catalog, and the React component surface (no `customElements.define`, no registration side effects).
 
+### v1.8 (2026-10-23) — Removed duplicate modal class (issue #140)
+
+- The catalogue no longer lists `.europa-modal__dialog`: its rule was byte-identical to `.europa-modal`, so `.europa-modal` is the single shell for the backdrop's child.
+- FR-007 migration note recorded in `DESIGN.md` (`.europa-modal__dialog` → `.europa-modal`, no visual change).
+
 ## Addendum — Branded Footer (sidecar, in PR #31)
 
 A product-owner follow-up to the design system: ensure the app name, version, and GitHub link appear on **every** page of both the UI and the documentation. This reuses the `@europa/design` catalog (it is the reason the sidecar rides in PR #31) and adds no new visual language.
@@ -430,5 +435,6 @@ As a player or manual reader, I want every console view and every manual page to
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.8 | 2026-10-23 | Dead CSS removal (issue #140): `.europa-modal__dialog` dropped from the catalogue as a byte-identical duplicate of `.europa-modal`; migration note added to `DESIGN.md`. |
 | 1.7 | 2026-10-23 | Packaging hygiene (issue #142): `@europa/design` declares a CSS-side-effectful `sideEffects` value (`./dist/design.css`, `**/*.css`). Component and CSS import-time behaviour is unchanged. |
 

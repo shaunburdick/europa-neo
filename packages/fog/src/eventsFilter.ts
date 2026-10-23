@@ -31,8 +31,6 @@
 
 import type { Coord, Order, PlayerId, TickEvents, ValidationError, World } from '@europa/engine';
 
-import { emptyTickEvents } from '@europa/engine';
-
 /**
  * Build a `Set<number>` of flat-index keys from a row-major `Coord`
  * list. Keys are `y * width + x` — the same flat indexing the engine's
@@ -239,11 +237,3 @@ export function filterTickEvents(
         errors,
     };
 }
-
-/**
- * Convenience re-export of the engine's `emptyTickEvents` builder so
- * fog modules (and tests) share one canonical "no events" value.
- * Re-exported rather than re-declared to keep a single source of
- * truth for the empty shape.
- */
-export { emptyTickEvents };

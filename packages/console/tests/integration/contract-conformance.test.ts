@@ -343,7 +343,7 @@ describe('contract conformance (T089)', () => {
 const EXPECTED_API_VERSIONS: Readonly<Record<string, string>> = {
     ENGINE_API_VERSION: '0.2.0',
     TERRAIN_API_VERSION: '0.2.0',
-    FOG_API_VERSION: '0.1.0',
+    FOG_API_VERSION: '0.2.0',
     MATCHMAKING_API_VERSION: '0.2.0',
     NETWORK_API_VERSION: '0.3.0',
     CONSOLE_API_VERSION: '0.5.0',

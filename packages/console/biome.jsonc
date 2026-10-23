@@ -59,9 +59,6 @@
                 "src/state/local-preflight.ts",
                 "src/ui/reserves-panel.tsx",
                 "src/ui/targeting-overlay.tsx",
-                "tests/a11y/us2-acceptance.test.ts",
-                "tests/a11y/us3-acceptance.test.ts",
-                "tests/a11y/us5-acceptance.test.ts",
                 "tests/component/qol/minimap.test.tsx",
                 "tests/component/render/app-wire-view.test.tsx",
                 "tests/component/render/cell-view.test.tsx",
@@ -69,11 +66,6 @@
                 "tests/component/ui/reserves-panel.test.tsx",
                 "tests/e2e/full-stack.spec.ts",
                 "tests/e2e/selfhost.spec.ts",
-                "tests/e2e/us1-acceptance.spec.ts",
-                "tests/e2e/us2-acceptance.spec.ts",
-                "tests/e2e/us3-acceptance.spec.ts",
-                "tests/e2e/us4-acceptance.spec.ts",
-                "tests/e2e/us5-acceptance.spec.ts",
                 "tests/e2e/waiting-overlay.spec.ts",
                 "tests/fixtures/determinism-scenario.ts",
                 "tests/integration/contract-conformance.test.ts",
@@ -96,12 +88,9 @@
                 "tests/unit/qol/zoom-math.test.ts",
                 "tests/unit/qol/zoom.test.ts",
                 "tests/unit/render/palette.test.ts",
-                "tests/unit/render/visibility-filter.test.ts",
                 "tests/unit/runtime.test.ts",
-                "tests/unit/state/awaiting-start.test.ts",
                 "tests/unit/state/format.test.ts",
                 "tests/unit/state/local-preflight.test.ts",
-                "tests/unit/state/order-bridge.test.ts",
                 "tests/unit/state/reducer.test.ts"
             ],
             "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
@@ -126,10 +115,6 @@
             // Performance benchmark warnings are intentionally emitted for CI diagnostics.
             "includes": ["tests/integration/perf.test.ts"],
             "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
-        },
-        {
-            "includes": ["tests/a11y/us2-acceptance.test.ts"],
-            "linter": { "rules": { "suspicious": { "noBitwiseOperators": "off" } } }
         },
         {
             // Contract mirror formatting is protected by byte-identity tests.

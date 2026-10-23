@@ -90,11 +90,6 @@ export type {
     TickBroadcastPayload,
 } from './contracts/network-types';
 
-// The wire-protocol version constant — the single runtime artifact in
-// the contract. Re-exported here so consumers can do
-// `import { NETWORK_API_VERSION } from '@europa/networking'`.
-export { NETWORK_API_VERSION } from './contracts/network-types';
-
 // ----------------------------------------------------------------------------
 // Engine + fog types (per the boundary rules)
 // ----------------------------------------------------------------------------

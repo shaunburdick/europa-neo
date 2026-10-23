@@ -17,14 +17,7 @@
  * Pure module: no I/O, no clock reads, no randomness.
  */
 
-import type { ErrorCode, ProtocolErrorCode } from './contracts/network-types';
-
-/**
- * Re-export the shared base error code type. Call sites that need
- * a generic error-code annotation without the full `ErrorCode` union
- * import this instead.
- */
-export type { ProtocolErrorCode };
+import type { ErrorCode } from './contracts/network-types';
 
 /**
  * Networking-module-specific error code alias. Narrows the base
