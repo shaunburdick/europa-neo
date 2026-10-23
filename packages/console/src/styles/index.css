@@ -1803,8 +1803,7 @@ body {
 /* T-035: Modal responsive width (FR-025, AC-027).
    ≤480px: modal fills viewport with 1rem margin on each side. */
 @media (max-width: 480px) {
-    .europa-modal,
-    .europa-modal__dialog {
+    .europa-modal {
         max-width: calc(100vw - 2rem);
     }
 }

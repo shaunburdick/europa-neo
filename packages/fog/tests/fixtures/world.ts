@@ -31,14 +31,12 @@
  *     project vision" assertion) and any test that needs the
  *     engine's city-ownership semantics to be active.
  *
- * State discipline: troop placement mutates `state.troopCounts`
- * and `state.troopOwners` directly. The engine's `createWorld`
- * returns `state` with non-frozen typed arrays (engine
- * `create.ts:148-152`), so element-level mutation is safe. We
- * clone the typed arrays first so a test that mutates the
- * returned world doesn't leak into the engine's internal
- * copies. City ownership lives in `state.cityOwners` and is
- * already populated by `createWorld` from the input `board`.
+ * State discipline: troop placement assigns into `state.troopCounts`
+ * and `state.troopOwners` directly. `createWorld` allocates those arrays
+ * as ordinary mutable typed arrays, so element assignment is safe; cloning
+ * them first keeps a test's mutation from leaking into a shared world.
+ * City ownership lives in `state.cityOwners` and is already populated by
+ * `createWorld` from the input `board`.
  */
 
 import {

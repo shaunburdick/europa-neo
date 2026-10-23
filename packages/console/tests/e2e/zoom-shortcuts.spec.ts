@@ -9,76 +9,15 @@
  * Determinism: all waits poll observable DOM conditions.
  */
 
-import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+import type { Server as HttpServer } from 'node:http';
 
-import { computePlayerView } from '@europa/fog';
-import { createMatchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
+import type { Matchmaker } from '@europa/matchmaking';
+import type { Server } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+import { buildLobbyStack } from './helpers/lobby-stack';
+
 const TICK_MS = 100;
-
-// ---------------------------------------------------------------------------
-// Stack wiring (same recipe as full-stack.spec.ts)
-// ---------------------------------------------------------------------------
-
-function buildStack(): {
-    httpServer: HttpServer;
-    server: Server;
-    matchmaker: ReturnType<typeof createMatchmaker>;
-} {
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-
-    const httpServer: HttpServer = createHttpServer();
-
-    const deps: ServerDeps = {
-        engine: {
-            createMatchSession: () => {
-                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-        httpServer,
-    };
-
-    const server = createMatchServer(
-        {
-            ...NETWORK_DEFAULT_CONFIG,
-            host: '127.0.0.1',
-            port: 0,
-            tickRateMs: TICK_MS,
-            ordersPerSecond: 1000,
-        },
-        deps,
-    );
-
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
-    });
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    return { httpServer, server, matchmaker };
-}
 
 // ---------------------------------------------------------------------------
 // Browser-side helpers
@@ -136,12 +75,15 @@ test.describe('keyboard zoom shortcuts (FR-018)', () => {
 
     let httpServer: HttpServer;
     let server: Server;
-    let matchmaker: ReturnType<typeof createMatchmaker>;
+    let matchmaker: Matchmaker;
     let port: number;
     let matchId: string;
 
     test.beforeAll(async () => {
-        ({ httpServer, server, matchmaker } = buildStack());
+        ({ httpServer, server, matchmaker } = buildLobbyStack({
+            httpServer: 'create',
+            config: { tickRateMs: TICK_MS },
+        }));
         await new Promise<void>((resolve, reject) => {
             httpServer.once('error', reject);
             httpServer.listen(0, '127.0.0.1', () => resolve());

@@ -180,18 +180,12 @@ importers:
       '@europa/fog':
         specifier: workspace:*
         version: link:../fog
-      '@europa/logging':
-        specifier: workspace:*
-        version: link:../logging
       '@europa/matchmaking':
         specifier: workspace:*
         version: link:../matchmaking
       '@europa/networking':
         specifier: workspace:*
         version: link:../networking
-      '@europa/terrain':
-        specifier: workspace:*
-        version: link:../terrain
       '@europa/version':
         specifier: workspace:*
         version: link:../version
@@ -214,6 +208,12 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.9
+      '@europa/logging':
+        specifier: workspace:*
+        version: link:../logging
+      '@europa/terrain':
+        specifier: workspace:*
+        version: link:../terrain
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.62.1

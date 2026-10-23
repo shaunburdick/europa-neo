@@ -181,6 +181,9 @@ node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
 # Spec consolidation guard (008 FR-013..FR-017): verifies specs follow
 # the consolidation rules. Cheap static check, same rationale as privacy guard.
 pnpm exec tsx scripts/check-spec-consolidation.ts
+# Dead-export guard (008 FR-034): reads every package src tree, so any
+# package, script, or manual change can affect it. Runs unconditionally.
+pnpm exec tsx scripts/check-dead-exports.ts
 echo ""
 
 # Tier B: Per-package tests for changed library packages.

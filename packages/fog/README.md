@@ -127,7 +127,7 @@ the source-of-truth contracts live at
 | Symbol | Purpose |
 |--------|---------|
 | `FOG_CONSTANTS` | Tunable numeric rules (mask sentinels, radius fallbacks). |
-| `FOG_API_VERSION` | `'0.1.0'` — pin-check at consumer startup. |
+| `FOG_API_VERSION` | `'0.2.0'` — pin-check at consumer startup. |
 | `ENGINE_API_VERSION_REF` | Engine version fog was built against. |
 | `FOG_MASK_UNKNOWN` / `FOG_MASK_VISIBLE` | Binary mask sentinels. |
 | `createMask` / `markVisible` / `isCellMarked` / `unionMasks` | Binary mask helpers (internal working buffer, exposed for testing). |

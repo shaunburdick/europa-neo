@@ -1,8 +1,8 @@
 /**
  * N-player full-stack integration E2E — Feature 012 (T021).
  *
- * Parameterized harness over `N ∈ {3, 4}` mirroring the 2-player
- * `tests/e2e/full-stack.spec.ts` `buildStack()` recipe (FR-001..FR-011,
+ * Parameterized harness over `N ∈ {3, 4}` on the shared
+ * `tests/e2e/helpers/lobby-stack.ts` stack (FR-001..FR-011,
  * SC-001/SC-002; Q4; research §5). For each `N` it proves, with NO fakes
  * on the game path:
  *
@@ -37,23 +37,9 @@
  * the 250 ms tick cadence.
  */
 
-import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
-
-import { computePlayerView } from '@europa/fog';
-import { createMatchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
-/** Fixed test cadence; server tickRateMs MUST equal match tickIntervalMs. */
-const TICK_MS = 250;
+import { buildLobbyStack, TICK_MS } from './helpers/lobby-stack';
 
 /**
  * Board edge for N>2. The 012 default for 3- and 4-player matches is 48
@@ -64,68 +50,7 @@ const TICK_MS = 250;
 const BOARD_SIZE = 48;
 
 // ---------------------------------------------------------------------------
-// Harness: matchmaking ↔ networking bridge wiring (mirrors full-stack.spec.ts)
-// ---------------------------------------------------------------------------
-
-/**
- * Wire a real matchmaker to a real server through the contract's
- * soft-binding path. Single-port topology: one externally owned
- * http.Server on 127.0.0.1:0 shared for HTTP + WS.
- */
-function buildStack(): {
-    httpServer: HttpServer;
-    server: Server;
-    matchmaker: ReturnType<typeof createMatchmaker>;
-} {
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-
-    const httpServer: HttpServer = createHttpServer();
-
-    const deps: ServerDeps = {
-        engine: {
-            // Real sessions arrive pre-built from the matchmaker's
-            // auto-start (engineSession.ts); the factory stays unused.
-            createMatchSession: () => {
-                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-        httpServer,
-    };
-
-    const server = createMatchServer(
-        {
-            ...NETWORK_DEFAULT_CONFIG,
-            host: '127.0.0.1',
-            port: 0,
-            tickRateMs: TICK_MS,
-            ordersPerSecond: 1000,
-        },
-        deps,
-    );
-
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
-    });
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    return { httpServer, server, matchmaker };
-}
-
-// ---------------------------------------------------------------------------
-// Browser-side helpers (mirrors full-stack.spec.ts)
+// Browser-side helpers (the stack boots from ./helpers/lobby-stack.ts)
 // ---------------------------------------------------------------------------
 
 /** Minimal mirror of the live runtime's window handle (spec-side view). */
@@ -230,7 +155,7 @@ for (const N of [3, 4]) {
         test('drives one live N-player match end-to-end over the real stack', async ({ browser }) => {
             test.setTimeout(120_000);
 
-            const { httpServer, server, matchmaker } = buildStack();
+            const { httpServer, server, matchmaker } = buildLobbyStack({ httpServer: 'create' });
             await new Promise<void>((resolve, reject) => {
                 httpServer.once('error', reject);
                 httpServer.listen(0, '127.0.0.1', () => resolve());

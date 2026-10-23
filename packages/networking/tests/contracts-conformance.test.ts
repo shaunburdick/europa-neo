@@ -43,7 +43,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { MatchResult, Order } from '@europa/engine';
 import type { PlayerView } from '@europa/fog';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type {
     ErrorPayload,
@@ -91,37 +91,10 @@ import type {
 } from '../src/types';
 
 // ---------------------------------------------------------------------------
-// (b) Compile-time type conformance. Mutual assignability proves set
-// equality for unions and field-for-field equality for objects: if any
-// side drifts, these aliases fail to typecheck.
+// (b) Compile-time type conformance. `expectTypeOf` equality proves
+// field-for-field and union-set equality: if any side drifts, the
+// conformance tsc program fails.
 // ---------------------------------------------------------------------------
-
-/**
- * Mutual-assignability witness: "true" exactly when A and B are
- * mutually assignable (set equality for unions, field-for-field
- * equality for objects). The nested conditional form avoids the
- * circular-constraint error (TS2313) a two-parameter "extends" pair
- * raises under a strict tsc program — vitest strips types so the
- * defect only surfaces in dedicated compile checks; this is the same
- * known-good shape as matchmaking's "tests/lobby-conformance.test.ts"
- * witness.
- */
-type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
-
-/**
- * Absence witness: "true" only when key "K" is NOT a property of "T".
- * Assigning "never" to a "true"-annotated const fails the program, so
- * adding a forbidden field flips this from "true" to an error.
- */
-type AssertKeyAbsent<K extends string, T> = K extends keyof T ? never : true;
-
-type OrderConforms = AssertMutuallyAssignable<Order, OrderReexport>;
-type MatchResultConforms = AssertMutuallyAssignable<MatchResult, MatchResultReexport>;
-type PlayerViewConforms = AssertMutuallyAssignable<PlayerView, PlayerViewReexport>;
-
-const ORDER_CONFORMS: OrderConforms = true;
-const MATCH_RESULT_CONFORMS: MatchResultConforms = true;
-const PLAYER_VIEW_CONFORMS: PlayerViewConforms = true;
 
 // ---------------------------------------------------------------------------
 // (c) Compile-time union exhaustiveness. The documented one-payload-
@@ -153,10 +126,6 @@ interface KindToPayload {
     terminal: TerminalPayload;
     error: ErrorPayload;
 }
-
-type PayloadsConform = AssertMutuallyAssignable<KindToPayload[MessageKind], NetworkPayload>;
-
-const PAYLOADS_CONFORM: PayloadsConform = true;
 
 /** All twenty documented message kinds (client→server first, mirroring the contract). */
 const ALL_KINDS: readonly MessageKind[] = [
@@ -243,16 +212,19 @@ function kindLabel(kind: MessageKind): string {
 
 describe('contract conformance (T050)', () => {
     it('(b) engine/fog wire types re-exported from src/types.ts conform to the canonical declarations', () => {
-        // Compile-time proof lives in the aliases above; these runtime
-        // assertions keep them "used" so linters stay quiet.
-        expect(ORDER_CONFORMS).toBe(true);
-        expect(MATCH_RESULT_CONFORMS).toBe(true);
-        expect(PLAYER_VIEW_CONFORMS).toBe(true);
+        // Compile-time proof: mutual assignability, checked by the tsc program.
+        expectTypeOf<OrderReexport>().toExtend<Order>();
+        expectTypeOf<Order>().toExtend<OrderReexport>();
+        expectTypeOf<MatchResultReexport>().toExtend<MatchResult>();
+        expectTypeOf<MatchResult>().toExtend<MatchResultReexport>();
+        expectTypeOf<PlayerViewReexport>().toExtend<PlayerView>();
+        expectTypeOf<PlayerView>().toExtend<PlayerViewReexport>();
     });
 
     it('(c) the NetworkPayload union is exactly the twenty documented payloads', () => {
         // Compile-time proof: KindToPayload[MessageKind] ≡ NetworkPayload.
-        expect(PAYLOADS_CONFORM).toBe(true);
+        expectTypeOf<KindToPayload[MessageKind]>().toExtend<NetworkPayload>();
+        expectTypeOf<NetworkPayload>().toExtend<KindToPayload[MessageKind]>();
 
         // Runtime corroboration: every documented kind classifies, the
         // classifier's switch stays exhaustive (a missing case would fail
@@ -403,80 +375,6 @@ interface DocLobbyWireShapes {
     lobbyEvent: { readonly event: DocLobbyEvent };
 }
 
-/**
- * Per-kind mutual assignability between the contract's lobby payloads and
- * the doc transcription. NOTE on precision: structural assignability pins
- * required fields, field types, and union variants; it cannot detect a
- * newly added OPTIONAL field on one side (a TypeScript exactness limit).
- * Review against the design docs covers that residual gap.
- */
-type LobbyWireConforms = {
-    readonly [K in keyof KindToPayload & keyof DocLobbyWireShapes]: AssertMutuallyAssignable<
-        KindToPayload[K],
-        DocLobbyWireShapes[K]
-    >;
-};
-
-const LOBBY_WIRE_CONFORMS: LobbyWireConforms = {
-    lobbyIdentity: true,
-    lobbySetHandle: true,
-    lobbySubscribe: true,
-    lobbyCreate: true,
-    lobbyJoin: true,
-    lobbySpectate: true,
-    lobbyLeave: true,
-    lobbyEvent: true,
-};
-
-/**
- * Sharp-edge pin for the v1.6 OPTIONAL delivery field (feature 010
- * Clarifications v1.6): plain mutual assignability cannot see a missing
- * or retyped OPTIONAL field, so this indexed-access witness fails to
- * typecheck while the contract's "IdentityState.guestPlayerId" and the
- * doc transcription disagree in existence, optionality, or brand.
- */
-type IdentityStateGuestIdConforms = AssertMutuallyAssignable<
-    IdentityState['guestPlayerId'],
-    DocIdentityState['guestPlayerId']
->;
-
-const IDENTITY_STATE_GUEST_ID_CONFORMS: IdentityStateGuestIdConforms = true;
-
-/**
- * Sharp-edge pins for the issue #146 OPTIONAL resume-secret fields
- * (feature 004 FR-026): mutual assignability cannot see a missing or
- * retyped OPTIONAL field, so these indexed-access witnesses fail to
- * typecheck while either mirror and the doc transcription disagree in
- * existence, optionality, or type.
- */
-type GuestIdentityClaimResumeSecretConforms = AssertMutuallyAssignable<
-    GuestIdentityClaim['resumeSecret'],
-    DocGuestIdentityClaim['resumeSecret']
->;
-type IdentityStateResumeSecretConforms = AssertMutuallyAssignable<
-    IdentityState['resumeSecret'],
-    DocIdentityState['resumeSecret']
->;
-
-const GUEST_IDENTITY_CLAIM_RESUME_SECRET_CONFORMS: GuestIdentityClaimResumeSecretConforms = true;
-const IDENTITY_STATE_RESUME_SECRET_CONFORMS: IdentityStateResumeSecretConforms = true;
-
-/**
- * Lobby snapshots are public projections: the owner-only credential must
- * never reach them (FR-026). Absence witness — fails to compile if the
- * field is ever added.
- */
-type LobbySnapshotHasNoResumeSecret = AssertKeyAbsent<'resumeSecret', LobbySnapshot>;
-const SNAPSHOT_HAS_NO_RESUME_SECRET: LobbySnapshotHasNoResumeSecret = true;
-
-/**
- * D4 (PO-confirmed, not reopenable): the resume-secret fields are
- * ADDITIVE and OPTIONAL, so landing them MUST NOT move the wire
- * version. This literal tripwire makes an accidental bump fail loudly
- * instead of silently breaking absent-tolerance for older peers.
- */
-const NETWORK_API_VERSION_STAYS_PUT: AssertMutuallyAssignable<typeof NETWORK_API_VERSION, '0.3.0'> = true;
-
 /** The six documented "LobbyEvent" variant kinds. */
 const LOBBY_EVENT_KINDS = ['identity', 'snapshot', 'actionAccepted', 'error', 'roster', 'rosterDelta'] as const;
 
@@ -509,24 +407,64 @@ function lobbyEventKindLabel(event: LobbyEvent): string {
     }
 }
 
+/**
+ * Exhaustiveness anchor for the doc transcription: adding a ninth lobby
+ * payload kind to `DocLobbyWireShapes` leaves this record missing a key, so
+ * the conformance program fails even though the per-key assertions cannot
+ * see a new key.
+ */
+const LOBBY_PAYLOAD_KINDS: Record<keyof DocLobbyWireShapes, true> = {
+    lobbyIdentity: true,
+    lobbySetHandle: true,
+    lobbySubscribe: true,
+    lobbyCreate: true,
+    lobbyJoin: true,
+    lobbySpectate: true,
+    lobbyLeave: true,
+    lobbyEvent: true,
+};
+
 describe('feature 010 lobby wire conformance (T-002)', () => {
     it('the contract lobby payloads conform to the lobby-wire.md/lobby-types.md transcription', () => {
-        // Compile-time proof lives in the LobbyWireConforms aliases; these
-        // runtime assertions keep them "used" so linters stay quiet.
-        expect(LOBBY_WIRE_CONFORMS).toEqual({
-            lobbyIdentity: true,
-            lobbySetHandle: true,
-            lobbySubscribe: true,
-            lobbyCreate: true,
-            lobbyJoin: true,
-            lobbySpectate: true,
-            lobbyLeave: true,
-            lobbyEvent: true,
-        });
-        expect(IDENTITY_STATE_GUEST_ID_CONFORMS).toBe(true);
-        expect(GUEST_IDENTITY_CLAIM_RESUME_SECRET_CONFORMS).toBe(true);
-        expect(IDENTITY_STATE_RESUME_SECRET_CONFORMS).toBe(true);
-        expect(NETWORK_API_VERSION_STAYS_PUT).toBe(true);
+        // Compile-time proof: mutual assignability, checked by the tsc program.
+        expectTypeOf<KindToPayload['lobbyIdentity']>().toExtend<DocLobbyWireShapes['lobbyIdentity']>();
+        expectTypeOf<DocLobbyWireShapes['lobbyIdentity']>().toExtend<KindToPayload['lobbyIdentity']>();
+        expectTypeOf<KindToPayload['lobbySetHandle']>().toExtend<DocLobbyWireShapes['lobbySetHandle']>();
+        expectTypeOf<DocLobbyWireShapes['lobbySetHandle']>().toExtend<KindToPayload['lobbySetHandle']>();
+        expectTypeOf<KindToPayload['lobbySubscribe']>().toExtend<DocLobbyWireShapes['lobbySubscribe']>();
+        expectTypeOf<DocLobbyWireShapes['lobbySubscribe']>().toExtend<KindToPayload['lobbySubscribe']>();
+        expectTypeOf<KindToPayload['lobbyCreate']>().toExtend<DocLobbyWireShapes['lobbyCreate']>();
+        expectTypeOf<DocLobbyWireShapes['lobbyCreate']>().toExtend<KindToPayload['lobbyCreate']>();
+        expectTypeOf<KindToPayload['lobbyJoin']>().toExtend<DocLobbyWireShapes['lobbyJoin']>();
+        expectTypeOf<DocLobbyWireShapes['lobbyJoin']>().toExtend<KindToPayload['lobbyJoin']>();
+        expectTypeOf<KindToPayload['lobbySpectate']>().toExtend<DocLobbyWireShapes['lobbySpectate']>();
+        expectTypeOf<DocLobbyWireShapes['lobbySpectate']>().toExtend<KindToPayload['lobbySpectate']>();
+        expectTypeOf<KindToPayload['lobbyLeave']>().toExtend<DocLobbyWireShapes['lobbyLeave']>();
+        expectTypeOf<DocLobbyWireShapes['lobbyLeave']>().toExtend<KindToPayload['lobbyLeave']>();
+        expectTypeOf<KindToPayload['lobbyEvent']>().toExtend<DocLobbyWireShapes['lobbyEvent']>();
+        expectTypeOf<DocLobbyWireShapes['lobbyEvent']>().toExtend<KindToPayload['lobbyEvent']>();
+        // Sharp-edge pins for the optional delivery fields: mutual
+        // assignability fails if existence, optionality, or brand drifts.
+        expectTypeOf<IdentityState['guestPlayerId']>().toExtend<DocIdentityState['guestPlayerId']>();
+        expectTypeOf<DocIdentityState['guestPlayerId']>().toExtend<IdentityState['guestPlayerId']>();
+        expectTypeOf<GuestIdentityClaim['resumeSecret']>().toExtend<DocGuestIdentityClaim['resumeSecret']>();
+        expectTypeOf<DocGuestIdentityClaim['resumeSecret']>().toExtend<GuestIdentityClaim['resumeSecret']>();
+        expectTypeOf<IdentityState['resumeSecret']>().toExtend<DocIdentityState['resumeSecret']>();
+        expectTypeOf<DocIdentityState['resumeSecret']>().toExtend<IdentityState['resumeSecret']>();
+        expectTypeOf<LobbySnapshot>().not.toHaveProperty('resumeSecret');
+        expectTypeOf<typeof NETWORK_API_VERSION>().toExtend<'0.3.0'>();
+        expectTypeOf<'0.3.0'>().toExtend<typeof NETWORK_API_VERSION>();
+        // The anchor lists exactly the transcription's eight payload kinds.
+        expect(Object.keys(LOBBY_PAYLOAD_KINDS)).toEqual([
+            'lobbyIdentity',
+            'lobbySetHandle',
+            'lobbySubscribe',
+            'lobbyCreate',
+            'lobbyJoin',
+            'lobbySpectate',
+            'lobbyLeave',
+            'lobbyEvent',
+        ]);
     });
 
     it('keeps NETWORK_API_VERSION at the D4-pinned additive literal', () => {
@@ -663,7 +601,6 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
         expect(identityStateKeys).toContain('guestPlayerId');
         expect(claimKeys).toContain('resumeSecret');
         expect(identityStateKeys).toContain('resumeSecret');
-        expect(SNAPSHOT_HAS_NO_RESUME_SECRET).toBe(true);
     });
 });
 
@@ -671,63 +608,34 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
 // (e) Feature 023 roster wire conformance. The roster types declared in
 // "network-types.ts" are pinned against an INDEPENDENT transcription of
 // the design source of truth ("specs/010-public-lobby-match-browser/contracts/roster-wire.md")
-// via mutual-assignability aliases. The six roster type names are also
-// verified structurally identical to the matchmaking package's local
-// mirror — drift between the two copies is caught here.
+// by compile-time type assertions. Drift between the copies is caught
+// here.
 // ---------------------------------------------------------------------------
-
-/** Per-type mutual assignability between networking's roster types and the doc transcription. */
-type RosterStatusConforms = AssertMutuallyAssignable<RosterStatus, DocRosterStatus>;
-type RosterEntryConforms = AssertMutuallyAssignable<RosterEntry, DocRosterEntry>;
-type RosterRevisionConforms = AssertMutuallyAssignable<RosterRevision, DocRosterRevision>;
-type RosterSnapshotConforms = AssertMutuallyAssignable<RosterSnapshot, DocRosterSnapshot>;
-type RosterChangeConforms = AssertMutuallyAssignable<RosterChange, DocRosterChange>;
-type RosterDeltaConforms = AssertMutuallyAssignable<RosterDelta, DocRosterDelta>;
-
-const ROSTER_STATUS_CONFORMS: RosterStatusConforms = true;
-const ROSTER_ENTRY_CONFORMS: RosterEntryConforms = true;
-const ROSTER_REVISION_CONFORMS: RosterRevisionConforms = true;
-const ROSTER_SNAPSHOT_CONFORMS: RosterSnapshotConforms = true;
-const ROSTER_CHANGE_CONFORMS: RosterChangeConforms = true;
-const ROSTER_DELTA_CONFORMS: RosterDeltaConforms = true;
-
-/**
- * Roster types MUST carry exactly {handle, status} per entry — no
- * opaque IDs, no match IDs, no tokens. This absence witness fails
- * to compile if a forbidden field is added to "RosterEntry".
- */
-type RosterEntryHasNoMatchId = AssertKeyAbsent<'matchId', RosterEntry>;
-type RosterEntryHasNoToken = AssertKeyAbsent<'sessionToken', RosterEntry>;
-type RosterEntryHasNoPlayerId = AssertKeyAbsent<'playerId', RosterEntry>;
-
-const ROSTER_ENTRY_HAS_NO_MATCH_ID: RosterEntryHasNoMatchId = true;
-const ROSTER_ENTRY_HAS_NO_TOKEN: RosterEntryHasNoToken = true;
-const ROSTER_ENTRY_HAS_NO_PLAYER_ID: RosterEntryHasNoPlayerId = true;
-
-/**
- * RosterChange MUST be structurally identical to RosterEntry (same
- * {handle, status} shape) — the spec defines them as the same fields.
- */
-type RosterChangeMatchesEntry = AssertMutuallyAssignable<RosterChange, RosterEntry>;
-const ROSTER_CHANGE_MATCHES_ENTRY: RosterChangeMatchesEntry = true;
 
 describe('feature 023 roster wire conformance', () => {
     it('roster types conform to the roster-wire.md transcription', () => {
-        expect(ROSTER_STATUS_CONFORMS).toBe(true);
-        expect(ROSTER_ENTRY_CONFORMS).toBe(true);
-        expect(ROSTER_REVISION_CONFORMS).toBe(true);
-        expect(ROSTER_SNAPSHOT_CONFORMS).toBe(true);
-        expect(ROSTER_CHANGE_CONFORMS).toBe(true);
-        expect(ROSTER_DELTA_CONFORMS).toBe(true);
+        expectTypeOf<RosterStatus>().toExtend<DocRosterStatus>();
+        expectTypeOf<DocRosterStatus>().toExtend<RosterStatus>();
+        expectTypeOf<RosterEntry>().toExtend<DocRosterEntry>();
+        expectTypeOf<DocRosterEntry>().toExtend<RosterEntry>();
+        expectTypeOf<RosterRevision>().toExtend<DocRosterRevision>();
+        expectTypeOf<DocRosterRevision>().toExtend<RosterRevision>();
+        expectTypeOf<RosterSnapshot>().toExtend<DocRosterSnapshot>();
+        expectTypeOf<DocRosterSnapshot>().toExtend<RosterSnapshot>();
+        expectTypeOf<RosterChange>().toExtend<DocRosterChange>();
+        expectTypeOf<DocRosterChange>().toExtend<RosterChange>();
+        expectTypeOf<RosterDelta>().toExtend<DocRosterDelta>();
+        expectTypeOf<DocRosterDelta>().toExtend<RosterDelta>();
     });
 
     it('roster entries contain exactly {handle, status} — no match identity', () => {
-        expect(ROSTER_ENTRY_HAS_NO_MATCH_ID).toBe(true);
-        expect(ROSTER_ENTRY_HAS_NO_TOKEN).toBe(true);
-        expect(ROSTER_ENTRY_HAS_NO_PLAYER_ID).toBe(true);
+        expectTypeOf<RosterEntry>().not.toHaveProperty('matchId');
+        expectTypeOf<RosterEntry>().not.toHaveProperty('sessionToken');
+        expectTypeOf<RosterEntry>().not.toHaveProperty('playerId');
     });
 
     it('RosterChange and RosterEntry are structurally identical', () => {
-        expect(ROSTER_CHANGE_MATCHES_ENTRY).toBe(true);
+        expectTypeOf<RosterChange>().toExtend<RosterEntry>();
+        expectTypeOf<RosterEntry>().toExtend<RosterChange>();
     });
 });

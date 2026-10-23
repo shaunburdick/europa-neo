@@ -36,12 +36,6 @@
 // (`cellsInRange`, `getCell`, `forEachCell`, `createWorld`)
 // are imported normally in their respective module files.
 export type { Cell, Player, Rng } from '@europa/engine';
-// Re-export the `FogConstants` interface from the API contract so
-// downstream packages can do `import type { FogConstants } from
-// '@europa/fog'` without reaching into the contracts directory.
-// (The actual constant value `FOG_CONSTANTS` is re-exported by
-// `constants.ts`; only the type lives here.)
-export type { FogConstants } from './contracts/fog-api';
 // Re-export the fog contract's own public type surface so
 // downstream packages can do `import type { ... } from
 // '@europa/fog'`. Names are alphabetical.

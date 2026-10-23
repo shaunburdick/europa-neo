@@ -5,7 +5,7 @@
  * `#root` element declared by `index.html`. The router receives a typed
  * context carrying the page-lifetime lobby controller and resolved
  * WebSocket URL, which the root layout route reads via
- * `useRouteContext` / `beforeLoad`.
+ * `useRouteContext`.
  *
  * Boot modes:
  *   - `?e2e` present: the interactive demo runtime (store + input
@@ -149,14 +149,13 @@ function bootstrapProductionRoute(root: HTMLElement): void {
         window.__europaLobby = lobbyDebugHandle(controller.store);
     }
 
-    // Begin the lobby establish cycle. The connection is non-blocking —
-    // the router's root layout `beforeLoad` gates child rendering on
-    // `connection === 'ready'` and `identityStatus === 'named'`.
+    // Begin the lobby establish cycle. The connection is non-blocking;
+    // the root layout redirects unnamed visitors away from /lobby once
+    // identity resolves, without gating child rendering.
     void controller.connect();
 
-    // Build the router with typed context (controller + wsUrl). The
-    // root layout route's `beforeLoad` reads the controller store to
-    // gate child rendering on connection/identity readiness.
+    // Build the router with typed context (controller + wsUrl) so the
+    // root layout and child routes can read both.
     const router = createRouter({
         routeTree,
         context: { controller, wsUrl },

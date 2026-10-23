@@ -2,7 +2,7 @@
  * Copy-link + deep-link E2E — issue #34 (T-034-20, T-034-21).
  *
  * Verifies the copy-link affordance and deep-link entry flow through
- * the real production stack, reusing the lobby.spec.ts infrastructure.
+ * the real production stack on the shared lobby-stack harness.
  *
  * Constraints:
  *   - TypeScript strict, zero suppressions, zero `any`.
@@ -10,91 +10,19 @@
  *   - Determinism: no arbitrary sleeps — all waits are expect.poll.
  */
 
-import { computePlayerView } from '@europa/fog';
-import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
+import type { Matchmaker } from '@europa/matchmaking';
+import type { Server } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
 import { optInLobbyTestHandle, preserveWsQueryInHistory } from './helpers/history-patch';
+import { buildLobbyStack } from './helpers/lobby-stack';
 import { setHandleViaProfile } from './helpers/profile';
 
 // ---------------------------------------------------------------------------
 // Tunables
 // ---------------------------------------------------------------------------
 
-const TICK_MS = 250;
 const WAIT_TIMEOUT = 15_000;
-
-// ---------------------------------------------------------------------------
-// Stack harness — identical pattern to lobby.spec.ts buildLobbyStack
-// ---------------------------------------------------------------------------
-
-interface Stack {
-    readonly server: Server;
-    readonly matchmaker: Matchmaker;
-}
-
-function buildStack(): Stack {
-    let bridge: MatchmakerBridge = {};
-    const wiring: { matchmaker: Matchmaker | null; lobby: ReturnType<typeof createLobbyService> | null } = {
-        matchmaker: null,
-        lobby: null,
-    };
-
-    const deps: ServerDeps = {
-        engine: {
-            createMatchSession: () => {
-                throw new Error('matchmaker must provide the engine session');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: {
-            onSeatClaimed: (event) => bridge.onSeatClaimed?.(event),
-            onSeatDisconnected: (event) => bridge.onSeatDisconnected?.(event),
-            onSeatReconnected: (event) => bridge.onSeatReconnected?.(event),
-            onSeatExpired: (event) => bridge.onSeatExpired?.(event),
-            onMatchTerminal: (event) => bridge.onMatchTerminal?.(event),
-        },
-        logger: NULL_LOGGER as Logger,
-        lobby: {
-            create: (sink) => {
-                const matchmaker = wiring.matchmaker;
-                if (matchmaker === null) {
-                    throw new Error('host wiring bug: lobby frame arrived before the matchmaker was bound');
-                }
-                const facade = createLobbyService({ matchmaker, deliver: sink.deliver });
-                wiring.lobby = facade;
-                return facade;
-            },
-        },
-    };
-
-    const server = createMatchServer(
-        { ...NETWORK_DEFAULT_CONFIG, host: '127.0.0.1', port: 0, tickRateMs: TICK_MS, ordersPerSecond: 1000 },
-        deps,
-    );
-
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridgeHandler: MatchmakerBridge): void {
-            bridge = { ...bridge, ...bridgeHandler };
-        },
-    });
-
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    wiring.matchmaker = matchmaker;
-
-    return { server, matchmaker };
-}
 
 // ---------------------------------------------------------------------------
 // Browser-side helpers
@@ -193,7 +121,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
     let wsPort: number;
 
     test.beforeEach(async () => {
-        const stack = buildStack();
+        const stack = buildLobbyStack();
         server = stack.server;
         matchmaker = stack.matchmaker;
         await server.listen();

@@ -36,98 +36,29 @@
  * E2E tests are excluded from the package tsconfig BY DESIGN.
  */
 
-import { computePlayerView } from '@europa/fog';
-import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
+import type { Matchmaker } from '@europa/matchmaking';
 import {
-    createMatchServer,
     encodeFrame,
-    type Logger,
-    type MatchmakerBridge,
     type MessageKind,
     NETWORK_API_VERSION,
-    NETWORK_DEFAULT_CONFIG,
     type NetworkPayload,
-    NULL_LOGGER,
     type ProtocolEnvelope,
     type SequenceNumber,
     type Server,
-    type ServerDeps,
     type SessionToken,
     tryDecodeFrame,
 } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
 import { optInLobbyTestHandle, preserveWsAndQueryParamsInHistory } from './helpers/history-patch';
+import { buildLobbyStack, TICK_MS } from './helpers/lobby-stack';
 import { setHandleViaProfile } from './helpers/profile';
-
-/** Fixed test cadence; match tickIntervalMs MUST equal server tickRateMs. */
-const TICK_MS = 250;
 
 /** Default poll timeout for observable state (CI-safe upper bound). */
 const WAIT_TIMEOUT = 30_000;
 
 /** Canonical identity shape (contracts/identity-contract.md). */
 const PLAYER_ID_PATTERN = /^[A-Za-z0-9_-]{12}$/;
-
-// ---------------------------------------------------------------------------
-// Stack harness (mirrors scripts/host.ts / lobby.spec.ts)
-// ---------------------------------------------------------------------------
-
-interface LobbyStack {
-    readonly server: Server;
-    readonly matchmaker: Matchmaker;
-}
-
-/** Wire the real matchmaker + lobby facade + match server. */
-function buildLobbyStack(): LobbyStack {
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-
-    const wiring: { matchmaker: Matchmaker | null } = { matchmaker: null };
-
-    const deps: ServerDeps = {
-        engine: {
-            createMatchSession: () => {
-                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-        lobby: {
-            create: (sink) => {
-                const matchmaker = wiring.matchmaker;
-                if (matchmaker === null) {
-                    throw new Error('host wiring bug: lobby frame arrived before the matchmaker was bound');
-                }
-                return createLobbyService({ matchmaker, deliver: sink.deliver });
-            },
-        },
-    };
-
-    const server = createMatchServer(
-        { ...NETWORK_DEFAULT_CONFIG, host: '127.0.0.1', port: 0, tickRateMs: TICK_MS, ordersPerSecond: 1000 },
-        deps,
-    );
-
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
-    });
-
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    wiring.matchmaker = matchmaker;
-    return { server, matchmaker };
-}
 
 // ---------------------------------------------------------------------------
 // Browser-side helpers

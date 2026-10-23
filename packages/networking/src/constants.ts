@@ -136,9 +136,6 @@ export const NETWORK_TRANSPORT_CONSTANTS = {
 } as const;
 
 // Re-export the wire-protocol version from its source-of-truth
-// location (the contract). Importing the version through the
-// constants file lets consumers do
-// `import { NETWORK_API_VERSION } from '@europa/networking'`
-// regardless of which barrel path they hit first — same pattern as
-// fog's `constants.ts` re-exporting `FOG_API_VERSION`.
+// location (the contract) so callers can import it from this module
+// or the package barrel.
 export { NETWORK_API_VERSION };

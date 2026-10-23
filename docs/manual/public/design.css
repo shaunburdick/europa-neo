@@ -543,17 +543,6 @@
     box-shadow: var(--europa-shadows-modal);
 }
 
-.europa-modal__dialog {
-    max-width: 24rem;
-    width: 100%;
-    padding: var(--europa-spacing-xl) var(--europa-spacing-lg);
-    background-color: var(--europa-color-surface);
-    color: var(--europa-color-text-secondary);
-    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
-    border-radius: var(--europa-radii-plate);
-    box-shadow: var(--europa-shadows-modal);
-}
-
 .europa-modal__title {
     margin: 0 0 var(--europa-spacing-sm);
     font-size: var(--europa-typography-size-xl);

@@ -1,0 +1,31 @@
+# Dead Export Guard — fails when an exported symbol under packages/*/src has
+# no production reference and no allowlist justification (008 FR-034, issue
+# #140). Runs unconditionally on every PR so the required check always
+# reports; the guard prints its own counts. Measured: 0.96 s against
+# FR-034's 60 s cap.
+name: Dead Export Guard
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Dead export check
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4 # v3.1.1
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Run dead-export guard
+        run: pnpm exec tsx scripts/check-dead-exports.ts

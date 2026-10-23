@@ -1,50 +1,21 @@
 /**
  * Lobby layout route component — TanStack Router migration (issue #75).
  *
- * Root layout route component for the TanStack Router route tree. Extracts
- * the lobby connection/identity lifecycle from {@link LobbyRoot} (in
- * `lobby-runtime.tsx`, preserved until T111-T113).
+ * Root layout route component for the TanStack Router route tree.
  *
  * Responsibilities (FR-026 layout route):
- *   - Deferred-resolution `beforeLoad` gate: waits for the lobby
- *     connection to reach `'ready'` AND identity to be `'named'`
- *     before rendering children (T109). While either gate holds the
- *     route stays in TanStack Router's pending state; re-evaluation
- *     happens automatically on state changes;
  *   - Announcer mount (shared hidden live regions for accessibility —
  *     survives lobby/match view swaps);
  *   - Lobby identity gate: unnamed visitors on `/lobby` are redirected
  *     to `/profile?returnTo=<encoded-lobby-path>` (feature 015 US3);
  *   - `<Outlet />` for TanStack Router child routes.
  *
- * What this does NOT yet handle (deferred to T111-T113):
- *   - View-mode gate (lobby vs match vs deep-link interstitial);
- *   - Command wrappers (createMatch, joinMatch, spectateMatch, leaveMatch);
- *   - MatchLegHost rendering;
- *   - Route-resolution effects (deep-link, returnTo round-trip).
- *
  * Navigation is handled by the router's `useNavigate`; pathname
  * is available via `useLocation` when needed by child routes.
  *
- * ## `beforeLoad` architecture (T109)
- *
- * The deferred-resolution gates (`connection === 'ready'` and
- * `identityStatus === 'named'`) are implemented as a `beforeLoad` hook
- * on the root route rather than a React-level render gate. This means:
- *
- *   - TanStack Router holds child routes in a pending state while the
- *     gates are unsatisfied, showing pending UI (if configured);
- *   - When the lobby store advances (connection becomes `'ready'`,
- *     identity resolves to `'named'`), the router automatically
- *     re-evaluates `beforeLoad` and renders children;
- *   - The route stays pending across navigation — a transition to
- *     `/lobby` while identity is still `'restoring'` will not flash
- *     an empty lobby.
- *
- * The `beforeLoad` accesses the lobby controller via TanStack Router's
- * typed router context (`RouterContext`), which carries the controller
- * and wsUrl. This avoids module-level mutable state and keeps the data
- * flow explicit through the route tree.
+ * The controller and wsUrl come from TanStack Router's typed context
+ * (`RouterContext`), which avoids module-level mutable state and keeps
+ * the data flow explicit through the route tree.
  *
  * @module
  */
@@ -58,69 +29,14 @@ import type { RouterContext } from '../routing/route-tree';
 import type { LobbyController } from '../state/lobby-controller';
 
 // ----------------------------------------------------------------------------
-// beforeLoad (T109)
-// ----------------------------------------------------------------------------
-
-/**
- * Deferred-resolution `beforeLoad` for the root layout route.
- *
- * Gates child rendering on two lobby-state conditions:
- *   1. `connection === 'ready'` — the lobby WebSocket connection has
- *      completed the establish cycle (hello → identity → baseline);
- *   2. `identityStatus === 'named'` — the server has confirmed a
- *      display handle for this session.
- *
- * While either condition is unsatisfied, TanStack Router keeps the
- * route in its pending state. When the lobby store advances (the
- * connection becomes ready, or the identity resolves to named), the
- * router automatically re-evaluates this `beforeLoad` and proceeds.
- *
- * This function runs OUTSIDE React (in the router's navigation
- * lifecycle), so it reads the lobby state directly from the
- * controller's Zustand store via `store.getState()` rather than
- * through `useSyncExternalStore`.
- *
- * The function accesses the controller through TanStack Router's typed
- * router context — the root route is created with
- * `createRootRouteWithContext<RouterContext>()`, which makes
- * `context.controller` available to `beforeLoad`.
- *
- * @see TanStack Router — beforeLoad data loading guide
- */
-export function lobbyBeforeLoad({ context }: { readonly context: RouterContext }): void {
-    const { controller } = context;
-    const state = controller.store.getState();
-
-    // Identity gate: identity must be resolved — either 'named' (handle
-    // confirmed by server) or 'unnamed' (server confirmed no handle).
-    // Both are terminal identity states. The component's redirect
-    // effect handles unnamed visitors (redirecting to /profile).
-    //
-    // The identity is only resolved AFTER the establish cycle completes
-    // (connection → hello → identity → baseline → ready), so a resolved
-    // identity implies the connection was 'ready' at some point. We do
-    // NOT gate on `connection === 'ready'` because transient
-    // reconnections (e.g. after server restart + Leave) can flip the
-    // connection back to 'reconnecting' while the identity remains
-    // valid — re-blocking the route would prevent the user from
-    // navigating to /profile to re-establish their handle.
-    if (state.identityStatus !== 'named' && state.identityStatus !== 'unnamed') {
-        return;
-    }
-
-    // Identity resolved — the route resolves and children render.
-}
-
-// ----------------------------------------------------------------------------
 // Lobby layout context
 // ----------------------------------------------------------------------------
 
 /**
  * Value shared with child routes via {@link LobbyLayoutContext}.
  *
- * In the current phase (pre-T111), this carries the controller, server
- * URL, and shared announcer. Future tasks will add command wrappers and
- * lobby state projection.
+ * Carries the page-lifetime controller, the resolved server URL, and the
+ * shared announcer.
  */
 export interface LobbyLayoutValue {
     /** The page-lifetime lobby controller. */
@@ -168,17 +84,9 @@ export function useLobbyLayout(): LobbyLayoutValue {
  * route is created with `createRootRouteWithContext<RouterContext>()`
  * and the router receives the context when instantiated.
  *
- * The deferred-resolution gates (`connection === 'ready'` and
- * `identityStatus === 'named'`) are handled by {@link lobbyBeforeLoad}
- * in the route's `beforeLoad`, NOT by a render gate in this component.
- * This means TanStack Router manages the pending state, and child
- * routes only render once both gates are satisfied.
- *
- * The remaining React-side gate is the unnamed-identity redirect:
- * when a visitor lands on `/lobby` with `identityStatus === 'unnamed'`,
- * this component redirects to `/profile?returnTo=<lobby-path>`. This
- * fires after `beforeLoad` has already confirmed the connection is
- * ready and identity resolved — the redirect happens only when the
+ * The React-side gate is the unnamed-identity redirect: when a visitor
+ * lands on `/lobby` with `identityStatus === 'unnamed'`, this component
+ * redirects to `/profile?returnTo=<lobby-path>`. It fires only when the
  * server confirms the visitor has no handle.
  */
 export function LobbyLayout(): JSX.Element {
