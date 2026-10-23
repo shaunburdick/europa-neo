@@ -19,7 +19,7 @@ const productionRoots = [
     'docs/manual',
 ] as const;
 
-const textExtensions = new Set(['.css', '.html', '.json', '.md', '.sh', '.ts', '.tsx', '.yml', '.yaml']);
+const textExtensions = new Set(['.css', '.html', '.json', '.md', '.mdx', '.sh', '.ts', '.tsx', '.yml', '.yaml']);
 const retiredQueryPattern = /(?:^|[?&])(?:live(?:[=&]|$)|ws=|match=|name=|token=)/i;
 const credentialQueryPattern = /(?:^|[?&])(?:guest(?:Id)?|handle|reconnect(?:Token)?|token|name|ws)=/i;
 
@@ -48,33 +48,36 @@ function trackedProductionFiles(): readonly string[] {
     });
 }
 
-function scanTrackedProductionReferences(): readonly Finding[] {
+function scanContents(file: string, contents: string): readonly Finding[] {
     const findings: Finding[] = [];
 
-    for (const file of trackedProductionFiles()) {
-        const contents = readFileSync(resolve(repositoryRoot, file), 'utf8');
-        contents.split('\n').forEach((text, index) => {
-            if (isAllowedHistoricalNote(file, text)) {
-                return;
-            }
+    contents.split('\n').forEach((text, index) => {
+        if (isAllowedHistoricalNote(file, text)) {
+            return;
+        }
 
-            // Remove the one permitted query marker rather than exempting its whole line. A
-            // line containing both `?e2e` and a retired production query must still fail.
-            const productionText = text.replace(/\?e2e\b/gi, '');
-            const kinds: FindingKind[] = [];
-            if (retiredQueryPattern.test(productionText)) {
-                kinds.push('retired-query');
-            }
-            if (credentialQueryPattern.test(productionText)) {
-                kinds.push('credential-query');
-            }
-            if (kinds.length > 0) {
-                findings.push({ file, line: index + 1, kinds, text: text.trim() });
-            }
-        });
-    }
+        // Remove the one permitted query marker rather than exempting its whole line. A
+        // line containing both `?e2e` and a retired production query must still fail.
+        const productionText = text.replace(/\?e2e\b/gi, '');
+        const kinds: FindingKind[] = [];
+        if (retiredQueryPattern.test(productionText)) {
+            kinds.push('retired-query');
+        }
+        if (credentialQueryPattern.test(productionText)) {
+            kinds.push('credential-query');
+        }
+        if (kinds.length > 0) {
+            findings.push({ file, line: index + 1, kinds, text: text.trim() });
+        }
+    });
 
     return findings;
+}
+
+function scanTrackedProductionReferences(): readonly Finding[] {
+    return trackedProductionFiles().flatMap((file) =>
+        scanContents(file, readFileSync(resolve(repositoryRoot, file), 'utf8')),
+    );
 }
 
 function isAllowedHistoricalNote(file: string, text: string): boolean {
@@ -126,6 +129,35 @@ describe('semantic URL production-surface guard', () => {
         expect(isAllowedHistoricalNote('docs/manual/src/pages/quick-start.mdx', historicalNote)).toBe(true);
         expect(isAllowedHistoricalNote('docs/manual/src/pages/quick-start.mdx', historicalQueryPrefix)).toBe(true);
         expect(isAllowedHistoricalNote('README.md', historicalNote)).toBe(false);
+    });
+
+    it('enumerates every tracked manual .mdx page as a scanned surface', () => {
+        const trackedMdxPages = execFileSync('git', ['ls-files', '-z', '--', 'docs/manual'], {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+        })
+            .split('\0')
+            .filter((file) => file.endsWith('.mdx'));
+        const scanned = trackedProductionFiles();
+
+        expect(trackedMdxPages.length).toBeGreaterThan(0);
+        expect(trackedMdxPages.filter((file) => !scanned.includes(file))).toEqual([]);
+    });
+
+    it('flags a credential-bearing link inside a manual .mdx page', () => {
+        const contents = ['---', 'title: Lobby', '---', '', 'Join at https://example.test/match/m-1?token=secret'].join(
+            '\n',
+        );
+        const findings = scanContents('docs/manual/src/pages/lobby.mdx', contents);
+
+        expect(findings).toEqual([
+            {
+                file: 'docs/manual/src/pages/lobby.mdx',
+                line: 5,
+                kinds: ['retired-query', 'credential-query'],
+                text: 'Join at https://example.test/match/m-1?token=secret',
+            },
+        ]);
     });
 
     it('scans only tracked production surfaces', () => {
