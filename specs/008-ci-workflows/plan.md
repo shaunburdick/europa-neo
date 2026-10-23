@@ -8,7 +8,7 @@
 ## Technical Context
 
 - **Repository**: Europa Neo monorepo (pnpm workspaces, 9 packages)
-- **CI Platform**: GitHub Actions (13 workflow files) — *dated note: 16 shipped workflow files as of spec v1.5 (2026-10-23, issue #133); this plan-era figure is historical*
+- **CI Platform**: GitHub Actions (13 workflow files)
 - **Test Framework**: Vitest 4.x (node-mode + browser-mode via Playwright), Playwright E2E
 - **Coverage**: V8 provider, ≥80% gate on all four metrics (Constitution III)
 - **Constitution**: `.specify/memory/constitution.md` — TypeScript strict, determinism discipline, ≥80% coverage gate, specs-as-documentation, simplicity over cleverness
