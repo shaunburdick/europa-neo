@@ -23,6 +23,7 @@
  */
 
 import { filterEffectsForMotion } from '../qol/reduced-motion';
+import { coordKey, destinationCoord } from '../state/build-map-view';
 import type { CellRenderInfo, MapEffect, MapView } from '../state/types';
 import { drawMapLabels } from './label-overlay';
 import {
@@ -32,16 +33,20 @@ import {
     CITY_COLOR,
     CITY_GLOW_STRONG_COLOR,
     COMBAT_EFFECT_COLOR,
+    CONTOUR_COLOR,
     FOCUS_RING_COLOR,
     GENERIC_EFFECT_COLOR,
     LAND_BAND_COUNT,
+    LAND_FACE_GRADIENT_DELTA,
     landBandColor,
+    landBandColorWithLightness,
     landBandIndex,
     PIPE_DOWNHILL_COLOR,
     PIPE_FLAT_COLOR,
     PIPE_OUTLINE_COLOR,
     PIPE_STALLED_COLOR,
     PIPE_UPHILL_COLOR,
+    SEAM_COLOR,
     terrainColor,
     VOID_GRADIENT_CENTER,
     VOID_GRADIENT_EDGE,
@@ -49,7 +54,20 @@ import {
     WATER_SHALLOW_COLOR,
     waterDepthForCell,
 } from './palette';
+
 import type { PipeSlope } from './pipe-slope';
+import { RELIEF_SIDES, reliefBandWidth, reliefSideIsLit, reliefStep, reliefToneColours } from './relief';
+import { type ReliefBand, reliefGeometry } from './relief-caps';
+import {
+    CONTOUR_WIDTH_PX,
+    coastBandWidth,
+    contourCrosses,
+    grainOffsetIndex,
+    LAND_FACE_GRAIN_OFFSETS,
+    landFaceGrainOffset,
+    SEAM_WIDTH_PX,
+    snappedLineStart,
+} from './surface';
 
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
@@ -74,6 +92,108 @@ function pipeSlopeColor(slope: PipeSlope): string {
     }
 }
 
+/**
+ * Fill one phase's flat colour runs. Colours are iterated in sorted key
+ * order, so the paint sequence is a pure function of the colour set
+ * rather than of cell insertion order (AC-008).
+ */
+function fillBuckets(
+    ctx: CanvasRenderingContext2D,
+    buckets: ReadonlyMap<string, readonly number[]>,
+    stride: 4 | 6 | 8,
+): void {
+    for (const colour of [...buckets.keys()].sort()) {
+        const run = buckets.get(colour);
+        if (run === undefined) continue;
+        ctx.fillStyle = colour;
+        ctx.beginPath();
+        for (let index = 0; index < run.length; index += stride) {
+            // Stride 4 is a rectangle primitive (x, y, w, h). Stride 8 may be
+            // an axis-aligned point rect; `rect()` emits the same positive
+            // winding as every band polygon, so the nonzero fill cannot
+            // cancel at a same-tone S/E corner.
+            if (stride === 4) {
+                ctx.rect(run[index] ?? 0, run[index + 1] ?? 0, run[index + 2] ?? 0, run[index + 3] ?? 0);
+                continue;
+            }
+            if (
+                stride === 8 &&
+                run[index] === run[index + 6] &&
+                run[index + 1] === run[index + 3] &&
+                run[index + 2] === run[index + 4] &&
+                run[index + 5] === run[index + 7]
+            ) {
+                ctx.rect(
+                    run[index] ?? 0,
+                    run[index + 1] ?? 0,
+                    (run[index + 2] ?? 0) - (run[index] ?? 0),
+                    (run[index + 5] ?? 0) - (run[index + 1] ?? 0),
+                );
+                continue;
+            }
+            ctx.moveTo(run[index] ?? 0, run[index + 1] ?? 0);
+            for (let point = index + 2; point < index + stride; point += 2) {
+                ctx.lineTo(run[point] ?? 0, run[point + 1] ?? 0);
+            }
+            ctx.closePath();
+        }
+        ctx.fill();
+    }
+}
+
+/**
+ * Resolution of one zone's face-texture sprite. Fixed, so the sprite is
+ * built once per zone and the pattern transform scales it to the zoom.
+ */
+const FACE_TEXTURE_PX = 64;
+
+/** Key for one zone's face texture at one grain variant. */
+function faceVariantKey(band: number, offsetIndex: number): number {
+    return band * LAND_FACE_GRAIN_OFFSETS.length + offsetIndex;
+}
+
+/**
+ * Pre-render one biome zone's face texture (FR-005): the zone colour at
+ * the NW corner, `LAND_FACE_GRADIENT_DELTA` darker at the SE corner.
+ * Returns `undefined` where no 2D context exists (happy-dom unit runs),
+ * leaving sub-pass 1c on its flat fallback.
+ */
+function createLandFace(colour: string, dark: string): HTMLCanvasElement | undefined {
+    const sprite = document.createElement('canvas');
+    sprite.width = FACE_TEXTURE_PX;
+    sprite.height = FACE_TEXTURE_PX;
+    const spriteCtx = sprite.getContext('2d');
+    if (spriteCtx === null) {
+        return undefined;
+    }
+    const gradient = spriteCtx.createLinearGradient(0, 0, FACE_TEXTURE_PX, FACE_TEXTURE_PX);
+    gradient.addColorStop(0, colour);
+    gradient.addColorStop(1, dark);
+    spriteCtx.fillStyle = gradient;
+    spriteCtx.fillRect(0, 0, FACE_TEXTURE_PX, FACE_TEXTURE_PX);
+    return sprite;
+}
+
+/**
+ * A repeating face pattern whose period is exactly one cell, anchored to
+ * the board origin, so every tile of a zone draws the same texture at any
+ * zoom. Built per paint (patterns belong to one context); the sprite is
+ * cached. `undefined` when the context cannot create patterns.
+ */
+function createLandFacePattern(
+    ctx: CanvasRenderingContext2D,
+    sprite: HTMLCanvasElement,
+    zoom: number,
+): CanvasPattern | undefined {
+    const pattern = ctx.createPattern(sprite, 'repeat');
+    if (pattern === null) {
+        return undefined;
+    }
+    const scale = zoom / FACE_TEXTURE_PX;
+    pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, 0, 0]));
+    return pattern;
+}
+
 /** Options modifying one paint pass. */
 export interface PaintOptions {
     /**
@@ -81,13 +201,28 @@ export interface PaintOptions {
      * flashing combat/capture effect markers entirely. Default `false`.
      */
     readonly reducedMotion?: boolean;
+    /**
+     * Paint delta-based edge relief (FR-001). `false` paints the
+     * relief-free control used by the 017 readback suite: the whole
+     * sub-pass is skipped. It does not restore the retired uniform
+     * inner shadow — FR-005 retires that unconditionally.
+     */
+    readonly relief?: boolean;
+    /**
+     * Paint feature 018's surface treatments — coastline bands, zone
+     * seams and per-tile grain. `false` is the 018-free control: faces
+     * revert to the ungrained zone texture.
+     */
+    readonly surface?: boolean;
 }
 
 /**
- * Canvas 2D painter for the satellite grid. Stateless: one instance
- * may serve any number of canvases and frames.
+ * Canvas 2D painter for the satellite grid. Stateless apart from a memo of
+ * the per-zone face sprites — a pure function of the zone colours — so one
+ * instance may serve any number of canvases and frames.
  */
 export class MapCanvas {
+    private landFaceSprites: ReadonlyMap<number, HTMLCanvasElement> | undefined;
     /**
      * Paint one complete frame of `mapView` into `ctx`. Clears the
      * canvas to void first (out-of-horizon cells stay void per fog
@@ -102,10 +237,12 @@ export class MapCanvas {
      * @param mapView The immutable snapshot to paint.
      * @param ctx Target 2D context (its current transform is treated
      *            as identity over the board's pixel space).
-     * @param options Optional paint modifiers (reduced motion).
+     * @param options Optional paint modifiers (reduced motion, relief).
      */
     paint(mapView: MapView, ctx: CanvasRenderingContext2D, options?: PaintOptions): void {
         const reducedMotion = options?.reducedMotion === true;
+        const relief = options?.relief !== false;
+        const surface = options?.surface !== false;
         const { zoom } = mapView.camera;
         const { viewportOffset } = mapView;
         const canvasWidth = ctx.canvas.width;
@@ -136,14 +273,11 @@ export class MapCanvas {
         // Restructured into batched sub-passes that pre-compute colors once,
         // batch all strokes into single paths, and minimize state operations.
 
-        // Pre-compute once: cached land band colors and their dark variants
-        // eliminate ~5000 adjustBrightness regex calls per frame.
+        // Pre-compute once: cached land band colors eliminate the per-tile
+        // hue lookups (and the retired gradient's brightness calls).
         const landBandColors = new Map<number, string>();
-        const landBandDarkColors = new Map<number, string>();
         for (let b = 0; b < LAND_BAND_COUNT; b++) {
-            const color = landBandColor(b);
-            landBandColors.set(b, color);
-            landBandDarkColors.set(b, this.adjustBrightness(color, -15));
+            landBandColors.set(b, landBandColor(b));
         }
 
         // Pre-compute once: water gradient stop color variants per depth tier.
@@ -203,64 +337,228 @@ export class MapCanvas {
         }
         ctx.stroke();
 
-        // Sub-pass 1c: land directional gradients (per-cell — gradients
-        // are position-dependent, but band colors are pre-cached).
+        // Sub-pass 1c: land faces — a fixed decorative NW→SE gradient per
+        // biome zone, shifted by the cell's own grain offset (018 FR-003),
+        // blitted as one pattern fill per zone+variant, so no per-cell
+        // gradient or image object exists. It encodes no elevation: the
+        // bevels are the sole relief cue (FR-005).
+        const faces = this.landFacePatterns(ctx, zoom, landBandColors);
+        const runs = new Map<number, number[]>();
         for (const info of mapView.cells.values()) {
             if (info.terrain !== 'land') continue;
             const x = info.coord.x * zoom;
             const y = info.coord.y * zoom;
             const band = landBandIndex(info.elevation);
-            const bandColor = landBandColors.get(band) ?? landBandColor(band);
-            const darkColor = landBandDarkColors.get(band) ?? this.adjustBrightness(bandColor, -15);
-            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
-            grad.addColorStop(0, bandColor);
-            grad.addColorStop(1, darkColor);
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, y, zoom, zoom);
+            const grain = surface ? landFaceGrainOffset(info.coord) : 0;
+            const variant = faceVariantKey(band, surface ? grainOffsetIndex(info.coord) : 0);
+            if (!faces.has(variant)) {
+                ctx.fillStyle = landBandColorWithLightness(band, grain);
+                ctx.fillRect(x, y, zoom, zoom);
+                continue;
+            }
+            const run = runs.get(variant) ?? [];
+            run.push(x, y);
+            runs.set(variant, run);
+        }
+        for (const variant of [...runs.keys()].sort((a, b) => a - b)) {
+            const pattern = faces.get(variant);
+            const run = runs.get(variant);
+            if (pattern === undefined || run === undefined) continue;
+            ctx.fillStyle = pattern;
+            ctx.beginPath();
+            for (let index = 0; index < run.length; index += 2) {
+                ctx.rect(run[index] ?? 0, run[index + 1] ?? 0, zoom, zoom);
+            }
+            ctx.fill();
         }
 
-        // Sub-pass 1d: batched land inner shadows — all dark edges in one
-        // fillStyle assignment, then all light edges. Eliminates per-cell
-        // save/restore and repeated fillStyle assignments.
-        // design-exception: canvas fallback
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            ctx.fillRect(x, y, zoom, 1);
-            ctx.fillRect(x, y, 1, zoom);
-        }
-        // design-exception: canvas fallback
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            ctx.fillRect(x, y + zoom - 1, zoom, 1);
-            ctx.fillRect(x + zoom - 1, y, 1, zoom);
+        // Sub-pass 1c2: coastline bands (018 FR-001) and elevation
+        // contours (018 FR-004). One visitor per land tile already pays a
+        // neighbour lookup per side for the coast, so the contour joins
+        // that loop instead of walking the cells again. A coast needs a
+        // present water neighbour, a contour a present land neighbour, so
+        // the two never mark the same edge. Only E and S are tested for
+        // contours so each edge is visited once. 1d paints its bevels
+        // after this pass, so a bevel covers a contour where the two meet.
+        if (surface) {
+            const coastRuns = new Map<string, number[]>();
+            const coastTones = new Map<number, ReturnType<typeof reliefToneColours>>();
+            const contours: number[] = [];
+            const bandWidth = coastBandWidth(zoom);
+            for (const info of mapView.cells.values()) {
+                if (info.terrain !== 'land') continue;
+                const zone = landBandIndex(info.elevation);
+                let tones = coastTones.get(zone);
+                if (tones === undefined) {
+                    tones = reliefToneColours(landBandColor(zone));
+                    coastTones.set(zone, tones);
+                }
+                const x = info.coord.x * zoom;
+                const y = info.coord.y * zoom;
+                for (const side of RELIEF_SIDES) {
+                    const dst = destinationCoord(info.coord, side);
+                    if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
+                    const neighbour = mapView.cells.get(coordKey(dst));
+                    if (neighbour === undefined) continue;
+                    if (neighbour.terrain === 'land') {
+                        if (side !== 'E' && side !== 'S') continue;
+                        if (!contourCrosses(info.elevation, neighbour.elevation)) continue;
+                        if (side === 'E') {
+                            contours.push(
+                                snappedLineStart(x + zoom, viewportOffset.x, CONTOUR_WIDTH_PX),
+                                y,
+                                CONTOUR_WIDTH_PX,
+                                zoom,
+                            );
+                        } else {
+                            contours.push(
+                                x,
+                                snappedLineStart(y + zoom, viewportOffset.y, CONTOUR_WIDTH_PX),
+                                zoom,
+                                CONTOUR_WIDTH_PX,
+                            );
+                        }
+                        continue;
+                    }
+                    const colour = reliefSideIsLit(side) ? tones.lit[0] : tones.shaded[0];
+                    const run = coastRuns.get(colour) ?? [];
+                    switch (side) {
+                        case 'N':
+                            run.push(x, y, zoom, bandWidth);
+                            break;
+                        case 'S':
+                            run.push(x, y + zoom - bandWidth, zoom, bandWidth);
+                            break;
+                        case 'W':
+                            run.push(x, y, bandWidth, zoom);
+                            break;
+                        case 'E':
+                            run.push(x + zoom - bandWidth, y, bandWidth, zoom);
+                            break;
+                    }
+                    coastRuns.set(colour, run);
+                }
+            }
+            // The coast band is opaque and the contour is 20 % ink, so
+            // the coast goes on top where a shared corner ever overlaps.
+            if (contours.length > 0) {
+                ctx.fillStyle = CONTOUR_COLOR;
+                ctx.beginPath();
+                for (let index = 0; index < contours.length; index += 4) {
+                    ctx.rect(
+                        contours[index] ?? 0,
+                        contours[index + 1] ?? 0,
+                        contours[index + 2] ?? 0,
+                        contours[index + 3] ?? 0,
+                    );
+                }
+                ctx.fill();
+            }
+            fillBuckets(ctx, coastRuns, 4);
         }
 
-        // Sub-pass 1e: batched contour hints — ALL contour diagonal lines
-        // collected into a single path and stroked once (was hundreds of
-        // individual strokes). Zone ≥ 2 only (Rocky Outcrops + Peaks).
-        const contourStep = 6;
-        // design-exception: canvas fallback
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const zone = landBandIndex(info.elevation);
-            if (zone < 2) continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            for (let offset = -zoom; offset < zoom * 2; offset += contourStep) {
-                ctx.moveTo(x + offset, y);
-                ctx.lineTo(x + offset + zoom, y + zoom);
+        // Sub-pass 1d: relief bevels (FR-001). A bevel exists only where
+        // this tile is strictly higher than a visible land neighbour; its
+        // width and tone step with that drop, its tone side with the NW
+        // light (FR-002/FR-003). Each band is a mitred trapezoid inside
+        // the tile, with its end insets set by the corner rule its vertex
+        // selected (plan D3).
+        if (relief) {
+            const bands: ReliefBand[] = [];
+            // Per zone, the three lit and three shaded tones, so no band
+            // re-parses an hsl() string.
+            const tonesByZone = new Map<number, ReturnType<typeof reliefToneColours>>();
+            for (let band = 0; band < LAND_BAND_COUNT; band++) {
+                tonesByZone.set(band, reliefToneColours(landBandColor(band)));
+            }
+            // Neighbours come from a dense index: four lookups per cell
+            // through `coordKey` allocated a key string each and measured
+            // a fifth of Q-P05's relief budget on its own. The index spans
+            // the visible cells' own coordinates, so it assumes nothing
+            // about the board's declared size.
+            let columns = 0;
+            let rows = 0;
+            for (const info of mapView.cells.values()) {
+                columns = Math.max(columns, info.coord.x + 1);
+                rows = Math.max(rows, info.coord.y + 1);
+            }
+            const cells = new Array<CellRenderInfo | undefined>(columns * rows);
+            for (const info of mapView.cells.values()) {
+                cells[info.coord.y * columns + info.coord.x] = info;
+            }
+            for (const info of mapView.cells.values()) {
+                if (info.terrain !== 'land') continue;
+                const x = info.coord.x * zoom;
+                const y = info.coord.y * zoom;
+                const zone = landBandIndex(info.elevation);
+                const tones = tonesByZone.get(zone);
+                if (tones === undefined) continue;
+                for (const side of RELIEF_SIDES) {
+                    const column = info.coord.x + (side === 'E' ? 1 : side === 'W' ? -1 : 0);
+                    const row = info.coord.y + (side === 'S' ? 1 : side === 'N' ? -1 : 0);
+                    // Off-board, absent (fog-hidden), water and equal-height
+                    // neighbours are all neutral (FR-004): no bevel, no
+                    // synthesized neighbour elevation. The index spans only
+                    // the visible cells, so anything outside it is absent.
+                    if (column < 0 || column >= columns || row < 0 || row >= rows) continue;
+                    const neighbour = cells[row * columns + column];
+                    if (neighbour === undefined || neighbour.terrain !== 'land') continue;
+                    const delta = info.elevation - neighbour.elevation;
+                    if (delta <= 0) continue;
+                    bands.push({
+                        x,
+                        y,
+                        size: zoom,
+                        side,
+                        width: reliefBandWidth(zoom, delta),
+                        colour: (reliefSideIsLit(side) ? tones.lit : tones.shaded)[reliefStep(delta) - 1] ?? '',
+                    });
+                }
+            }
+
+            // Filled one path per colour, colours in sorted key order, so
+            // the fill sequence is a pure function of the colour set
+            // rather than of cell insertion order (AC-008). Bodies are
+            // rects; the wedges that shape each band end follow.
+            const geometry = reliefGeometry(bands);
+            fillBuckets(ctx, geometry.bodies, 4);
+            fillBuckets(ctx, geometry.tapers, 6);
+        }
+
+        // Sub-pass 1e2: zone seams (018 FR-002). One CSS pixel on the
+        // shared edge of two visible land cells in different zones,
+        // painted over 1c's grain and 1d's bevels. Only E and S are
+        // tested so each edge is visited once; the snapped column sits on
+        // the boundary at every zoom.
+        if (surface) {
+            const seams: number[] = [];
+            for (const info of mapView.cells.values()) {
+                if (info.terrain !== 'land') continue;
+                const zone = landBandIndex(info.elevation);
+                const x = info.coord.x * zoom;
+                const y = info.coord.y * zoom;
+                for (const side of ['E', 'S'] as const) {
+                    const dst = destinationCoord(info.coord, side);
+                    if (dst.x >= mapView.width || dst.y >= mapView.height) continue;
+                    const neighbour = mapView.cells.get(coordKey(dst));
+                    if (neighbour === undefined || neighbour.terrain !== 'land') continue;
+                    if (landBandIndex(neighbour.elevation) === zone) continue;
+                    if (side === 'E') {
+                        seams.push(snappedLineStart(x + zoom, viewportOffset.x, SEAM_WIDTH_PX), y, SEAM_WIDTH_PX, zoom);
+                    } else {
+                        seams.push(x, snappedLineStart(y + zoom, viewportOffset.y, SEAM_WIDTH_PX), zoom, SEAM_WIDTH_PX);
+                    }
+                }
+            }
+            if (seams.length > 0) {
+                ctx.fillStyle = SEAM_COLOR;
+                ctx.beginPath();
+                for (let index = 0; index < seams.length; index += 4) {
+                    ctx.rect(seams[index] ?? 0, seams[index + 1] ?? 0, seams[index + 2] ?? 0, seams[index + 3] ?? 0);
+                }
+                ctx.fill();
             }
         }
-        ctx.stroke();
 
         // Sub-pass 1f: batched city glow effects — drawn last in terrain
         // because shadowBlur is one of the most expensive Canvas2D ops.
@@ -471,6 +769,38 @@ export class MapCanvas {
             ctx.fillRect(effect.cell.x * zoom, effect.cell.y * zoom, zoom, zoom);
         }
         ctx.restore();
+    }
+
+    /**
+     * One face pattern per (zone, grain offset) for this paint. The
+     * sprites are built once per instance from the zone colours alone;
+     * the patterns carry the zoom, so two tiles with the same zone and
+     * grain draw identical pixels on every canvas (FR-005, 018 FR-003).
+     */
+    private landFacePatterns(
+        ctx: CanvasRenderingContext2D,
+        zoom: number,
+        colours: ReadonlyMap<number, string>,
+    ): ReadonlyMap<number, CanvasPattern> {
+        if (this.landFaceSprites === undefined) {
+            const sprites = new Map<number, HTMLCanvasElement>();
+            for (const band of colours.keys()) {
+                for (let offsetIndex = 0; offsetIndex < LAND_FACE_GRAIN_OFFSETS.length; offsetIndex += 1) {
+                    const shift = LAND_FACE_GRAIN_OFFSETS[offsetIndex] ?? 0;
+                    const light = landBandColorWithLightness(band, shift);
+                    const dark = landBandColorWithLightness(band, shift + LAND_FACE_GRADIENT_DELTA);
+                    const sprite = createLandFace(light, dark);
+                    if (sprite !== undefined) sprites.set(faceVariantKey(band, offsetIndex), sprite);
+                }
+            }
+            this.landFaceSprites = sprites;
+        }
+        const patterns = new Map<number, CanvasPattern>();
+        for (const [variant, sprite] of this.landFaceSprites) {
+            const pattern = createLandFacePattern(ctx, sprite, zoom);
+            if (pattern !== undefined) patterns.set(variant, pattern);
+        }
+        return patterns;
     }
 
     /**

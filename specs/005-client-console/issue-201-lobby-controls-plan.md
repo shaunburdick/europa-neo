@@ -138,7 +138,7 @@ rebuild the action registry, mapping validation, profiles, or editor.
 The owner foundation's focused results and initial 156,282-byte strict Q-P03
 failure, plus the UI checkpoint's 156,654-byte strict failure and skipped
 HTTP/WS smoke, remain historical phase evidence in the task record. The approved
-spec 005 v1.16 policy keeps 155,648 bytes unchanged as an advisory reference.
+spec 005 v1.23 policy keeps 155,648 bytes unchanged as an advisory reference.
 Final acceptance measured 156,686 bytes (+1,038), warned, and completed the
 HTTP/WS smoke. Corrected `pnpm verify` passed all 13 phases; Playwright passed
 62/62, and independent read-only reviews found no issues. The final acceptance

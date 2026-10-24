@@ -10,7 +10,7 @@ on 2026-10-22; the bounded documentation reconciliation below is a later delta
 and is not included in that tested manifest. Run a fresh full gate before any
 future code publication. Physical standard-controller smoke is unavailable;
 no hardware validation claim is made.
-**Specification:** [`spec.md`](./spec.md), v1.13 planning amendment
+**Specification:** [`spec.md`](./spec.md), v1.20 planning amendment
 **Research:** [`issue-201-research.md`](./issue-201-research.md)
 **Tasks:** [`issue-201-tasks.md`](./issue-201-tasks.md)
 **Issue:** [#201](https://github.com/shaunburdick/europa-neo/issues/201)
@@ -104,7 +104,7 @@ compatible actions through the guarded bridge.
 ### Review correction delta
 
 Before publication, advisory review identified that FR-055 could be read as
-forbidding custom Gamepad remapping. The v1.13 wording now limits selection-only
+forbidding custom Gamepad remapping. The v1.20 wording now limits selection-only
 behavior to the default directional mapping and explicitly permits supported
 discrete d-pad buttons or signed-axis activations to invoke existing compatible
 actions through the same guarded bridge. It adds no action types, analog camera

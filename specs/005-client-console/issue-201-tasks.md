@@ -1,6 +1,6 @@
 # Tasks: Dynamic control mapping (issue #201)
 
-**Input:** approved PRE-M1 plan `issue-201-plan.md`; spec 005 v1.13 planning
+**Input:** approved PRE-M1 plan `issue-201-plan.md`; spec 005 v1.20 planning
 amendment; research `issue-201-research.md`; project `AGENTS.md` and
 `.specify/memory/constitution.md`.
 **Scope:** PRE-M1 planning publication, then future M1–M3 implementation tasks.

@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-23 (v1.16; issue #201 Q-P03 advisory policy clarification)
-**Version**: 1.16
+**Last Updated**: 2026-10-24 (v1.23; issue #201 Q-P03 advisory policy clarification; merge reconciliation)
+**Version**: 1.23
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.13 issue #201 M1–M3 implementation and v1.14 payload-target amendment are present in this branch. The v1.15 issue #201 lobby/pre-entry amendment is approved; its runtime-owner foundation, lobby/pre-join/embedding-host UI, and manual updates are implemented in the current worktree. The pre-policy UI checkpoint measured 156,654 bytes gzipped and its then-current self-host script exited before HTTP/WS smoke; that historical result is recorded in the follow-on task log. v1.16 makes only Q-P03 numeric excess advisory; current LC015/LC017 acceptance and verification evidence is maintained in `issue-201-lobby-controls-tasks.md`. Physical standard-controller smoke remains unperformed, so no hardware validation claim is made. Hook/signing gates remain separate requirements before code publication.
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; v1.13 terrain-relief amendment (issue #182) applied 2026-10-16, revised by v1.14 to the settled per-side bevel model, by v1.15 to its calibrated ladder and by v1.16 to a fixed decorative face texture; v1.17 board surface treatment (feature 018) and v1.18 elevation contours (feature 018 v1.2) applied; v1.19 minimap viewport indicator pixel snap (issue #209) applied; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.20 issue #201 M1–M3 implementation and v1.21 payload-target amendment are present in this branch. The v1.22 issue #201 lobby/pre-entry amendment is approved; its runtime-owner foundation, lobby/pre-join/embedding-host UI, and manual updates are implemented in the current worktree. The pre-policy UI checkpoint measured 156,654 bytes gzipped and its then-current self-host script exited before HTTP/WS smoke; that historical result is recorded in the follow-on task log. v1.23 makes only Q-P03 numeric excess advisory; current LC015/LC017 acceptance and verification evidence is maintained in `issue-201-lobby-controls-tasks.md`. Physical standard-controller smoke remains unperformed, so no hardware validation claim is made. Hook/signing gates remain separate requirements before code publication.
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -150,7 +150,7 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - **FR-016 (issue #76)**: The sidebar MUST remain static during board zoom and pan operations; only the board area's transform changes.
 - **FR-017 (issue #76; v1.10 ruling)**: The physical cell size MUST remain clamped to 32–96 CSS px. `100%` MUST mean the existing dynamic measured-fit baseline (`fitZoom`), initialized once both a ready view and viewport measurement are available, regardless of which arrives first. The effective zoom ceiling MUST be `min(96px, fitZoom * 3)`; it may therefore be below 300% of the current fit baseline. The percentage display MUST be relative to `fitZoom`, not a fixed 32px cell. `CameraState` values and pan offsets remain in CSS-pixel/cell-space terms as defined by the canonical contracts. At 100% fit, panning MUST allow each corner cell center to reach the viewport center within 1 CSS px. Pan MUST work on each axis whether the board fits or overflows, and blank space outside any board edge is allowed. While the current camera equals the last auto-fit-applied camera, a viewport resize MUST recompute and reapply fit. Once a user camera change makes the camera differ from that auto-fit-applied camera, a resize MUST preserve the changed camera rather than overwrite it with fit. The canvas MUST fill the available board area; zoom changes cell density, not canvas size.
 - **FR-018 (issue #76)**: The console MUST provide keyboard zoom shortcuts: `+` or `=` zooms in one step, `-` or `_` zooms out one step, `Home` resets to 100%. Shortcuts MUST be suppressed when focus is inside interactive chrome (buttons, inputs, toolbars, contenteditable) — reusing the existing `HotkeyController` focus guard. The `?` help-overlay toggle MUST reuse that same shared key focus guard. (`0` is NOT a zoom shortcut — it remains the `reserve0` digit key per the engine's 0–9 reserves domain.)
-- **FR-019 (issue #76; v1.10 ruling)**: The minimap MUST use the exact same rendered viewport transform as the main board. Its viewport indicator MUST show only the intersection of that viewport with board bounds. Clicking a minimap cell MUST target its center.
+- **FR-019 (issue #76; v1.10 ruling; v1.19 snap)**: The minimap MUST use the exact same rendered viewport transform as the main board. Its viewport indicator MUST show only the intersection of that viewport with board bounds. Its 1 CSS px indicator MUST cover one whole bitmap pixel column/row: a viewport edge falling between bitmap pixels snaps to the nearest one, and when the viewport edges are already whole bitmap pixels the painted output MUST stay unchanged. Clicking a minimap cell MUST target its center.
 - **FR-020 (issue #76)**: The layout MUST fill the viewport at `100vw × 100vh` with no page scrolling. The minimum supported viewport width is 768px. The header and footer MUST remain fixed at the top and bottom respectively, never scrolling away.
 - **FR-021 (issue #76)**: The sidebar layout MUST apply equally to player and spectator views. In spectator mode, order-producing controls (Orders, Reserve, Surrender) MUST be rendered as disabled or visually inert; no orders are sent (this is already the structural invariant — spectators have no store, no order bridge, and the adapter refuses orders).
 - **FR-022 (issue #76)**: The sidebar MUST be owned by `App` (not the lobby runtime) so player and spectator share one render path. The match-leg host's slim chrome (title + leave button) remains in `lobby-runtime.tsx`'s `MatchLegHost`.
@@ -423,7 +423,7 @@ truthful).
 | FR-016 sidebar static during zoom/pan | `test:component` (sidebar ref unchanged across camera changes) | PASS |
 | FR-017 zoom 100%–300%, default 100% | `test:unit` (zoom math clamp) + `test:component` (indicator) | PASS |
 | FR-018 keyboard shortcuts | `test:unit` (HotkeyController zoom layer) + `test:e2e` (keypress) | PASS |
-| FR-019 minimap viewport rect | `test:component` (rect updates with zoom) | PASS |
+| FR-019 minimap viewport rect | `test:component` (rect updates with zoom; fractional-scale pixel readback) | PASS |
 | FR-020 full viewport, no scroll | `test:component` (layout fills viewport) | PASS |
 | FR-021 spectator parity | `test:e2e` (spectator sidebar) | PASS |
 | FR-022 sidebar owned by App | code review: `App.tsx` contains the sidebar, no lobby-runtime sidebar | PASS |
@@ -462,6 +462,7 @@ suite result. Coverage remains gated at ≥80% on every metric.
   - **018-FR-002**: The `?` key toggles the overlay; `Escape` closes it.
   - **018-FR-003**: The overlay MUST contain: objective, controls, and special-weapons sections.
   - **018-FR-004**: The overlay MUST include a symbol legend (city, troop, pipe, fog, reserves).
+  - **018-FR-004 (extended by `specs/017-terrain-relief-shading/spec.md` FR-011, issue #182)**: the Symbol Legend MUST also contain one entry for absolute biome elevation (hue bands; the highest zone renders lightest) and one entry for relative edge relief (a bevel appears where this tile drops to a lower neighbour, lit on its north/west edges and shaded on its south/east edges), and MUST NOT describe elevation as "dark = low, light = high", which is false under the shipped biome zones (zone 1 Fractured Ice is darker than zone 0 Ice Plains while being higher).
   - **018-FR-005**: The overlay MUST list all keyboard shortcuts from the controls mapping.
   - **018-FR-006**: The overlay MUST link to the player manual (external).
   - **018-FR-007**: The overlay MUST show the current match context (board size, player count, seat).
@@ -508,8 +509,8 @@ suite result. Coverage remains gated at ≥80% on every metric.
 - **Absorbed feature 024 (biome-based terrain shading, issue #148/#149) — canvas/console**:
   - **024-FR-010**: Pipe triangles MUST gain a dark outline for visibility on all biomes.
   - **024-FR-011**: Land tiles MUST render biome-based gradients (4 zones).
-  - **024-FR-012**: Contour hints MUST render on zones 2–3 (`rgba(0,0,0,0.10)`).
-  - **024-FR-013**: The inner shadow on land tiles MUST remain unchanged.
+  - **024-FR-012 (amended by `specs/018-board-surface/spec.md` FR-004, issue #182)**: Contour hints MUST be elevation isolines, not a hatch: one 1 CSS px `contour-ink` line on every shared edge between two *visible land* cells whose elevations fall in different bands of a 28-level interval, in all four biome zones, painted before the relief bevels (a bevel owns every pixel it covers) and before the zone seam (which wins where the two coincide). No line is drawn against water, against a cell absent from the fog-filtered view, or off the board.
+  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-001–FR-006, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST paint a face carrying a fixed decorative NW→SE gradient in their biome zone's configured midpoint colour (`LAND_FACE_GRADIENT_DELTA = −5` HSL lightness at the SE corner, hue and saturation kept; a function of zone, zoom and the cell's own grain offset — feature 018 FR-003 — never per-cell elevation or per-position lighting), and MUST render a bevel only on an edge where the tile is strictly higher than the adjacent *visible land* tile (feature 017): bevel width is 4 % / 7 % / 10 % of the cell for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+), capped at 10 %, and its tone is lit on north/west edges and shaded on south/east edges under one NW light, moving only the face's lightness while keeping its hue and saturation, with the tone ladder measured per biome zone on feature 017's reference fixture (`specs/017-terrain-relief-shading/spec.md` FR-006) against each tone's worst-case face stop. The face texture encodes no elevation — the bevels are the sole relief cue. An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), to a position outside the board, or to a same-height/higher tile MUST be neutral — no bevel and no synthesized neighbour elevation. Neutral still permits feature 018's fixed coastline band (`specs/018-board-surface/spec.md` FR-001) on a water-facing edge; it is elevation-independent and is not relief. `024-FR-011`'s biome-based gradient is that fixed per-zone face texture — its former per-tile elevation variation is retired, not the gradient itself; the contour hints are feature 018 FR-004's elevation isolines.
   - **024-FR-014**: Pipe slope indicator colors MUST remain unchanged (#059669 downhill / #f59e0b flat / #dc2626 uphill / #9ca3af stalled).
   - **024-FR-020**: The DOM overlay MUST remain transparent (no background).
   - **024-FR-021**: `.europa-pipe` MUST apply `drop-shadow(0 0 1px rgba(0,0,0,0.7))`.
@@ -656,12 +657,154 @@ heading above does not overclaim:**
   file is removed; the requirements-list copy is authoritative (no
   behavior change).
 
-### v1.13 (2026-10-22) — Dynamic control mapping (issue #201)
+### v1.13 (2026-10-16) — Terrain relief shading replaces the uniform inner shadow (issue #182)
+
+Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.7) replaces the
+tile-uniform inner shadow with delta-based edge relief and extends the help
+overlay's symbol legend. Two absorbed requirements are amended in place in
+the v1.7 consolidation block above; nothing else in this file changes.
+
+- **024-FR-013 (amended, issue #182)**: the uniform per-tile inner shadow is
+  retired in favour of edge relief derived from the elevation delta to each
+  adjacent *visible land* tile — sign carried by mutually distinguishable
+  luminance directions, magnitude continuous and proportional to
+  `|Δelevation|` on one function across all four biome zones, and a neutral
+  edge wherever the neighbour is water, absent from the fog-filtered view, or
+  off-board. The per-tile biome gradient (024-FR-011) and the zone 2–3
+  contour hints (024-FR-012) are unchanged. The full requirement, its ≥3:1
+  band-to-band criterion and its single 1.2:1 control floor are FR-005 and
+  FR-006 of feature 017.
+- **018-FR-004 (extended, issue #182)**: the Symbol Legend gains one entry
+  for absolute biome elevation (hue) and one for relative edge relief
+  (luminance), and stops describing elevation as "dark = low, light = high".
+
+### v1.14 (2026-10-20) — settled relief model: flat face, per-side bevels (issue #182)
+
+Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.9) revises the
+v1.13 amendment to the model agreed with the product owner. The two absorbed
+requirements are restated in place above; no other requirement in this file
+changes.
+
+- **024-FR-013 (restated, issue #182)**: the face is flat — one colour per
+  biome zone, no per-tile gradient — and the bevel exists only where the tile
+  is strictly higher than a visible land neighbour. Width is the 4 / 7 / 10 %
+  ladder for ladder steps 1 / 2 / 3 (Δ 1–4 / 5–9 / 10+, capped at 10 %); tone
+  depends on the side alone under one NW light (north/west lit, south/east
+  shaded) and moves only the face's lightness, keeping its hue and saturation.
+  Equal heights are neutral, like water, fog-absent and off-board neighbours.
+  Feature 017 FR-001–FR-003 and FR-006 carry the full geometry, ladder and
+  measured floors.
+- **018-FR-004 (restated, issue #182)**: the legend's relief entry describes
+  the bevel a player sees — where this tile drops to a lower neighbour, lit on
+  its north/west edges and shaded on its south/east edges — not a
+  higher/lower luminance mapping.
+- **Verification**: feature 017's suites prove both — the browser readback
+  spec `packages/console/tests/component/render/relief.test.tsx`, the unit
+  suites `tests/unit/render/relief.test.ts` and `canvas-terrain.test.ts`, and
+  the `palette.test.ts` figures this amendment's prose depends on; `pnpm
+  verify` green.
+
+### v1.15 (2026-10-20) — relief ladder calibrated to the real elevation range (issue #182)
+
+Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.10) re-calibrates
+the v1.14 ladder without changing the model, geometry, caps or light rule.
+No requirement in this file changes beyond the absorbed `024-FR-013` wording
+already restated above.
+
+- **Ladder cut**: width remains 4 / 7 / 10 % of the cell for ladder steps
+  1 / 2 / 3, capped at 10 %, but the step cut is re-pinned from the measured
+  adjacent-land drop distribution — step 1 Δ 1–4, step 2 Δ 5–9, step 3
+  Δ ≥ 10. v1.14's Δ = 1 / 2 / 3+ assumed a small heightfield and saturated
+  on a real 0–255 board.
+- **Tone**: lit/shaded now moves only the face's HSL lightness — keeping its
+  hue and saturation — toward the `relief-highlight` / `relief-shadow`
+  lightness anchors, instead of mixing toward their literal white/black
+  values.
+- **Verification**: the same 017 suites, with the unit mapping test pinning
+  the thresholds and both lightness ladders and AC-002's fixtures crossing
+  them; `pnpm verify` green.
+
+### v1.16 (2026-10-20) — decorative face texture restored (issue #182)
+
+Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.11) restores the
+per-tile face gradient that v1.14 retired, at a third of its old strength and
+with no elevation meaning. Only the absorbed `024-FR-013` text above changes;
+no other requirement in this file moves.
+
+- **Face**: each land tile paints a fixed NW→SE gradient from its biome zone's
+  configured midpoint colour to `LAND_FACE_GRADIENT_DELTA = −5` HSL lightness
+  (hue and saturation kept). It was a function of zone and zoom alone and was
+  pre-rendered per zone, never per cell.
+- **Relief cue unchanged**: the bevels stay the only elevation-relief signal,
+  and FR-006's floors are now measured against each tone's worst-case face
+  stop (lit against the lightest, shaded against the darkest). The texture
+  stays far below every bevel tone shift, so it reads as surface.
+- **Verification**: feature 017's suites — the browser readback spec asserts
+  both texture stops, the pinned −5 and the then-shipped same-zone byte
+  identity; the Δ1 floor test passes on all four zones (tightest: Peaks
+  lit/light 1.220, shaded/dark 2.361, lit/shaded 3.249); Q-P01 and Q-P05 are
+  unchanged.
+
+### v1.17 (2026-10-20) — board surface treatment (issue #182, feature 018)
+
+Feature 018 (`specs/018-board-surface/spec.md` v1.0, amendments A-01…A-05)
+adds a coastline band, zone seams and per-tile grain to the canvas terrain
+path. Only the absorbed `024-FR-013` text above changes in this file; no
+other requirement moves.
+
+- **Coastline band**: a water-facing edge stays neutral for relief, but may
+  carry a 4 %-of-cell lit (N/W) or shaded (S/E) band inside the land tile —
+  feature 018 FR-001 — with 017's step-1 lightness shares. It reads no water
+  property, and a relief bevel wins where the two meet at a corner.
+- **Face texture**: the decorative gradient's stops shift together by the
+  cell's own grain offset (018 FR-003 v1.1, 0 to −2 HSL lightness points,
+  coordinates only), so the zone-hue channel and the relief cue are unchanged.
+- **Verification**: `packages/console/tests/component/render/surface.test.tsx`
+  (readback) and `tests/unit/render/surface.test.ts` (pure mappings); 017's
+  relief suite stays green with its floors measured against the grain-shifted
+  worst-case stop; `pnpm verify` green.
+
+### v1.18 (2026-10-21) — elevation contours replace the diagonal hatch (issue #182, feature 018 v1.2)
+
+Feature 018 (`specs/018-board-surface/spec.md` v1.2, amendment A-08) replaces
+the zone 2–3 contour hint with real elevation isolines. Only the absorbed
+`024-FR-012` text above and `024-FR-013`'s closing clause change in this file.
+
+- **Contours**: one 1 CSS px line of the new `contour-ink` token on a shared
+  edge between two visible land cells in different 28-level elevation bands,
+  all four zones, inside the lower-coordinate cell and painted before the
+  relief bevels. No line against water, a fog-absent cell, or off-board.
+- **Retired**: the `rgba(0, 0, 0, 0.10)` diagonals every 6 px on zones 2–3 —
+  a texture that stood in for a contour while covering the surface.
+- **Verification**: `packages/console/tests/component/render/surface.test.tsx`
+  (AC-006) and `tests/unit/render/surface.test.ts`; Q-P01 and the 017 relief
+  addition are unchanged, and 017 v1.14 restates its sampling exclusion.
+
+### v1.19 (2026-10-23) — minimap viewport indicator snaps to whole pixels (issue #209)
+
+FR-019's 1 px viewport rectangle was stroked from fractional coordinates,
+so a viewport edge falling between bitmap pixels was antialiased into two
+half-tone columns. Each edge now snaps to the nearest whole bitmap pixel at
+paint time (`snappedStrokeCenter`, which shares `snappedLineStart`'s
+round-in-bitmap-frame rule and adds the stroke-centre offset);
+`viewportRect` stays fractional, the unchanged 2 px minimum and FR-019's
+board-bound intersection remain the stated exceptions, and the engine's
+square-board contract makes the clip 96 px (to floating-point residue), so
+the snap cannot leave a clipped partial row.
+
+- **Verification**: `packages/console/tests/component/qol/minimap.test.tsx` —
+  a fractional-scale (20×20 board, scale 4.8) pixel readback asserts each edge
+  column is the full 0.8-white blend and both neighbours are byte-identical to
+  the backdrop, plus a whole-number-scale regression; `minimap-viewport.test.tsx`
+  keeps the live camera wiring, and `tests/unit/render/surface.test.ts` pins
+  the helper's integer and fractional cases.
+
+### v1.20 (2026-10-22) — Dynamic control mapping (issue #201)
 
 **Status:** The user approved the bounded scope and M1–M3 plan. PRE-M1 draft
 PR #210 was remotely confirmed before implementation. M1–M3 are implemented in
 the current worktree with focused verification. The full repository gate later
-passed against the manifest recorded in the v1.14 verification record; the
+passed against the manifest recorded in the v1.21 verification record; the
 subsequent documentation-only readiness delta is not included in that run. No
 physical controller smoke has been performed, so no hardware validation claim
 is made.
@@ -787,7 +930,7 @@ verification is recorded in `issue-201-plan.md`. The full repository gate is
 required before code push. Physical standard-controller smoke remains
 unperformed; hardware validation is not claimed.
 
-### v1.14 (2026-10-22) — Owner-approved browser payload budget amendment
+### v1.21 (2026-10-22) — Owner-approved browser payload budget amendment
 
 **Owner decision:** Shaun Burdick approved an increase to the Q-P03 payload
 budget in [PR #210 comment 6348411040](https://github.com/shaunburdick/europa-neo/pull/210#issuecomment-6348411040)
@@ -802,7 +945,7 @@ than 155,648 bytes (152 KiB), an increase of 2,048 bytes from 153,600 bytes.
 - The remote-URL scan, asset scope, test severity, and verifier invocation are
   unchanged. No asset is excluded, no check is suppressed, and no full-gate
   waiver is granted. Prior Q-P03 validation rows remain historical results
-  under the former 153,600-byte threshold; they are not relabeled as v1.14
+  under the former 153,600-byte threshold; they are not relabeled as v1.21
   verification.
 - Fresh verification: `pnpm verify` passed all 13 phases at exit 0 on 2026-10-22
   19:33:10Z–19:38:47Z against manifest
@@ -817,7 +960,7 @@ than 155,648 bytes (152 KiB), an increase of 2,048 bytes from 153,600 bytes.
   and does not resolve hook/signing gates. Run a fresh full gate before any
   future code publication.
 
-### v1.15 (2026-10-23) — Lobby and pre-entry Controls (issue #201)
+### v1.22 (2026-10-23) — Lobby and pre-entry Controls (issue #201)
 
 The user approved the follow-on amendment and both entry-surface choices in the
 saved plan `1792769828093-issue-201-configure-controls-in-the-lobby-before-play.md`
@@ -835,12 +978,12 @@ the current worktree under [`issue-201-lobby-controls-plan.md`](./issue-201-lobb
 and [`issue-201-lobby-controls-tasks.md`](./issue-201-lobby-controls-tasks.md).
 At the initial UI implementation checkpoint, the browser bundle measured 1,006
 bytes above the 155,648-byte reference and the then-current self-host script
-exited before its HTTP/WS smoke. That result is historical; v1.16 changes only
+exited before its HTTP/WS smoke. That result is historical; v1.23 changes only
 the payload metric's severity. Matchmaking continues to start immediately
 under its existing behavior: no countdown, configuration gate, waiting phase,
 or entry delay is added.
 
-### v1.16 (2026-10-23) — Q-P03 advisory reference target
+### v1.23 (2026-10-23) — Q-P03 advisory reference target
 
 The owner comment on PR #210 says: “Yep! I think payload size checks are there
 just as a gate vs a hard limit.” The user clarified that this means the
@@ -858,7 +1001,7 @@ a new numeric threshold or prescribe warning wording.
   asset/probe failures, and HTTP/WS smoke failures remain blocking. No assets
   are excluded, no other performance/design budget changes, and no warning
   wrapper may turn those failures into success.
-- The earlier v1.14 description of a strict numeric failure remains a
-  historical record of the implementation at that time; this v1.16 clause
+- The earlier v1.21 description of a strict numeric failure remains a
+  historical record of the implementation at that time; this v1.23 clause
   supersedes only that enforcement interpretation. The measured value itself
   and all other verification gates are unchanged.

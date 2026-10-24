@@ -4,11 +4,11 @@
 
 **Created**: 2026-08-24
 
-**Last Updated**: 2026-10-11 (v1.8; issue #146 credential-boundary precision)
+**Last Updated**: 2026-10-23 (v1.9; issue #202 semantic-url-privacy coverage correction)
 
-**Version**: 1.8
+**Version**: 1.9
 
-**Status**: Implemented (2026-08-30); v1.8 credential-boundary precision and resume-secret manual-review requirement implemented (2026-10-12, security-sweep branch; manual review performed with zero delta)
+**Status**: Implemented (2026-08-30); v1.8 credential-boundary precision and resume-secret manual-review requirement implemented (2026-10-12, security-sweep branch; manual review performed with zero delta); v1.9 correction implemented (2026-10-23) — the semantic-url-privacy guard now scans the manual's `.mdx` pages and fails if any tracked page is skipped
 
 **Input**: User description: "Before I merge the PR, let's write a simple instruction book for players. This can be a new spec, as this is end-user documentation. I'm thinking this could be its own part of the repo that can be published to the github repo pages using a git action."
 
@@ -332,3 +332,9 @@ These pages land with the engine + terrain changes in the
 - **012-FR-014 amended (precision only)**: the documented credential-boundary list now includes the guest resume secret alongside `SessionToken`/`reconnectToken`.
 - **Required manual-page review (FR-012 — same change set as the issue #146 implementation)**: `lobby.mdx` (identity card, "This session moved somewhere else" takeover notice, reconnect/grace paragraph, "The resume credential is handled by the browser and server; do not copy or share it") and `quick-start.mdx` (refresh-within-60s reclaim, "Reconnect credentials stay in each player's own browser storage") MUST be reviewed for accuracy once restore requires the stored resume secret, and updated in the same change set if any described behavior changes. Phase-3 survey of 2026-10-11: those pages describe the browser as holding a "guest session"/"resume credential", which stays true under the amendment; no bare-ID-restore claim exists in the manual today, and the expected delta is zero or a one-sentence clarification — the review itself is mandatory, not optional. The implementation change set owns the final truthfulness pass.
 - **No other manual impact surveyed**: neither the manual nor the README documents the `?ws=` transport override, `?live`/`?token=` query seams, or `window.__europa*` debug handles, so issues #152/#129 require no manual-page changes under FR-012. No new manual content is required by this amendment: guest identity, handle selection, participant labels, and the credential boundary are already documented (012-FR-013/FR-014); the resume secret is deliberately invisible to players.
+
+### v1.9 (2026-10-23) — Semantic-URL privacy guard actually covers the manual's `.mdx` pages (issue #202)
+
+- **Correction to the v1.4 record**: the v1.4 entry stated that the guardrails were re-pointed at the `.mdx` paths, naming the "no-literals + semantic-url-privacy fixtures". The no-literals guard did include `.mdx`; `packages/console/tests/integration/semantic-url-privacy.test.ts` did not — its extension allowlist kept `.md` and never gained `.mdx`. All 15 manual pages are `.mdx`, so that guard scanned zero manual pages while appearing to cover them, and 012-FR-014's claim that the existing guardrails enforce the manual credential boundary was only partly true.
+- **Requirement (makes the enforcement claim true)**: the semantic-url privacy guard MUST scan the manual's tracked `.mdx` page sources in addition to the other allowlisted text surfaces under its production roots, for retired query parameters and credential-bearing links. It MUST also fail when an extension regresses out of the allowlist: a tracked manual page missing from the scanned set is a test failure, not a silent skip. Historical clarification notes (`isAllowedHistoricalNote`) stay permitted, and the unchanged test-only `?e2e` marker stays the sole permitted query.
+- **Manual content impact**: none. The widened scan found zero retired-query or credential-bearing links across all 15 `.mdx` pages (verified 2026-10-23 by clean run and by mutation: an injected `?token=` link fails the suite naming the file and line).

@@ -11,7 +11,7 @@ TypeScript contract definitions live in `packages/console/src/contracts/`. This 
 This directory contains:
 
 - `reducer-correlation.md` — `ReduceOptions.correlation` and the store-scoped pending-order/`ActionId` state (spec 005 v1.12 FR-045; draft)
-- `input-mapping.md` — legacy `InputMapping` adapter, per-runtime `ControlMapping`, and atomic update rules (spec 005 v1.13 FR-048–FR-052)
+- `input-mapping.md` — legacy `InputMapping` adapter, per-runtime `ControlMapping`, and atomic update rules (spec 005 v1.20 FR-048–FR-052)
 
 The console package's contract surface is defined in `packages/console/src/contracts/`:
 

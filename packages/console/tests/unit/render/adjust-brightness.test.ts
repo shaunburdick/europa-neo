@@ -20,8 +20,8 @@ describe('adjustBrightness (private on MapCanvas — tested via canvas-terrain)'
     test('canvas-terrain tests exercise all adjustBrightness paths', () => {
         // This is a documentation-only assertion. The actual adjustBrightness
         // tests live in canvas-terrain.test.ts where drawTerrain exercises
-        // water gradients (brightness +20%, -20%), land inner shadows
-        // (-15% for dark edge, +15% for light edge), and contour hints.
+        // water gradients (brightness +20%, -20%), the land face texture's
+        // -5 % SE stop, and contour hints.
         expect(true).toBe(true);
     });
 });

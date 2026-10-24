@@ -1,6 +1,6 @@
 # Issue #201 follow-on — Lobby and pre-entry Controls tasks
 
-**Input:** Approved v1.15 spec 005 amendment, spec 013 v1.7 pre-entry
+**Input:** Approved v1.22 spec 005 amendment, spec 013 v1.7 pre-entry
 clarification, `issue-201-lobby-controls-plan.md`, the saved user-approved plan
 `1792769828093-issue-201-configure-controls-in-the-lobby-before-play.md`, and
 the existing `contracts/input-mapping.md`.
@@ -150,7 +150,7 @@ numeric metric's behavior: report the measured total and excess as a warning,
 then continue the HTTP/WS smoke. This does not authorize raising the number,
 excluding assets, or softening build, URL-scan/tooling, asset, or host-smoke
 failures. The previous 156,654-byte failure and skipped smoke remain historical
-evidence for the pre-v1.16 script.
+evidence for the pre-v1.23 script.
 
 ## Constraints carried through every phase
 

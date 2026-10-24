@@ -1,11 +1,11 @@
-# Input mapping contract (spec 005 v1.16, issue #201)
+# Input mapping contract (spec 005 v1.23, issue #201)
 
 **Status:** M1–M3, the shared runtime-owner foundation, and the approved
 lobby/pre-join/embedding-host UI are implemented in the current worktree.
 Current LC015/LC017 acceptance, independent-review, and verification evidence
 is recorded in `issue-201-lobby-controls-tasks.md`. Q-P03 retains the
 155,648-byte reference target with warning-only numeric excess per spec 005
-v1.16. No physical controller smoke has been performed, and no
+v1.23. No physical controller smoke has been performed, and no
 hardware-validation claim is made.
 
 ## Source of truth

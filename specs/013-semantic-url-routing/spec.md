@@ -3,9 +3,9 @@
 **Feature Branch**: `issue-35-semantic-url-scheme` (original); `issue-75-console-router` (v1.1 TanStack Router migration)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment), Feature 015 (profile route), Feature 017 (welcome landing screen) — Features 015 and 017 are absorbed into this spec by issue #139 consolidation (v1.4); their requirements are folded in below.
 **Created**: 2026-08-30
-**Last Updated**: 2026-10-23 (v1.8; issue #201 Q-P03 advisory policy clarification)
-**Version**: 1.8
-**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment implemented (2026-10-12, security-sweep branch); v1.6 set the 155,648-byte Q-P03 reference value and v1.8 clarifies its advisory interpretation. The v1.7 pre-entry Controls clarification is approved and the shared editor is wired into the existing pre-join UI in the current worktree; current AC-021 proof and final verification evidence is maintained in feature 005's issue #201 follow-on plan/tasks.
+**Last Updated**: 2026-10-24 (v1.9; issue #202 guard coverage for `.mdx` surfaces; merge reconciliation)
+**Version**: 1.9
+**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment implemented (2026-10-12, security-sweep branch); v1.6 set the 155,648-byte Q-P03 reference value; v1.7 pre-entry Controls clarification is approved and the shared editor is wired into the existing pre-join UI in the current worktree; v1.8 clarifies Q-P03's advisory interpretation; v1.9 guard-coverage correction (issue #202) implemented (2026-10-23). Current AC-021 proof and final verification evidence is maintained in feature 005's issue #201 follow-on plan/tasks.
 **GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
 ## Problem Statement
@@ -333,7 +333,7 @@ Rationale: review finding C-030/L-12 verified that `bootstrapProductionRoute` ca
 Feature 005's owner-approved Q-P03 increase is mirrored here so FR-030 and
 AC-016 use the same strict `< 155,648 bytes (152 KiB)` limit. Approval and
 rationale are recorded in [PR #210 comment 6348411040](https://github.com/shaunburdick/europa-neo/pull/210#issuecomment-6348411040)
-and feature 005 v1.14. The issue #201 `pnpm verify` run passed all 13 phases at
+and feature 005 v1.21. The issue #201 `pnpm verify` run passed all 13 phases at
 exit 0 on 2026-10-22 19:33:10Z–19:38:47Z against manifest
 `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`; its
 self-host gate measured 155,540/155,648 bytes. Run log:
@@ -344,6 +344,25 @@ manifest, so no full-gate pass is claimed for the post-reconciliation tree.
 This section records the initial v1.6 enforcement interpretation; v1.8
 supersedes the numeric-failure severity only.
 
+### v1.9 (2026-10-23) — Retired-query/privacy guard coverage includes the manual's `.mdx` pages (issue #202)
+
+- The guard named in the Implementation Notes above ("Add a guard for retired
+  production `?live` references while allowing historical clarification text
+  and unchanged `?e2e` references") MUST cover the manual's `.mdx` page sources
+  in addition to the other allowlisted text surfaces under its production
+  roots. A guard that silently skips a production extension is non-conforming
+  even while it passes, because FR-015's manual/documentation clause and
+  FR-016's credential rule are enforced only where the guard actually reads.
+- The guard MUST fail when a production text extension regresses out of the
+  allowlist: a non-vacuity test asserts that every tracked manual `.mdx` page
+  is present in the scanned set. Historical clarification notes
+  (`isAllowedHistoricalNote`) and the unchanged test-only `?e2e` marker remain
+  the only sanctioned exceptions.
+- Provenance: `packages/console/tests/integration/semantic-url-privacy.test.ts`
+  carried `.md` but not `.mdx`; all 15 manual pages are `.mdx`, so the manual —
+  the primary copy-paste surface for match URLs — was never scanned. No live
+  violation existed at the time of the fix; the defect was the coverage hole.
+
 ## Change Log
 
 | Version | Date | Change |
@@ -353,6 +372,7 @@ supersedes the numeric-failure severity only.
 | 1.3 | 2026-09-11 | Amendment (issue #74): mounted-router handoff and 12-character identity contract. Added FR-031..FR-033, Clarifications v1.3. |
 | 1.4 | 2026-09-12 | Amendment (issue #139): spec consolidation — absorbed features 017 (welcome landing screen) and 015 (profile route). Added the v1.4 amendment section, route-contract updates (`/` serves the welcome page, `/profile` added), and the Dependencies note. |
 | 1.5 | 2026-10-11 | Amendment (issue #129, security-sweep): FR-025 rewritten so `?ws=` is honored in production boots (capture query before stripping; correctness must not depend on a test `history.replaceState` patch) and the direct-match seam narrows to `window.__europaTestMatch` (the `?token=` query bearer path is retired). Added FR-034 (`returnTo` single-sourcing), FR-035 (test-patch scoping + dead-seam deletion), AC-018..AC-020, the v1.5 amendment section, and this row. Also amended AC-014 in place (v1.1 text: seam = `window.__europaTestMatch` fixtures only, self-tagged "(v1.1; amended v1.5)") and scoped the Route Contract preamble (line 46) so the operator-typed `?ws=` transport override is its sole excepted query value. |
-| 1.6 | 2026-10-22 | Owner-approved amendment (PR #210 comment 6348411040): align FR-030/AC-016 with feature 005 v1.14's 155,648-byte (152 KiB) browser-payload reference value; the earlier strict failure interpretation is superseded by v1.8. |
+| 1.6 | 2026-10-22 | Owner-approved amendment (PR #210 comment 6348411040): align FR-030/AC-016 with feature 005 v1.21's 155,648-byte (152 KiB) browser-payload reference value; the earlier strict failure interpretation is superseded by v1.8. |
 | 1.7 | 2026-10-23 | Approved issue #201 clarification: reuse the existing pre-join screen for Controls before Play; route shapes, route resolution, and immediate entry timing remain unchanged. Added Clarifications Applied item 1 and AC-021. |
-| 1.8 | 2026-10-23 | Align FR-030/AC-016 with feature 005 v1.16: keep the 155,648-byte target and exact asset counting, but make numeric excess warning-only while preserving blocking non-budget checks and host smoke. |
+| 1.8 | 2026-10-23 | Align FR-030/AC-016 with feature 005 v1.23: keep the 155,648-byte target and exact asset counting, but make numeric excess warning-only while preserving blocking non-budget checks and host smoke. |
+| 1.9 | 2026-10-23 | Correction (issue #202): the retired-query/privacy guard named in the Implementation Notes must cover the manual's `.mdx` page sources as well as the other allowlisted text surfaces, and must fail if that coverage regresses. No FR text changes; the guard's allowlist and its non-vacuity coverage are fixed in the same change set. |

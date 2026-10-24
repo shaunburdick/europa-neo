@@ -98,7 +98,7 @@ Historical v1.1 validation: 134,689 B gz < 153,600 B (12.3% headroom),
 measured under the then-current limit. The current FR-030 reference target is
 155,648 B (152 KiB); v1.8 makes numeric excess warning-only while keeping the
 same asset count, remote-URL scan, and required host smoke. See feature 005
-v1.16 and the follow-on execution record for current verification evidence.
+v1.23 and the follow-on execution record for current verification evidence.
 
 ### Test counts (post-migration)
 

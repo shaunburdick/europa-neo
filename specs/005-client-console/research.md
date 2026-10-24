@@ -651,7 +651,7 @@ wasted work, no missed frames.
 | **WCAG 2.2 axe scan finds a violation just before release** | Low | Run axe in CI from day one; pre-v1 manual NVDA / VoiceOver pass |
 | **Sound encoding pipeline (@wasm-audio) is unproven in production** | Medium | v1 ships silent placeholders; sound is a "v1.1 if it works" feature gated on `features.sound` |
 | **WebSocket auto-reconnect (feature 004) flakes under load** | Low | Console's adapter treats reconnect as a NetEvent; the renderer is decoupled. Manual test in Phase 6. |
-| **Bundle size grows past 150 KB gz with feature creep** | Medium | Report the full per-file gzip total against the 155,648-byte advisory Q-P03 reference; review unnecessary growth while keeping all build, URL-scan, and host-smoke failures blocking (spec 005 v1.16) |
+| **Bundle size grows past 150 KB gz with feature creep** | Medium | Report the full per-file gzip total against the 155,648-byte advisory Q-P03 reference; review unnecessary growth while keeping all build, URL-scan, and host-smoke failures blocking (spec 005 v1.23) |
 | **Subcell targeting math differs from the original by 1 cell at edges** | Low | The algorithm is documented; quickstart §"Subcell parity" includes a parity test against a known original-game scenario |
 | **React 19 + Zustand 5 + Vite 8 interop quirks** | Low | All three are stable, widely used; CI runs on three Node versions (20 LTS, 22 LTS, latest) |
 

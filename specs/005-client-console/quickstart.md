@@ -452,7 +452,7 @@ not 15 per-FR specs), the mapping notes the consolidation.
 
 The Q-P03 row above is historical validation under the original 153,600-byte
 (150 KiB) threshold. The current 155,648-byte (152 KiB) reference target and
-advisory interpretation are recorded in spec 005 v1.16. The issue #201
+advisory interpretation are recorded in spec 005 v1.23. The issue #201
 `pnpm verify` run passed all 13 phases at exit 0 on 2026-10-22
 19:33:10Z–19:38:47Z against source
 manifest `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`;

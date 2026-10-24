@@ -39,12 +39,15 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CAMERA } from '../../src/config';
 import { MapCanvas } from '../../src/render/canvas';
-import { buildMapView } from '../../src/state/build-map-view';
+import { LAND_BAND_COUNT, landBandColor, landBandIndex } from '../../src/render/palette';
+import { RELIEF_SIDES, reliefSideIsLit, reliefStep, reliefToneColours } from '../../src/render/relief';
+import { buildMapView, coordKey, destinationCoord } from '../../src/state/build-map-view';
 import { localPreflightOrder } from '../../src/state/local-preflight';
 import { INITIAL_CONSOLE_STATE, reduce } from '../../src/state/reducer';
 import type {
     CellView,
     ConsoleState,
+    Direction,
     MapView,
     MapViewId,
     PlayerAction,
@@ -276,6 +279,98 @@ function liveState(): ConsoleState {
     };
 }
 
+/** Board edge for the relief paint benchmark (48×48 = 2,304 cells). */
+const RELIEF_PERF_BOARD = 48;
+
+/**
+ * Relief's attributable budget on the Q-P05 fixture (NFR-001, AC-010):
+ * the relief-enabled min-of-round-medians minus the relief-disabled
+ * figure on the identical 48×48 board must stay under this. The absolute
+ * frame is deliberately NOT gated — a full-board paint's base cost is
+ * unrelated to this feature (flat-face relief-off ≈0.7 ms; a decorated
+ * board ≈40–50 ms with relief off). Pinned at 6.0 ms against a measured
+ * 4.05–4.20 ms addition (≈30 % margin over the 4.20 ms worst observed).
+ * Locally `scripts/verify.sh` runs `test:perf` with no factor, so this
+ * pinned bound is the binding one; CI sets the factor to 2.
+ */
+const RELIEF_ADDITION_BUDGET_MS = 6;
+
+/**
+ * Q-P05's pinned fixture-variety floors (NFR-001(b), AC-010). The adopted
+ * fixture measures 250 distinct positive `|Δ|` and 22 of the 24 possible
+ * zone × step × orientation tone colours; the retired degenerate
+ * `(x*7 + y*13) % 256` yielded 4 deltas. Both floors sit between the two,
+ * so the retired fixture cannot pass.
+ */
+const MIN_DISTINCT_DELTAS = 200;
+const MIN_DISTINCT_BAND_COLOURS = 20;
+
+/**
+ * The Q-P05 fixture's representative elevation field — a quadratic form
+ * in both coordinates, chosen for delta variety (plan D7). Pure.
+ *
+ * @param x Board column.
+ * @param y Board row.
+ */
+function representativeElevation(x: number, y: number): number {
+    return (x * 97 + y * 193 + x * x * 29 + y * y * 61 + x * y * 113) % 256;
+}
+
+/**
+ * Full-visibility, all-land 48×48 `PlayerView` for Q-P05 (NFR-001): the
+ * representative formula mixes both coordinates and their squares, so
+ * every zone carries a positive drop and the distribution is varied
+ * (250 distinct positive `|Δ|`, 22 of the 24 tone colours) rather than the retired
+ * degenerate `(x*7 + y*13) % 256` (4 distinct `|Δ|`) that flattered the
+ * number. The board is deliberately bare (no units, pipes, or cities —
+ * those are Q-P01's layers); plan D7 records what this gate does and does
+ * not cover. Pure.
+ */
+function buildReliefBoardView(): PlayerView {
+    const visibleCells: CellView[] = [];
+    for (let y = 0; y < RELIEF_PERF_BOARD; y += 1) {
+        for (let x = 0; x < RELIEF_PERF_BOARD; x += 1) {
+            visibleCells.push({
+                coord: { x, y },
+                cell: { x, y, elevation: representativeElevation(x, y), terrain: 'land' },
+                troopCount: 0,
+                troopOwner: null,
+                pipes: new Set<Direction>(),
+                reservesPercent: 0,
+                cityOwner: null,
+            });
+        }
+    }
+    return {
+        player: TEST_PLAYER_1,
+        tick: 1,
+        visibleCells,
+        events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
+        config: {
+            boardSize: RELIEF_PERF_BOARD,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
+            tickIntervalMs: 250,
+            seed: 0,
+            visibilityRadius: 2,
+        },
+    };
+}
+
+/** Derive the paint-target `MapView` for the relief fixture. Pure. */
+function buildReliefBoardMapView(): MapView {
+    return buildMapView({
+        id: 'mv-perf-relief' as MapViewId,
+        view: buildReliefBoardView(),
+        camera: DEFAULT_CAMERA,
+        hover: null,
+        selection: null,
+        exclusiveMode: false,
+        prevView: null,
+        nowMs: 250,
+        viewportOffset: { x: 0, y: 0 },
+    });
+}
+
 describe('perf budgets (T091 / SC-003)', () => {
     it('Q-P01: full-board paint stays under the 8 ms frame budget', { timeout: 120_000 }, () => {
         const mapView = buildFullBoardMapView();
@@ -356,5 +451,74 @@ describe('perf budgets (T091 / SC-003)', () => {
                 `(budget ${PREFLIGHT_BUDGET_MS * 1000}µs)`,
         );
         expectUnderBudget(result, PREFLIGHT_BUDGET_MS);
+    });
+
+    it('Q-P05: relief adds under the pinned bound on a representative 48×48 board', { timeout: 120_000 }, () => {
+        const mapView = buildReliefBoardMapView();
+        // NFR-001's fixture contract: a representative delta distribution,
+        // so the gate cannot silently regress to the retired degenerate
+        // fixture (measured: 250 distinct positive |Δ|, 22 tone colours).
+        const distinctDeltas = new Set<number>();
+        const distinctBandColours = new Set<string>();
+        const zonesWithDelta = new Set<number>();
+        for (const info of mapView.cells.values()) {
+            const zone = landBandIndex(info.elevation);
+            const tones = reliefToneColours(landBandColor(zone));
+            for (const side of RELIEF_SIDES) {
+                const neighbour = mapView.cells.get(coordKey(destinationCoord(info.coord, side)));
+                if (neighbour === undefined || neighbour.terrain !== 'land') {
+                    continue;
+                }
+                const delta = info.elevation - neighbour.elevation;
+                if (delta <= 0) {
+                    continue;
+                }
+                distinctDeltas.add(delta);
+                zonesWithDelta.add(zone);
+                const step = reliefStep(delta);
+                distinctBandColours.add((reliefSideIsLit(side) ? tones.lit : tones.shaded)[step - 1] ?? '');
+            }
+        }
+        expect(distinctDeltas.size).toBeGreaterThanOrEqual(MIN_DISTINCT_DELTAS);
+        expect(distinctBandColours.size).toBeGreaterThanOrEqual(MIN_DISTINCT_BAND_COLOURS);
+        expect(zonesWithDelta.size).toBe(LAND_BAND_COUNT);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = mapView.width * mapView.camera.zoom;
+        canvas.height = mapView.height * mapView.camera.zoom;
+        const ctx = canvas.getContext('2d');
+        expect(ctx, 'browser canvas 2D context').not.toBeNull();
+        if (ctx === null) {
+            return;
+        }
+        const painter = new MapCanvas();
+        const reliefBudgetMs = RELIEF_ADDITION_BUDGET_MS * readPaintBudgetFactor();
+        // Both figures come from the same harness on the identical fixture;
+        // the gate is their difference, never the absolute frame.
+        const reliefOff = benchmark({
+            name: 'paintFrame(48×48 relief-off)',
+            run: () => painter.paint(mapView, ctx, { reducedMotion: true, relief: false }),
+            warmup: 25,
+            rounds: 5,
+            samples: 40,
+        });
+        const reliefOn = benchmark({
+            name: 'paintFrame(48×48 relief-on)',
+            run: () => painter.paint(mapView, ctx, { reducedMotion: true }),
+            warmup: 25,
+            rounds: 5,
+            samples: 40,
+        });
+        const additionMs = reliefOn.minRoundMedianMs - reliefOff.minRoundMedianMs;
+        console.warn(
+            `[perf] paintFrame(48×48 relief): relief-on ${reliefOn.minRoundMedianMs.toFixed(3)}ms - ` +
+                `relief-off ${reliefOff.minRoundMedianMs.toFixed(3)}ms = addition ${additionMs.toFixed(3)}ms ` +
+                `(bound ${reliefBudgetMs}ms)`,
+        );
+        expect(
+            additionMs,
+            `relief addition ${additionMs.toFixed(3)}ms must stay under ${reliefBudgetMs}ms ` +
+                `(relief-on ${reliefOn.minRoundMedianMs.toFixed(3)}ms - relief-off ${reliefOff.minRoundMedianMs.toFixed(3)}ms)`,
+        ).toBeLessThan(reliefBudgetMs);
     });
 });
