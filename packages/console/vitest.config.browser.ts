@@ -10,6 +10,11 @@ import { defineConfig } from 'vitest/config';
  * `@vitest/browser-playwright`, not the legacy `'playwright'` string.
  */
 export default defineConfig({
+    // Pre-bundle React up front: discovering it mid-run triggers a Vite
+    // dependency-optimizer reload, aborting the running test file.
+    optimizeDeps: {
+        include: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client'],
+    },
     test: {
         // Host env does not reach browser-mode tests via `process` (there
         // is no process global in Chromium); `test.env` is injected into
