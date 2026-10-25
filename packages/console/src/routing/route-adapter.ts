@@ -113,6 +113,7 @@ export function adaptRoute(route: Route, snapshot: LobbySnapshot | null): RouteE
  *
  * @param entry Result from {@link adaptRoute}.
  * @param commands Feature 010 lobby command surface.
+ * @public Documented route-entry seam exercised by routing tests.
  */
 export function executeRouteEntry(entry: RouteEntry, commands: RouteEntryCommands): Promise<LobbyCommandResult> | null {
     switch (entry.kind) {

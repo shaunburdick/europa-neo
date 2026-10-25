@@ -36,6 +36,8 @@ export const VOID_COLOR = TOKENS.color.voidBg;
  * Page chrome background (mirrors `body` in styles/index.css; CSS
  * stays the styling source of truth). Kept here so the void-vs-page
  * distinctness invariant is testable — see palette.test.ts.
+ *
+ * @public Palette seam asserted by palette tests; mirrors the page background token.
  */
 export const PAGE_BACKGROUND_COLOR = TOKENS.color.pageBg;
 
@@ -126,6 +128,8 @@ export const LAND_BAND_COUNT = BIOME_ZONES.length;
  * Each zone has a single representative lightness (the zone's midpoint).
  * Retained for backward compatibility; prefer `biomeZoneForElevation()`
  * for per-cell lightness computation.
+ *
+ * @public Palette seam asserted by palette tests; zone midpoint lightness values.
  */
 export const LAND_BAND_LIGHTNESS = [
     Math.round((biomeZoneAt(0).lightnessMin + biomeZoneAt(0).lightnessMax) / 2),
@@ -213,6 +217,7 @@ export function terrainColor(terrain: 'land' | 'water', elevation: number): stri
  *
  * @param depth 0 (shallow), 1 (standard), 2 (deep). Clamped to [0, 2].
  * @returns Hex color string from design tokens.
+ * @public Palette seam asserted by palette tests; depth-to-water-shade mapping.
  */
 export function waterDepthColor(depth: number): string {
     const clamped = Math.max(0, Math.min(2, depth));

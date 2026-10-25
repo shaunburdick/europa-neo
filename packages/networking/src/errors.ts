@@ -23,6 +23,8 @@ import type { ErrorCode, ProtocolErrorCode } from './contracts/network-types';
  * Re-export the shared base error code type. Call sites that need
  * a generic error-code annotation without the full `ErrorCode` union
  * import this instead (documented surface per spec 004).
+ *
+ * @public Documented protocol error-code surface per spec 004.
  */
 export type { ProtocolErrorCode };
 

@@ -417,6 +417,8 @@ export interface HandleRenameResult {
  *   validated + uniqueness-reserved by the registry).
  * @returns How many session snapshots and seat snapshots were
  *   refreshed (zero for an unknown id).
+ * @public Identity-rename seam exercised by matchmaking tests; the live
+ *   lobby path does not dispatch it.
  */
 export function propagateHandleRename(
     store: MatchmakerStore,

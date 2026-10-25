@@ -1,0 +1,41 @@
+{
+    // Dead-export gate (spec 008 FR-034). Runs in production mode with
+    // --exports, so test/E2E files are excluded and only export issues are
+    // reported. Production patterns carry the trailing `!`.
+    "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+    "workspaces": {
+        ".": {
+            "entry": ["scripts/**/*.ts!"],
+            "project": ["scripts/**/*.ts!"]
+        },
+        "packages/*": {
+            // Declared package.json#exports targets are the standing public
+            // surface. Entry exports are intentionally not reported:
+            // includeEntryExports stays off, preserving the documented policy
+            // that a dead export re-exported through a declared barrel is
+            // allowed. Per-symbol exceptions outside entries use @public.
+            "entry": [
+                "src/index.ts!",
+                "src/browser.ts!",
+                "src/components/index.ts!",
+                "src/brand/index.ts!",
+                "scripts/**/*.ts!"
+            ],
+            "project": ["src/**/*.{ts,tsx}!", "scripts/**/*.{ts,tsx}!"]
+        },
+        "docs/manual": {
+            // The built-in MDX compiler is auto-enabled by the manual's
+            // @astrojs/mdx dependency, so .mdx imports count in production.
+            "entry": ["src/**/*.{mdx,astro,ts,tsx}!"],
+            "project": ["src/**/*.{mdx,astro,ts,tsx}!"]
+        }
+    },
+    // Contract mirrors are authoritative and guarded by the per-package
+    // conformance programs (spec 008 FR-029/FR-030); their export issues are
+    // not this gate's business.
+    "ignoreIssues": {
+        "packages/*/src/contracts/**": ["exports", "nsExports", "types", "nsTypes", "enumMembers", "namespaceMembers"]
+    },
+    // Exports used in their own declaring file are not dead code.
+    "ignoreExportsUsedInFile": true
+}
