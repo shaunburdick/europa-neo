@@ -54,6 +54,7 @@ export interface LobbyLayoutValue {
  * controller and server URL without prop drilling through the route
  * tree. The value is provided by {@link LobbyLayout}.
  */
+/** @lintignore Test seam: lobby-layout test wrapper provides the context. */
 export const LobbyLayoutContext = createContext<LobbyLayoutValue | null>(null);
 
 /**

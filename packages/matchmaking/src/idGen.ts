@@ -168,6 +168,7 @@ export function isValidMatchId(s: string): boolean {
  * @param values - Buffer to read from.
  * @returns The first element, or `0` for an empty buffer.
  */
+/** @lintignore Test seam: id-generation tests pin seed derivation. */
 export function matchSeedFrom(values: Uint32Array): number {
     return values[0] ?? 0;
 }

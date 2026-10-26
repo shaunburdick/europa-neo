@@ -40,7 +40,7 @@ import type {
 // ----------------------------------------------------------------------------
 
 /** One match-summary row as the lobby suites read it. */
-export interface LobbyMatchDebugView {
+interface LobbyMatchDebugView {
     readonly matchId: MatchId;
     readonly status: string;
     readonly seatsFilled: number;
@@ -53,7 +53,7 @@ export interface LobbyMatchDebugView {
  * `spectator-sidebar` + the shared `lobby-page` helper) read through
  * the handle. `seatSessionToken` is deliberately absent.
  */
-export interface LobbyStateDebugView {
+interface LobbyStateDebugView {
     readonly viewMode: LobbyViewMode;
     readonly handle: string | null;
     readonly activeMatchId: MatchId | null;
@@ -119,7 +119,7 @@ export function lobbyDebugHandle(store: { getState(): LobbyState }): LobbyDebugH
  * the handle. `session.sessionToken` is deliberately absent;
  * `latestView` and `matchResult` pass through as pure game data.
  */
-export interface ConsoleStateDebugView {
+interface ConsoleStateDebugView {
     readonly status: ConsoleState['status'];
     readonly latestView: PlayerView | null;
     readonly session: {
@@ -133,13 +133,13 @@ export interface ConsoleStateDebugView {
 }
 
 /** Store surface the live suites consume: state reads + action dispatch. */
-export interface ConsoleStoreDebugView {
+interface ConsoleStoreDebugView {
     getState(): ConsoleStateDebugView;
     dispatch(action: ConsoleAction): void;
 }
 
 /** Network surface the live suites consume: the connection status only. */
-export interface ConsoleClientDebugView {
+interface ConsoleClientDebugView {
     state(): { readonly connection: ConnectionState };
 }
 

@@ -56,6 +56,7 @@ import type { MatchmakerStore } from './store';
 /** Optional event sink handed to transitions by the matchmaker/tests. */
 export type StatusEmitter = (event: MatchStatusChangedEvent) => void;
 
+/** @lintignore Test seam: matchLifecycle tests observe status events through this re-export. */
 export type { MatchStatusChangedEvent } from './eventBus';
 // Re-exported so lifecycle consumers (and tests) have one import site.
 export { createStatusBus };
@@ -294,7 +295,7 @@ export function transitionToCollected(
 // ----------------------------------------------------------------------------
 
 /** One auto-seated original participant for {@linkcode createRematchMatchRecord}. */
-export interface RematchParticipant {
+interface RematchParticipant {
     /** The participant's live ephemeral session (rebound to the new match). */
     readonly session: PlayerSession;
     /** Their prior seat index, preserved verbatim (US4 AC-2). */
@@ -382,7 +383,7 @@ export function createRematchMatchRecord(args: CreateRematchMatchRecordArgs): {
 // ----------------------------------------------------------------------------
 
 /** What {@linkcode propagateHandleRename} updated. */
-export interface HandleRenameResult {
+interface HandleRenameResult {
     /** Player sessions whose `acceptedHandle` snapshot was refreshed. */
     readonly sessions: number;
     /** Seat records whose `handle` snapshot was refreshed. */

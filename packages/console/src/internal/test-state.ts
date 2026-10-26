@@ -79,7 +79,7 @@ export function createStubConsoleState(view: PlayerView): ConsoleState {
 }
 
 /** Board size of the deterministic demo view (16×16). */
-export const DEMO_BOARD_SIZE = 16;
+const DEMO_BOARD_SIZE = 16;
 
 /**
  * Deterministic demo `PlayerView` for the dev-server mount (T047:

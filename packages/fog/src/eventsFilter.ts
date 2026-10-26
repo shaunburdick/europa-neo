@@ -62,6 +62,7 @@ function buildVisibleIndex(visibleCells: readonly Coord[], width: number): Set<n
  * @param order The applied order.
  * @returns An array of cell coordinates (may be empty for `surrender`).
  */
+/** @lintignore Test seam: redaction tests enumerate order cells. */
 export function orderCoords(order: Order): Coord[] {
     switch (order.kind) {
         case 'setPipe':
@@ -90,6 +91,7 @@ export function orderCoords(order: Order): Coord[] {
  * @returns An array of cell coordinates (may be empty for non-cell
  *          variants like `already_surrendered`, `invalid_percent`, etc.).
  */
+/** @lintignore Test seam: redaction tests enumerate error cells. */
 export function validationErrorCoords(reason: ValidationError): Coord[] {
     switch (reason.kind) {
         case 'out_of_bounds':

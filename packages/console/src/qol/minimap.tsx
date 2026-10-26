@@ -101,6 +101,7 @@ export function viewportRect(
  *
  * @param rect Fractional viewport rectangle in minimap pixels.
  */
+/** @lintignore Test seam: minimap component tests assert the stroke rect. */
 export function viewportStrokeRect(rect: ViewportRect): ViewportRect {
     const x = snappedStrokeCenter(rect.x);
     const y = snappedStrokeCenter(rect.y);

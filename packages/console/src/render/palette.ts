@@ -42,6 +42,7 @@ export const VOID_COLOR = TOKENS.color.voidBg;
 export const PAGE_BACKGROUND_COLOR = TOKENS.color.pageBg;
 
 /** Water fill — reads unambiguously as blue. */
+/** @lintignore Test seam: palette tests assert water fill and depth shades. */
 export const WATER_COLOR = TOKENS.color.water;
 
 /**
@@ -51,6 +52,7 @@ export const WATER_COLOR = TOKENS.color.water;
  * Each zone has a distinct hue family aligned with the pipe flow
  * formula's behavioral transitions.
  */
+/** @lintignore Test seam: relief tests read zone elevation bounds. */
 export const BIOME_ZONES = TOKENS.color.biomeZones;
 
 /**
@@ -169,6 +171,7 @@ export const GENERIC_EFFECT_COLOR = TOKENS.color.genericEffect;
  * @param elevation Integer 0–255. Values < 0 clamp to zone 0; values > 255 clamp to zone 3.
  * @returns Biome zone index (0–3), hue, saturation percentage, and interpolated lightness.
  */
+/** @lintignore Test seam: palette tests assert zone boundaries. */
 export function biomeZoneForElevation(elevation: number): {
     zone: number;
     hue: number;

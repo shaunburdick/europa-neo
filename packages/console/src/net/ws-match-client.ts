@@ -167,7 +167,7 @@ export interface WsClientLogger {
  * Handles are opaque: callers only round-trip them back to
  * {@link WsMatchClientScheduler.clearTimeout}.
  */
-export interface WsMatchClientScheduler {
+interface WsMatchClientScheduler {
     /** Schedule `fn` after `ms`; returns a handle for `clearTimeout`. */
     setTimeout(fn: () => void, ms: number): unknown;
     /** Cancel a pending timer (no-op on unknown handles). */

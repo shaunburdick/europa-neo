@@ -246,13 +246,5 @@ export const routeTree = rootRoute.addChildren([
 
 // ─── Individual route exports ───────────────────────────────────────────────
 
-export {
-    indexRoute,
-    lobbyRoute,
-    matchIndexRoute,
-    matchJoinRoute,
-    matchRoute,
-    matchSpectateRoute,
-    profileRoute,
-    rootRoute,
-};
+/** @lintignore Test seam: route-tree tests load the index route dynamically. */
+export { indexRoute };

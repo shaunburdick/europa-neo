@@ -32,7 +32,7 @@ export interface ReliefBand {
 }
 
 /** Flat shape coordinates keyed by fill colour. */
-export type ReliefBuckets = ReadonlyMap<string, readonly number[]>;
+type ReliefBuckets = ReadonlyMap<string, readonly number[]>;
 
 /** Everything sub-pass 1d paints, by phase. */
 export interface ReliefGeometry {

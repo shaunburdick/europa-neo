@@ -72,9 +72,10 @@ import { classifyTextDefect } from './textDefects';
 // ----------------------------------------------------------------------------
 
 /** Minimum accepted handle length in Unicode code points (post-trim). */
-export const HANDLE_MIN_CHARS = 1;
+const HANDLE_MIN_CHARS = 1;
 
 /** Maximum accepted handle length in Unicode code points (post-trim). */
+/** @lintignore Test seam: handle-validation tests assert the limit. */
 export const HANDLE_MAX_CHARS = 24;
 
 // ----------------------------------------------------------------------------

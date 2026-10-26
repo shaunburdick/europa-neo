@@ -36,6 +36,11 @@
     "ignoreIssues": {
         "packages/*/src/contracts/**": ["exports", "nsExports", "types", "nsTypes", "enumMembers", "namespaceMembers"]
     },
-    // Exports used in their own declaring file are not dead code.
-    "ignoreExportsUsedInFile": true
+    // Exports used only in their declaring file are reported. The fix is to
+    // drop the redundant `export` keyword (internal helper/type) or tag an
+    // intentional public/test-facing export with `/** @public */` /
+    // `/** @lintignore */`.
+    "ignoreExportsUsedInFile": false,
+    // `@lintignore` marks documented test seams; `@public` is built in.
+    "tags": ["-lintignore"]
 }
