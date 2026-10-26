@@ -14,9 +14,9 @@
  *     (pure JS, no DOM).
  *   - Q-P04 `localPreflightOrder`: min-of-round-medians < 0.1 ms
  *     (security-relevant gate on the input path).
- *   - Q-P03 initial bundle < 150 KB gzipped: enforced post-build by
- *     `scripts/test-selfhost.sh` (browser tests have no filesystem;
- *     deviation documented in spec Implementation Notes).
+ *   - Q-P03 initial bundle: `scripts/test-selfhost.sh` reports the per-file
+ *     gzip total against the advisory 155,648-byte reference target after
+ *     build (browser tests have no filesystem; see spec Implementation Notes).
  *
  * Methodology (fog SC-004 jitter lesson, hardened after the
  * 2026-08-23 CI-runner throttle incident): warmup first, then ≥5

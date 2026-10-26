@@ -38,6 +38,9 @@ import '@europa/design/dist/design.css';
 import './styles/index.css';
 import './styles/logo.css';
 
+import { ControlMappingSession } from './input/control-mapping';
+import { ControlMappingProvider } from './input/control-mapping-context';
+import { GamepadController } from './input/gamepad-controller';
 import { type LobbyStoreDebugView, lobbyDebugHandle } from './internal/debug-views';
 // Type-only: erased at compile time, so the dynamically-imported
 // live-runtime chunk is NOT fetched by this static reference.
@@ -47,6 +50,7 @@ import { ErrorBoundary } from './render/ErrorBoundary';
 import { routeTree } from './routing/route-tree';
 import { createLobbyController } from './state/lobby-controller';
 import { LobbyServerUrlError, resolveLobbyServerUrl } from './state/lobby-view';
+import { ControlsEditorHostProvider } from './ui/controls-editor-host';
 
 declare global {
     interface Window {
@@ -162,13 +166,20 @@ function bootstrapProductionRoute(root: HTMLElement): void {
         context: { controller, wsUrl },
     });
 
+    const inputMappingSession = new ControlMappingSession();
+    const gamepadController = new GamepadController(inputMappingSession);
+
     // Mount the router into the DOM. The ErrorBoundary wraps the entire
     // tree so a bad frame never blanks the page silently (Q-B08).
     createRoot(root).render(
         <StrictMode>
-            <ErrorBoundary>
-                <RouterProvider router={router} />
-            </ErrorBoundary>
+            <ControlMappingProvider session={inputMappingSession} gamepadController={gamepadController}>
+                <ErrorBoundary>
+                    <ControlsEditorHostProvider>
+                        <RouterProvider router={router} />
+                    </ControlsEditorHostProvider>
+                </ErrorBoundary>
+            </ControlMappingProvider>
         </StrictMode>,
     );
 }

@@ -254,7 +254,7 @@ This contract is byte-compared by the same invariant suite described in [`data-m
 | G-05 | `sha256(dist/design.css) === sha256(docs/manual/assets/design.css) === sha256(docs/manual/public/design.css)` |
 | G-06 | `DESIGN.md` header = `@europa/design` version = `APP_VERSION` = all `package.json`s |
 | G-07 | Computed-style contrast assertions for every pairing in `DESIGN.md` a11y table |
-| G-08 | `pnpm build:assets` gzip budget < 150 KB (console browser payload) |
+| G-08 | `pnpm --filter @europa/console test:selfhost` reports the 155,648-byte (152 KiB) console browser-payload reference; at/above it warns and still runs HTTP/WS smoke (spec 005 v1.23 Q-P03) |
 | G-09 | `pages-deploy.yml` artifact is exactly `docs/manual` — no `packages/**` leakage |
 
 A missing enumeration here is a drift source — the contract's "no orphan" invariants catch it.

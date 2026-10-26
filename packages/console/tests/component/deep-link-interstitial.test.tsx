@@ -56,6 +56,7 @@ function callbacks() {
         onPlay: vi.fn(),
         onSpectate: vi.fn(),
         onReturnToLobby: vi.fn(),
+        onConfigureControls: vi.fn(),
     };
 }
 
@@ -64,6 +65,29 @@ function callbacks() {
 // ----------------------------------------------------------------------------
 
 describe('DeepLinkInterstitial player entry', () => {
+    test('offers the same optional controls editor before Play without changing Play', async () => {
+        const { onPlay, onSpectate, onReturnToLobby, onConfigureControls } = callbacks();
+        const screen = await render(
+            <DeepLinkInterstitial
+                matchId={MATCH_ID}
+                entry={playerEntry()}
+                onPlay={onPlay}
+                onSpectate={onSpectate}
+                onReturnToLobby={onReturnToLobby}
+                onConfigureControls={onConfigureControls}
+            />,
+        );
+
+        const configure = screen.getByRole('button', { name: 'Configure controls…' }).element();
+        const play = screen.getByRole('button', { name: 'Play' }).element();
+        expect(Boolean(configure.compareDocumentPosition(play) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+        await screen.getByRole('button', { name: 'Configure controls…' }).click();
+        expect(onConfigureControls).toHaveBeenCalledTimes(1);
+        expect(onPlay).not.toHaveBeenCalled();
+        await screen.getByRole('button', { name: 'Play' }).click();
+        expect(onPlay).toHaveBeenCalledTimes(1);
+    });
+
     test('renders Play and Spectate buttons for player entry', async () => {
         const { onPlay, onSpectate, onReturnToLobby } = callbacks();
         const screen = await render(
@@ -296,6 +320,23 @@ describe('DeepLinkInterstitial return-to-lobby', () => {
 // ----------------------------------------------------------------------------
 
 describe('DeepLinkInterstitial accessibility', () => {
+    test('axe-core WCAG 2.2 AA scan is clean when optional pre-join Controls is available', async () => {
+        const { onPlay, onSpectate, onReturnToLobby, onConfigureControls } = callbacks();
+        const screen = await render(
+            <DeepLinkInterstitial
+                matchId={MATCH_ID}
+                entry={playerEntry()}
+                onPlay={onPlay}
+                onSpectate={onSpectate}
+                onReturnToLobby={onReturnToLobby}
+                onConfigureControls={onConfigureControls}
+            />,
+        );
+
+        await expect.element(screen.getByRole('button', { name: 'Configure controls…' })).toBeVisible();
+        await expectNoDomA11yViolations(document.body);
+    });
+
     test('axe-core WCAG 2.2 AA scan is clean for player entry', async () => {
         const { onPlay, onSpectate, onReturnToLobby } = callbacks();
         const screen = await render(

@@ -22,7 +22,9 @@ import { NETWORK_API_VERSION } from '@europa/networking/browser';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
-
+import { ControlMappingSession } from '../../../src/input/control-mapping';
+import { ControlMappingProvider } from '../../../src/input/control-mapping-context';
+import { GamepadController } from '../../../src/input/gamepad-controller';
 import { createConsoleClient } from '../../../src/net/client';
 import { createWsMatchClient } from '../../../src/net/ws-match-client';
 import { App } from '../../../src/render/App';
@@ -124,7 +126,7 @@ interface Boot {
  * complete the hello/join handshake with a wire-shaped join snapshot.
  * Mirrors `internal/live-runtime.tsx` wiring exactly.
  */
-async function bootLiveConsole(): Promise<Boot> {
+async function bootLiveConsole(mappingSession?: ControlMappingSession): Promise<Boot> {
     const socket = new WireWebSocket('ws://wire-component');
     const wsClient = createWsMatchClient({ webSocketFactory: () => socket });
     const client = createConsoleClient(
@@ -140,7 +142,16 @@ async function bootLiveConsole(): Promise<Boot> {
         bridge.handleEffect(effect);
     };
 
-    await render(<App store={store} />);
+    const app = <App store={store} />;
+    await render(
+        mappingSession === undefined ? (
+            app
+        ) : (
+            <ControlMappingProvider session={mappingSession} gamepadController={new GamepadController(mappingSession)}>
+                {app}
+            </ControlMappingProvider>
+        ),
+    );
 
     const connecting = client.connect();
     socket.onopen?.();
@@ -262,6 +273,75 @@ describe('live wire views drive the mounted console (rehydration regression)', (
             expect(orderFrame).toBeDefined();
         });
         expect(document.querySelector('.europa-board-area')).not.toBeNull();
+    });
+
+    test('runtime mapping replacement reroutes a mounted keyboard controller without remounting', async () => {
+        const mappingSession = new ControlMappingSession();
+        const { socket, store } = await bootLiveConsole(mappingSession);
+        store.dispatch({ kind: 'selectCell', cell: { x: 5, y: 5 } });
+        const board = pinBoardGeometry();
+        store.dispatch({
+            kind: 'setCamera',
+            camera: { ...store.getState().camera, pan: { x: 256, y: 256 } },
+        });
+        board.dispatchEvent(
+            new PointerEvent('pointermove', { ...pointInCell(5, 5, 0.85, 0.15), button: 0, bubbles: true }),
+        );
+        await vi.waitFor(() => {
+            expect(document.querySelector('.europa-targeting [role="status"]')?.textContent).toBe(
+                'Paratroop target: (7, 3)',
+            );
+        });
+
+        const original = mappingSession.getSnapshot();
+        const replacement = {
+            ...original,
+            pipeNorth: [
+                ...original.pipeNorth,
+                {
+                    kind: 'keyboard',
+                    event: 'key',
+                    value: 'q',
+                    modifiers: [],
+                    caseSensitive: false,
+                    modifierMatch: 'exact',
+                } as const,
+            ],
+        };
+        expect(mappingSession.replace(replacement).valid).toBe(true);
+        await vi.waitFor(() => {
+            expect(document.querySelector('.europa-targeting [role="status"]')?.textContent).toBe(
+                'No launch — cursor centered on (5, 5)',
+            );
+        });
+
+        await userEvent.keyboard('q');
+        await vi.waitFor(() => {
+            expect(socket.sent.some((frame) => frame.includes('"setPipe"') && frame.includes('"direction":"N"'))).toBe(
+                true,
+            );
+        });
+    });
+
+    test('pointer movement while offline cannot restore a cleared keyboard aim after reconnect', async () => {
+        const { socket, store } = await bootLiveConsole();
+        const board = pinBoardGeometry();
+        store.dispatch({ kind: 'selectCell', cell: { x: 5, y: 5 } });
+        store.dispatch({ kind: 'setCamera', camera: { ...store.getState().camera, pan: { x: 256, y: 256 } } });
+        store.setState((state) => ({ ...state, status: 'reconnecting', inputEnabled: false }));
+        board.dispatchEvent(
+            new PointerEvent('pointermove', { ...pointInCell(5, 5, 0.85, 0.15), button: 0, bubbles: true }),
+        );
+        store.setState((state) => ({ ...state, status: 'live', inputEnabled: true }));
+
+        await vi.waitFor(() => {
+            expect(document.querySelector('.europa-targeting [role="status"]')?.textContent).toBe(
+                'No launch — cursor centered on (5, 5)',
+            );
+        });
+        await userEvent.keyboard('p');
+        await Promise.resolve();
+        expect(socket.sent.some((frame) => frame.includes('"paratroop"'))).toBe(false);
     });
 });
 

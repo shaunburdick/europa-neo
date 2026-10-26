@@ -749,3 +749,27 @@ ordering guarantee also lives (spec 010 v1.15):
 Lobby state is otherwise not modelled in this document (it belongs to
 spec 010 / feature 023); this subsection exists only to record the
 shape change so §17-style invariants stay honest.
+
+## 20. Runtime `ControlMapping` (issue #201)
+
+`ControlMapping` is a per-runtime configuration object, not part of
+`ConsoleState` or `PlayerAction`. It maps stable `ControlActionId`s to ordered
+lists of typed source bindings. Each binding dispatches the same existing
+semantic action regardless of source; the mapping does not carry coordinates,
+order payloads, or authoritative game state.
+
+`ControlMappingSession` owns the current snapshot and the session's reset
+baseline. Production creates one at page lifetime and shares it across route
+changes/rematches. Each `ConsoleRuntime` embedding creates its own. The adapter
+converts legacy `ConsoleConfig.inputMapping` into this representation. Updates
+are in-memory only; reload constructs a new session, and no mapping value is
+persisted or sent over the network.
+
+M1 supports logical keyboard `event.key` and pointer bindings. Standard Gamepad
+binding shapes are reserved in the type union but are rejected by M1's source
+capabilities until the M2 adapter is implemented. Physical keyboard
+`event.code` is not currently supported, and Ctrl/Meta keyboard chords remain
+reserved for browser shortcuts. Middle pointer input remains owned by the
+zoom/pan controller; the pipe mappings keep left/right and Alt+left behavior.
+Atomic validation rejects overlapping conflicts and leaves the prior snapshot
+unchanged; controller consumers read the current snapshot without remounting.

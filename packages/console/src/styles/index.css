@@ -1940,9 +1940,21 @@ body {
 /* T-026/F: Lobby hero section (FR-026, AC-029).
    Centered logo + title with generous vertical padding + radial glow. */
 .europa-lobby__hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--europa-spacing-md);
     text-align: center;
     padding: var(--europa-spacing-xl) 0;
     position: relative;
+}
+
+.europa-lobby__hero > .europa-lobby__subtitle {
+    margin: 0;
+}
+
+.europa-lobby__hero > .europa-lobby__button {
+    align-self: center;
 }
 
 /* Subtle radial gradient glow behind the hero. */

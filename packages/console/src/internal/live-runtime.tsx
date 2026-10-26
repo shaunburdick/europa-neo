@@ -37,6 +37,9 @@
 import type { JSX } from 'react';
 import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ControlMappingSession } from '../input/control-mapping';
+import { ControlMappingProvider } from '../input/control-mapping-context';
+import { GamepadController } from '../input/gamepad-controller';
 import { createConsoleClient } from '../net/client';
 import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
@@ -212,9 +215,13 @@ export function mountLiveRuntime(root: HTMLElement, seam: TestMatchSeam | undefi
     };
     void boot();
 
+    const inputMappingSession = new ControlMappingSession();
+    const gamepadController = new GamepadController(inputMappingSession);
     createRoot(root).render(
         <StrictMode>
-            <StoreApp store={store} />
+            <ControlMappingProvider session={inputMappingSession} gamepadController={gamepadController}>
+                <StoreApp store={store} />
+            </ControlMappingProvider>
         </StrictMode>,
     );
 }

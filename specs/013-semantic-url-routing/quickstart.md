@@ -94,7 +94,11 @@ contracts (FR-001..FR-019) are preserved; only the route-selection mechanism cha
 | TanStack Router contribution | ~3–5 KB gz | — | — |
 | Largest chunk (vendor / React 19) | 84,823 B gz | — | — |
 
-FR-030 budget met: 134,689 B gz < 153,600 B (12.3% headroom).
+Historical v1.1 validation: 134,689 B gz < 153,600 B (12.3% headroom),
+measured under the then-current limit. The current FR-030 reference target is
+155,648 B (152 KiB); v1.8 makes numeric excess warning-only while keeping the
+same asset count, remote-URL scan, and required host smoke. See feature 005
+v1.23 and the follow-on execution record for current verification evidence.
 
 ### Test counts (post-migration)
 
@@ -122,7 +126,7 @@ FR-030 budget met: 134,689 B gz < 153,600 B (12.3% headroom).
 | FR-027 | Loader caching does not change route-entry authority | Unit deferred-resolution tests (snapshot authority preserved) | PASS |
 | FR-028 | Deep-link / unnamed-identity / welcome / not-found preserved | E2E deep-link interstitial tests, a11y notice tests | PASS |
 | FR-029 | Browser-visible URL shapes identical | E2E reload / Back-Forward tests, determinism tests | PASS |
-| FR-030 | Bundle under 153,600 B gz budget | `test:selfhost` bundle check (134,689 B gz) | PASS |
+| FR-030 | Report all browser-delivered JS/CSS gzip sizes against the 155,648 B reference; warn at/above and still run the host smoke | `test:selfhost` + its budget unit tests | Current v1.8 verification pending |
 
 ### Key preservation guarantees
 

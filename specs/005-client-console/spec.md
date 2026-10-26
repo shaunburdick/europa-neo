@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-23 (v1.19; minimap viewport snap — issue #209)
-**Version**: 1.19
+**Last Updated**: 2026-10-24 (v1.23; issue #201 Q-P03 advisory policy clarification; merge reconciliation)
+**Version**: 1.23
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; v1.13 terrain-relief amendment (issue #182) applied 2026-10-16, revised by v1.14 to the settled per-side bevel model, by v1.15 to its calibrated ladder and by v1.16 to a fixed decorative face texture; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; v1.13 terrain-relief amendment (issue #182) applied 2026-10-16, revised by v1.14 to the settled per-side bevel model, by v1.15 to its calibrated ladder and by v1.16 to a fixed decorative face texture; v1.17 board surface treatment (feature 018) and v1.18 elevation contours (feature 018 v1.2) applied; v1.19 minimap viewport indicator pixel snap (issue #209) applied; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74). The v1.20 issue #201 M1–M3 implementation and v1.21 payload-target amendment are present in this branch. The v1.22 issue #201 lobby/pre-entry amendment is approved; its runtime-owner foundation, lobby/pre-join/embedding-host UI, and manual updates are implemented in the current worktree. The pre-policy UI checkpoint measured 156,654 bytes gzipped and its then-current self-host script exited before HTTP/WS smoke; that historical result is recorded in the follow-on task log. v1.23 makes only Q-P03 numeric excess advisory; current LC015/LC017 acceptance and verification evidence is maintained in `issue-201-lobby-controls-tasks.md`. Physical standard-controller smoke remains unperformed, so no hardware validation claim is made. Hook/signing gates remain separate requirements before code publication.
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -253,13 +253,17 @@ truthful).
    effects**: never emitted by the v1 reducer. The runtime handles
    them defensively (log / sound seam / modal epoch) so future
    emitters work without runtime changes.
-4. **Bundle budget scope (Q-P03)**: "initial bundle < 150 KB gzipped"
-   is enforced by `scripts/test-selfhost.sh` over the
-   browser-delivered payload (`dist/assets/**`, currently ~76.5 KB).
-   The tsc library tree also emitted into `dist/` is consumed by
-   bundling hosts, never fetched by browsers, and is out of scope.
-   The browser-mode perf suite cannot read the filesystem, hence the
-   enforcement point.
+ 4. **Bundle payload reference (Q-P03)**: the browser-delivered initial bundle
+    is measured as the sum of per-file gzip sizes over every
+    `dist/assets/**/*.{js,css}` asset. The 155,648-byte (152 KiB) value is an
+    advisory reference target: at or above it, `scripts/test-selfhost.sh` MUST
+    report the exact total and excess, then continue to the required host smoke.
+    Numeric payload size alone MUST NOT fail self-host verification. Build,
+    remote-URL scan, measurement/tooling errors, asset checks, and HTTP/WS host
+    smoke remain blocking. The tsc library tree also emitted into `dist/` is
+    consumed by bundling hosts, never fetched by browsers, and remains outside
+    the Q-P03 browser-payload measurement. The browser-mode perf suite cannot
+    read the filesystem, hence the post-build reporting point.
 5. **Coverage gate scope (T094/T097)**: DOM-bound modules
    (`src/render/`, `src/ui/`, `src/qol/minimap.tsx`) are covered by
    the component/a11y/E2E suites in real Chromium; node-only coverage
@@ -794,3 +798,210 @@ the snap cannot leave a clipped partial row.
   the backdrop, plus a whole-number-scale regression; `minimap-viewport.test.tsx`
   keeps the live camera wiring, and `tests/unit/render/surface.test.ts` pins
   the helper's integer and fractional cases.
+
+### v1.20 (2026-10-22) — Dynamic control mapping (issue #201)
+
+**Status:** The user approved the bounded scope and M1–M3 plan. PRE-M1 draft
+PR #210 was remotely confirmed before implementation. M1–M3 are implemented in
+the current worktree with focused verification. The full repository gate later
+passed against the manifest recorded in the v1.21 verification record; the
+subsequent documentation-only readiness delta is not included in that run. No
+physical controller smoke has been performed, so no hardware validation claim
+is made.
+
+**Scope and compatibility:** Dynamic resolution is client-only and maps
+supported device bindings to existing console actions. It MUST preserve the
+current Original control semantics and existing pointer targeting. The existing
+public `InputMapping` remains a compatibility surface and MUST be adapted
+additively; this amendment does not decide or assert a breaking
+`CONSOLE_API_VERSION` change. Any version decision, if needed, must follow
+inspection of the exact public diff and the existing version contract. Mapping
+changes MUST NOT alter `NETWORK_API_VERSION`.
+
+- **FR-048 — Action bindings:** The console MUST represent supported input
+  bindings as typed source-to-existing-action mappings. A semantic action MAY
+  have multiple bindings. Primary and Secondary are configurable UI aliases
+  that invoke the same action; they are not a two-binding limit. Mappings MUST
+  resolve client-side and MUST NOT change order payloads or server authority.
+- **FR-049 — Original keyboard parity:** The Original profile MUST remain the
+  default and preserve the shipped keyboard behavior: I/J/K/L pipe directions,
+  Alt+I/J/K/L exclusive variants, Space clears pipes, P/H paratroops, G/O
+  guns, 0–9 reserves, Escape cancel, and arrows move selection. Existing
+  `KeyboardEvent.key` semantics MUST be retained for these defaults, including
+  legacy case-folding. Custom logical-key bindings MUST record case sensitivity
+  explicitly. Physical `KeyboardEvent.code` bindings are not currently
+  supported; if added later, they MUST be represented explicitly and MUST NOT
+  silently replace `key` semantics or change non-US layout behavior. Ctrl/Meta
+  browser chords remain reserved and MUST NOT be captured as keyboard actions.
+- **FR-050 — Runtime updates and validation:** A runtime mapping replacement
+  MUST take effect without remounting input controllers. Validation MUST be
+  atomic: a conflicting or unsupported assignment MUST NOT partially replace
+  the active mapping. Conflicts are evaluated across bindings whose gameplay
+  contexts overlap; distinct modifier chords MAY coexist. Held/repeat state
+  MUST be flushed when mappings change and on blur, disconnection, or teardown.
+- **FR-051 — Scope and lifetime:** Each console app/tab runtime MUST own an
+  independent in-memory mapping and its input owner. Production MUST create the
+  owner before the router so one applied mapping and one Gamepad poller can be
+  reused across lobby, pre-entry, match, route changes, and rematches that retain
+  that runtime. `ConsoleRuntime` embedding instances, the demo harness, and the
+  direct-match test runtime MUST have separate owners. A full reload MUST reset
+  the mapping to Original. Mappings MUST NOT be persisted.
+- **FR-052 — M1 runtime seam:** M1 MUST route the current defaults through the
+  runtime-updatable mapping seam while preserving action and wire-order
+  behavior. M1 includes no settings UI, Gamepad polling, or hardware
+  implementation; keyboard and pointer paths remain available.
+- **FR-053 — M2 Controls and standard Gamepad:** M2 MUST provide an accessible
+  Controls dialog with Primary/Secondary aliases, additional bindings,
+  conflict feedback, and safe capture that emits no gameplay action. It MUST
+  support feature-detected, standard-mapped Gamepad API buttons and signed
+  axes while preserving concurrent keyboard and pointer use. The runtime-owned
+  Gamepad poller MUST support capture before a gameplay `ConsoleStore` is
+  attached; with no store attached, dispatch MUST be impossible. Attaching the
+  match store MUST reuse that owner and poller rather than construct another.
+  Unsupported Gamepad APIs MUST degrade safely without disabling keyboard or
+  pointer controls. Controller input MUST remain local and MUST NOT send raw
+  device data over the network. Hardware support claims require a physical
+  standard controller smoke test.
+- **FR-054 — M3 keyboard profiles:** M3 MUST provide Original, MMO/WASD, and
+  Custom keyboard mappings. MMO/WASD changes selection movement to WASD only;
+  it MUST NOT imply troop movement, camera panning, or pipe creation. Custom
+  mappings and profile selection remain in memory only; reload returns to
+  Original. Applying a keyboard preset MUST NOT silently erase controller
+  bindings.
+- **FR-055 — Gamepad defaults and custom bindings:** The default Gamepad
+  directional mapping MUST move selection only; it MUST NOT automatically
+  map directional input to troop movement, pipe orders, or camera pan. A
+  custom mapping MAY bind a supported discrete Gamepad control—including a
+  d-pad button or a signed-axis activation—to an existing compatible semantic
+  action, using the same guarded action bridge as other sources. This permits
+  remapping existing actions only; it adds no troop-movement action and makes
+  no arbitrary device/action compatibility promise. Pointer subcell weapon
+  aiming remains available. Gamepad-only weapon aiming, analog camera control,
+  and controller presets are deferred and MUST NOT be implied as supported.
+
+- **FR-056 — Pre-play Controls entry and compatibility:** The existing Controls
+  editor MUST be available from `/lobby` before Create, Join, or public-match
+  entry, and MUST NOT be launched from the production active-match sidebar.
+  Configuration MUST remain optional; Create/Join MUST NOT require opening or
+  completing the editor. The same editor MUST also be reachable on the existing
+  deep-link pre-join screen before Play, without adding a route or changing the
+  entry action. A `ConsoleRuntime` embedding MUST retain an editor launcher in
+  its host shell outside the production match sidebar. One applied mapping MUST
+  govern the first live input after lobby or pre-entry configuration and MUST
+  remain active through retained-runtime navigation and rematches. Reload resets
+  to Original; independent tabs and embedded runtimes remain isolated. Match
+  start timing, identity, route shapes, order semantics, and wire payloads MUST
+  remain unchanged.
+- **FR-057 — Single Gamepad owner and safe lifecycle handoff:** Each runtime MUST
+  own at most one Gamepad polling loop, shared by pre-entry capture and match
+  input. Capture without a store MUST be unable to dispatch gameplay. Capture
+  start/end, store attach/detach, mapping replacement, blur, hidden-page state,
+  disconnect/reconnect, and owner disposal MUST flush held/repeat/aim state and
+  suppress already-held activations until release. A captured or held input
+  MUST NOT become an order when the match store attaches or capture closes.
+  Gamepad loss or unsupported browser APIs MUST leave keyboard and pointer
+  controls usable; keyboard and pointer dispatch remain store/App-owned and
+  guarded by the existing semantic translator and order preflight.
+
+**Non-goals:** No accounts, server/protocol/engine changes, storage or
+persistence, raw device data on the wire, touch input, vendor SDK, arbitrary
+device/browser compatibility guarantee, or edits to the archived
+`europa-source/` control reference. No troop-movement control is introduced.
+The player manual changes only in a milestone that changes shipped controls,
+as required by feature 007 FR-012.
+
+**Milestone acceptance:**
+
+1. **M1 — runtime foundation:** typed action/source mapping, compatibility
+   adapter, runtime update/reset seam, current-default and wire-order parity,
+   atomic validation, runtime isolation, and lifecycle/focus/offline/spectator
+   guards; no UI or Gamepad hardware.
+2. **M2 — Controls dialog and Gamepad:** accessible capture/edit/reset flows,
+   concurrent keyboard/pointer/Gamepad input, standard-mapped API feature
+   detection, bounded selection repeat and button activation, cleanup across
+   neutral/disconnected/hidden/blur states, and physical hardware smoke before
+   claiming hardware validation.
+3. **M3 — keyboard presets:** Original and MMO/WASD-selection tables plus
+   in-memory Custom editing; accurate active labels, conflict-safe atomic
+   application, manual update, and reload-to-Original behavior.
+
+M1–M3 requirements are implemented in the current worktree and their focused
+verification is recorded in `issue-201-plan.md`. The full repository gate is
+required before code push. Physical standard-controller smoke remains
+unperformed; hardware validation is not claimed.
+
+### v1.21 (2026-10-22) — Owner-approved browser payload budget amendment
+
+**Owner decision:** Shaun Burdick approved an increase to the Q-P03 payload
+budget in [PR #210 comment 6348411040](https://github.com/shaunburdick/europa-neo/pull/210#issuecomment-6348411040)
+(2026-10-22T18:38:13Z), describing the size checks as a gate rather than a
+permanent hard limit. The approved implementation target is the smallest whole-
+KiB ceiling above the measured 155,540-byte issue #201 payload: strictly less
+than 155,648 bytes (152 KiB), an increase of 2,048 bytes from 153,600 bytes.
+
+- The gate continues to count every per-file gzip size for every browser-
+  delivered `.js` and `.css` asset under `dist/assets/`; the boundary remains
+  strict (`total >= budget` fails).
+- The remote-URL scan, asset scope, test severity, and verifier invocation are
+  unchanged. No asset is excluded, no check is suppressed, and no full-gate
+  waiver is granted. Prior Q-P03 validation rows remain historical results
+  under the former 153,600-byte threshold; they are not relabeled as v1.21
+  verification.
+- Fresh verification: `pnpm verify` passed all 13 phases at exit 0 on 2026-10-22
+  19:33:10Z–19:38:47Z against manifest
+  `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`. The
+  self-host gate measured 155,540/155,648 bytes; run log and metadata:
+  `/tmp/opencode/issue-201-budget-fullverify-20261022.log` and
+  `/tmp/opencode/issue-201-budget-fullverify-20261022.meta`. After that run,
+  readiness status was reconciled only in this spec, the issue #201 plan/tasks
+  and quickstart, spec 012, and this spec 013. That documentation-only delta is
+  not included in the tested manifest; no full-gate pass is claimed for the
+  post-reconciliation tree. The recorded pass is local, not GitHub CI evidence,
+  and does not resolve hook/signing gates. Run a fresh full gate before any
+  future code publication.
+
+### v1.22 (2026-10-23) — Lobby and pre-entry Controls (issue #201)
+
+The user approved the follow-on amendment and both entry-surface choices in the
+saved plan `1792769828093-issue-201-configure-controls-in-the-lobby-before-play.md`
+(knowledge id `cc595ad9-b84f-4b8a-9020-6f28cee9bcfd`). The approved decisions are:
+the existing editor is available both in the lobby and on the existing pre-join
+screen (before Play), and embedded `ConsoleRuntime` hosts retain an editor
+launcher in their shell outside the production match sidebar. No new
+person-specific approval gate was introduced.
+
+FR-051 and FR-053 are clarified above to make the owner lifetime and pre-store
+Gamepad capture explicit. FR-056 and FR-057 add entry availability and safe
+ownership/lifecycle requirements. The runtime foundation and approved lobby,
+pre-join, and embedding-host UI surfaces plus manual updates are implemented in
+the current worktree under [`issue-201-lobby-controls-plan.md`](./issue-201-lobby-controls-plan.md)
+and [`issue-201-lobby-controls-tasks.md`](./issue-201-lobby-controls-tasks.md).
+At the initial UI implementation checkpoint, the browser bundle measured 1,006
+bytes above the 155,648-byte reference and the then-current self-host script
+exited before its HTTP/WS smoke. That result is historical; v1.23 changes only
+the payload metric's severity. Matchmaking continues to start immediately
+under its existing behavior: no countdown, configuration gate, waiting phase,
+or entry delay is added.
+
+### v1.23 (2026-10-23) — Q-P03 advisory reference target
+
+The owner comment on PR #210 says: “Yep! I think payload size checks are there
+just as a gate vs a hard limit.” The user clarified that this means the
+155,648-byte value is advisory, not a strict line, and explicitly authorized
+the corresponding contract/test behavior change. The comment does not specify
+a new numeric threshold or prescribe warning wording.
+
+- Keep 155,648 bytes (152 KiB) as the reference target and retain the exact
+  existing measurement: sum every per-file gzip size for every `.js` and `.css`
+  file under `dist/assets`.
+- At or above the reference target, `test:selfhost` MUST print the measured
+  total and excess as a warning and continue to the one-port HTTP/WS smoke. The
+  numeric result alone MUST NOT fail `test:selfhost` or `pnpm verify`.
+- Build failures, URL-scan violations/tool failures, invalid measurements,
+  asset/probe failures, and HTTP/WS smoke failures remain blocking. No assets
+  are excluded, no other performance/design budget changes, and no warning
+  wrapper may turn those failures into success.
+- The earlier v1.21 description of a strict numeric failure remains a
+  historical record of the implementation at that time; this v1.23 clause
+  supersedes only that enforcement interpretation. The measured value itself
+  and all other verification gates are unchanged.

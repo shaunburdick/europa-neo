@@ -47,6 +47,9 @@ import {
     type ConsoleSoundPlayer,
     NULL_LOGGER,
 } from './contracts/console-api';
+import { ControlMappingSession } from './input/control-mapping';
+import { ControlMappingProvider } from './input/control-mapping-context';
+import { GamepadController } from './input/gamepad-controller';
 import { createConsoleClient } from './net/client';
 import { App } from './render/App';
 import { ErrorBoundary } from './render/ErrorBoundary';
@@ -62,6 +65,7 @@ import type {
     Order,
     ReducerEffect,
 } from './state/types';
+import { ControlsEditorHostProvider } from './ui/controls-editor-host';
 
 // ----------------------------------------------------------------------------
 // Runtime construction arguments
@@ -84,14 +88,25 @@ export interface ConsoleRuntimeArgs {
  * bridges the runtime's programmatic surrender requests into the
  * built-in modal (contract `Console.requestSurrender`).
  */
-function RuntimeApp(props: { readonly runtime: ConsoleRuntime }): JSX.Element {
-    const { runtime } = props;
+function RuntimeApp(props: {
+    readonly runtime: ConsoleRuntime;
+    readonly gamepadController: GamepadController;
+}): JSX.Element {
+    const { runtime, gamepadController } = props;
     const epoch = useSyncExternalStore(runtime.subscribeSurrenderEpoch, runtime.getSurrenderEpoch);
-    return createElement(App, {
-        store: runtime.store,
-        surrenderRequestEpoch: epoch,
-        onSurrenderRequest: runtime.config.onSurrenderRequest,
-    });
+    return createElement(
+        ControlMappingProvider,
+        { session: runtime.inputMappingSession, gamepadController },
+        createElement(
+            ControlsEditorHostProvider,
+            { launcherPlacement: 'host-shell' },
+            createElement(App, {
+                store: runtime.store,
+                surrenderRequestEpoch: epoch,
+                onSurrenderRequest: runtime.config.onSurrenderRequest,
+            }),
+        ),
+    );
 }
 
 /**
@@ -101,10 +116,24 @@ function RuntimeApp(props: { readonly runtime: ConsoleRuntime }): JSX.Element {
 class ReactAppRenderer implements ConsoleRenderer {
     private root: Root | null = null;
 
+    private readonly gamepadController: GamepadController;
+
+    constructor(gamepadController: GamepadController) {
+        this.gamepadController = gamepadController;
+    }
+
     mount(container: HTMLElement, runtime: ConsoleRuntime): void {
         this.root = createRoot(container);
         this.root.render(
-            createElement(StrictMode, null, createElement(ErrorBoundary, null, createElement(RuntimeApp, { runtime }))),
+            createElement(
+                StrictMode,
+                null,
+                createElement(
+                    ErrorBoundary,
+                    null,
+                    createElement(RuntimeApp, { runtime, gamepadController: this.gamepadController }),
+                ),
+            ),
         );
     }
 
@@ -138,6 +167,11 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
     /** The bound Zustand store the renderer subscribes to. */
     readonly store: ConsoleStore;
 
+    /** One non-persistent input configuration per embedding runtime. */
+    readonly inputMappingSession: ControlMappingSession;
+
+    private readonly gamepadController: GamepadController;
+
     private readonly deps: ConsoleDeps;
 
     private readonly logger: ConsoleLogger;
@@ -170,6 +204,8 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
         this.config = args.config;
         this.deps = args.deps ?? {};
         this.logger = args.config.logger ?? NULL_LOGGER;
+        this.inputMappingSession = new ControlMappingSession(args.config.inputMapping);
+        this.gamepadController = new GamepadController(this.inputMappingSession);
 
         // Seed the store with host-provided QoL settings + display name
         // (contract: the host passes previously-persisted values back on
@@ -245,6 +281,7 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
         this.input = null;
         this.renderer?.unmount();
         this.renderer = null;
+        this.gamepadController.dispose();
         this.bridge.dispose();
         this.client.close();
         this.announcer?.clear();
@@ -341,7 +378,8 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
         }
 
         // Renderer (React App by default) + input layer.
-        const rendererFactory = this.deps.rendererFactory ?? (() => new ReactAppRenderer() as ConsoleRenderer);
+        const rendererFactory =
+            this.deps.rendererFactory ?? (() => new ReactAppRenderer(this.gamepadController) as ConsoleRenderer);
         this.renderer = rendererFactory(this.config);
         this.renderer.mount(container, this);
         const inputFactory =

@@ -24,6 +24,7 @@ import type { JSX } from 'react';
 import type { LobbyCommandResult } from '../state/lobby-controller';
 import type { LobbyState } from '../state/lobby-state';
 import type { MatchId } from '../state/types';
+import { useControlsEditor } from '../ui/controls-editor-host';
 import { DeepLinkInterstitial } from '../ui/deep-link-interstitial';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { LobbyLanding } from '../ui/lobby-landing';
@@ -96,6 +97,7 @@ export function LobbyView({
     onClearPendingNavigation,
 }: LobbyViewProps): JSX.Element {
     const { controller, announcer } = useLobbyLayout();
+    const controlsEditor = useControlsEditor();
 
     // -- Command wrappers ------------------------------------------------
     // Lobby-specific commands that delegate to the controller. Each
@@ -161,6 +163,7 @@ export function LobbyView({
                     // remains in LobbyRoot.
                     controller.store.dispatch({ kind: 'lobbyDeepLinkInterstitialDismissed' });
                 }}
+                onConfigureControls={controlsEditor.openEditor}
                 announcer={announcer ?? undefined}
             />
         );
@@ -181,6 +184,7 @@ export function LobbyView({
             onAcknowledgeSuperseded={() => {
                 controller.acknowledgeSuperseded();
             }}
+            onConfigureControls={controlsEditor.openEditor}
         />
     );
 }
