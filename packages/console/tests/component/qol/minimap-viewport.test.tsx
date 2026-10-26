@@ -123,11 +123,17 @@ describe('Minimap viewport rect after setCamera (FR-019)', () => {
         });
         const painted = lastStrokeRect(strokeSpy);
         const expected = viewportRect(store.getState().camera, board);
-        // paintMinimap aligns strokes to the pixel grid (+0.5).
-        expect(painted.x).toBeCloseTo(expected.x + 0.5, 4);
-        expect(painted.y).toBeCloseTo(expected.y + 0.5, 4);
-        expect(painted.w).toBeCloseTo(expected.w, 4);
-        expect(painted.h).toBeCloseTo(expected.h, 4);
+        // The wheel lands on a fractional zoom (32 × 1.15 = 36.8), so each
+        // edge snaps to the pixel nearest it and the 1 px stroke covers one
+        // whole column/row (issue #209).
+        const left = Math.round(expected.x) + 0.5;
+        const top = Math.round(expected.y) + 0.5;
+        const right = Math.round(expected.x + expected.w) + 0.5;
+        const bottom = Math.round(expected.y + expected.h) + 0.5;
+        expect(painted.x).toBeCloseTo(left, 4);
+        expect(painted.y).toBeCloseTo(top, 4);
+        expect(painted.w).toBeCloseTo(right - left, 4);
+        expect(painted.h).toBeCloseTo(bottom - top, 4);
     });
 
     test('panning shifts the rect without resizing it', async () => {
@@ -145,7 +151,7 @@ describe('Minimap viewport rect after setCamera (FR-019)', () => {
         });
         const painted = lastStrokeRect(strokeSpy);
         const expected = viewportRect(store.getState().camera, board);
-        // paintMinimap aligns strokes to the pixel grid (+0.5).
+        // At a whole-pixel rect the snap is the same `+0.5` alignment.
         expect(painted.x).toBeCloseTo(expected.x + 0.5, 4);
         expect(painted.y).toBeCloseTo(expected.y + 0.5, 4);
         expect(painted.w).toBeCloseTo(expected.w, 4);
