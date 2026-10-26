@@ -42,7 +42,7 @@
  */
 
 import { ENGINE_CONSTANTS } from './constants';
-import type { CellView, CommandResult, Coord, Direction, Order, PlayerId, ValidationError, World } from './types';
+import type { CommandResult, Coord, Direction, Order, PlayerId, ValidationError, World } from './types';
 
 const VALID_DIRECTIONS: ReadonlySet<string> = new Set<string>(['N', 'E', 'S', 'W']);
 
@@ -377,7 +377,3 @@ function computeReservesFloor(count: number, reserves: number): number {
     const flowable = Math.floor((count * (10 - reserves)) / 10);
     return count - flowable;
 }
-
-// Re-export CellView so consumers don't need to also import `types.ts`
-// just to type their result. (Kept internal to the engine API surface.)
-export type { CellView };

@@ -102,7 +102,7 @@ export interface WaitingOverlayProps {
  *   `capacity` influence the result).
  * @returns The headline to render and announce.
  */
-export function resolveWaitingMessage(props: WaitingOverlayProps): string {
+function resolveWaitingMessage(props: WaitingOverlayProps): string {
     if (props.message !== undefined) {
         return props.message;
     }

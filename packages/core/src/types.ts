@@ -54,6 +54,7 @@ export const ENGINE_API_VERSION = '0.2.0' as const;
  *
  * A `PlayerId` is non-secret correlation metadata, never a credential.
  */
+/** @public Canonical player identity, re-exported for call sites importing it from this module. */
 export type { PlayerId } from './player-id';
 
 /** Cardinal direction a pipe can face. */

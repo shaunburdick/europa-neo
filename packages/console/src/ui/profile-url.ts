@@ -82,6 +82,7 @@ export function isSafeReturnTo(value: string): boolean {
  * @param search The `window.location.search` value (or any `?...` string).
  * @returns A validated, decoded, relative pathname ready for
  *   `history.pushState`, or `null` when absent/empty/invalid.
+ * @public Profile return-path seam exercised by profile URL tests.
  */
 export function readReturnTo(search: string): string | null {
     // A search string may or may not start with '?'; accept both.

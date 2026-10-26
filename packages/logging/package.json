@@ -2,6 +2,7 @@
     "name": "@europa/logging",
     "version": "0.2.0",
     "private": true,
+    "sideEffects": false,
     "description": "Europa Neo structured logging — Logger interface, createLogger factory (JSON + pretty), NULL_LOGGER no-op, and sanitizeLogText utility. Zero dependencies; Node.js builtins only.",
     "type": "module",
     "exports": {

@@ -163,6 +163,7 @@ export type LobbyConnectionState =
     | 'closed';
 
 /** Immutable state snapshot returned by {@link WsLobbyClient.state}. */
+/** @lintignore Test seam: lobby fixtures and tests read the client state shape. */
 export interface WsLobbyClientState {
     readonly connection: LobbyConnectionState;
     /** Server-confirmed handle (`null` until the identity picked a valid one). */
@@ -202,6 +203,7 @@ export interface LobbyErrorReport {
 }
 
 /** Structural logger mirror (avoids importing any server-side contract). */
+/** @lintignore Test seam: client tests capture log entries through this interface. */
 export interface LobbyClientLogger {
     debug(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
     info(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
@@ -215,6 +217,7 @@ export interface LobbyClientLogger {
  * are opaque — callers only ever round-trip them back to
  * {@link clearTimeout}.
  */
+/** @lintignore Test seam: client tests inject a manual scheduler. */
 export interface LobbyScheduler {
     /** Schedule `fn` after `ms`; returns a handle for {@link clearTimeout}. */
     setTimeout(fn: () => void, ms: number): unknown;
@@ -348,6 +351,7 @@ export class LobbyActionRejectedError extends Error {
 }
 
 /** An action (or the establish cycle) exceeded its correlation timeout. */
+/** @lintignore Test seam: client tests assert timeout rejections by class. */
 export class LobbyTimeoutError extends Error {
     /** What timed out: a named action or the whole establish cycle. */
     readonly target: string;
@@ -360,7 +364,7 @@ export class LobbyTimeoutError extends Error {
 }
 
 /** Transport-level failure (socket loss, malformed handshake). */
-export class LobbyTransportError extends Error {
+class LobbyTransportError extends Error {
     constructor(message: string) {
         super(message);
         this.name = 'LobbyTransportError';

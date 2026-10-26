@@ -2,6 +2,9 @@
     "name": "@europa/console",
     "version": "0.2.0",
     "private": true,
+    "sideEffects": [
+        "**/*.css"
+    ],
     "description": "Europa Neo client console — satellite-view board rendering, region-based pipe orders, subcell paratroop/gun targeting, reserves control, and modern QoL layer. React 19 SPA consuming @europa/engine, @europa/fog, @europa/terrain, and @europa/networking; server-authoritative (never simulates).",
     "type": "module",
     "exports": {
@@ -45,9 +48,7 @@
         "@europa/design": "workspace:*",
         "@europa/engine": "workspace:*",
         "@europa/fog": "workspace:*",
-        "@europa/logging": "workspace:*",
         "@europa/matchmaking": "workspace:*",
-        "@europa/terrain": "workspace:*",
         "@europa/networking": "workspace:*",
         "@europa/version": "workspace:*",
         "@tanstack/react-router": "^1.170.33",
@@ -58,6 +59,8 @@
     "devDependencies": {
         "@axe-core/playwright": "catalog:",
         "@biomejs/biome": "catalog:",
+        "@europa/logging": "workspace:*",
+        "@europa/terrain": "workspace:*",
         "axe-core": "catalog:",
         "@playwright/test": "catalog:",
         "@resvg/resvg-js": "catalog:",

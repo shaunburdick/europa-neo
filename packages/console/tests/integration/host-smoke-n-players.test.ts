@@ -15,9 +15,9 @@
  *     tick broadcasts, and get authoritative order acks;
  *   - a SIGINT-driven shutdown is idempotent (the second signal is a no-op).
  *
- * The wiring recipe mirrors `scripts/host.ts`'s `buildStack` exactly
- * (the production `buildStack` is launcher-internal and not exported), but
- * the match lifecycle is driven by the REAL `prepareMatch` — the code
+ * The stack comes from the shared `tests/e2e/helpers/lobby-stack.ts`
+ * harness (the same wiring as `scripts/host.ts`'s launcher-internal
+ * `buildStack`), but the match lifecycle is driven by the REAL `prepareMatch` — the code
  * under test for T018. Board sizes 32 / 48 are each exercised so the
  * matrix covers every allowed value (64 is temporarily disabled — terrain
  * issue #26 — and is asserted rejected by a dedicated check below).
@@ -30,34 +30,18 @@
 import { createServer as createHttpServer, type Server as HttpServer, get as httpGet } from 'node:http';
 
 import { isPlayerId } from '@europa/core';
-import { computePlayerView } from '@europa/fog';
-import { createLobbyService, createMatchmaker, type Matchmaker, type ReservesPct } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_API_VERSION,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
+import type { ReservesPct } from '@europa/matchmaking';
+import { NETWORK_API_VERSION } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { prepareMatch, resolveConfig, serveStatic } from '../../scripts/host';
 import { createWsMatchClient, type WsMatchClient } from '../../src/net/ws-match-client';
 import type { CommandResult, Coord, MatchId, Order, PlayerId, PlayerView, SessionToken } from '../../src/state/types';
+import { buildLobbyStack, type LobbyStack } from '../e2e/helpers/lobby-stack';
 
 // ----------------------------------------------------------------------------
 // Tunables (single location — constitution Principle V / AGENTS.md rule 3)
 // ----------------------------------------------------------------------------
-
-/**
- * Tick cadence. MUST equal `prepareMatch`'s `TICK_MS` (host.ts): the
- * matchmaker creates the match with `tickIntervalMs: TICK_MS` and the
- * server's `tickRateMs` must match or `registerMatch` rejects it.
- */
-const TICK_MS = 250;
 
 /** Advertised heartbeat; clients ping at max(1000, half) = 1000 ms. */
 const HEARTBEAT_MS = 2000;
@@ -114,89 +98,8 @@ async function pollUntilTrue(probe: () => boolean, description: string, timeoutM
 // Stack harness (real server ⇄ real facade ⇄ real matchmaker)
 // ----------------------------------------------------------------------------
 
-/** The lazy lobby facade type produced by `createLobbyService`. */
-type LobbyFacade = ReturnType<typeof createLobbyService>;
-
 /** A booted production stack on an ephemeral (or pinned) port — single-port (011): one http.Server for HTTP + WS. */
-interface BootedStack {
-    readonly httpServer: HttpServer;
-    readonly server: Server;
-    readonly matchmaker: Matchmaker;
-    readonly lobbyFacade: () => LobbyFacade | null;
-}
-
-/**
- * Mirror of the production `buildStack` recipe in `scripts/host.ts`
- * (012 T018): the same matchmaker ⇄ match-server ⇄ lazy-lobby-facade
- * wiring the launcher uses, booted on a CALLER-OWNED http.Server so the
- * test controls the port and lifecycle. The production `buildStack` is
- * not exported (launcher-internal), so this harness reproduces its exact
- * wiring — the REAL exported `prepareMatch` (the code under test) drives
- * match creation/fill against it.
- *
- * @param httpServer The single externally owned http.Server (HTTP + WS).
- * @returns The bound server + matchmaker and a lobby-facade accessor.
- */
-function buildStack(httpServer: HttpServer): BootedStack {
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-    const wiring: { matchmaker: Matchmaker | null; lobby: LobbyFacade | null } = { matchmaker: null, lobby: null };
-
-    // Single-port seam (011 FR-002): host owns the http.Server.
-    const deps: ServerDeps = {
-        engine: {
-            // Real sessions arrive pre-built from matchmaking auto-start.
-            createMatchSession: () => {
-                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-        httpServer,
-        lobby: {
-            create: (sink) => {
-                const matchmaker = wiring.matchmaker;
-                if (matchmaker === null) {
-                    throw new Error('host wiring bug: lobby frame arrived before the matchmaker was bound');
-                }
-                const facade = createLobbyService({ matchmaker, deliver: sink.deliver });
-                wiring.lobby = facade;
-                return facade;
-            },
-        },
-    };
-
-    const server = createMatchServer(
-        {
-            ...NETWORK_DEFAULT_CONFIG,
-            host: '127.0.0.1',
-            port: 0,
-            tickRateMs: TICK_MS,
-            heartbeatIntervalMs: HEARTBEAT_MS,
-            wsIdleTimeoutMs: IDLE_TIMEOUT_MS,
-            ordersPerSecond: 1000,
-        },
-        deps,
-    );
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
-    });
-
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    wiring.matchmaker = matchmaker;
-    return { httpServer, server, matchmaker, lobbyFacade: () => wiring.lobby };
-}
+type BootedStack = LobbyStack & { readonly httpServer: HttpServer };
 
 /**
  * Listen the externally owned http.Server on an ephemeral port, start the
@@ -459,7 +362,10 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
     const httpServer = createHttpServer((req, res) => {
         void serveStatic(req, res);
     });
-    const stack = buildStack(httpServer);
+    const stack = buildLobbyStack({
+        httpServer,
+        config: { heartbeatIntervalMs: HEARTBEAT_MS, wsIdleTimeoutMs: IDLE_TIMEOUT_MS },
+    });
     const port = await listen(stack);
 
     // -- Version route on the SAME port as WS (feature 009 FR-006) --------

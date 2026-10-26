@@ -15,20 +15,9 @@
  * Determinism: poll conditions, no arbitrary sleeps.
  */
 
-import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
-
-import { computePlayerView } from '@europa/fog';
-import { createMatchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
+
+import { buildLobbyStack } from './helpers/lobby-stack';
 
 /** Fixed test cadence; server tickRateMs MUST equal match tickIntervalMs. */
 const TICK_MS = 100;
@@ -39,60 +28,6 @@ const TICK_MS = 100;
  * regeneration attempts, so the proof runs at the production default.
  */
 const BOARD_SIZE = 32;
-
-// ---------------------------------------------------------------------------
-// Harness: matchmaking ↔ networking bridge wiring (same as full-stack)
-// ---------------------------------------------------------------------------
-
-function buildStack(): {
-    httpServer: HttpServer;
-    server: Server;
-    matchmaker: ReturnType<typeof createMatchmaker>;
-} {
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-
-    const httpServer: HttpServer = createHttpServer();
-
-    const deps: ServerDeps = {
-        engine: {
-            createMatchSession: () => {
-                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-        httpServer,
-    };
-
-    const server = createMatchServer(
-        {
-            ...NETWORK_DEFAULT_CONFIG,
-            host: '127.0.0.1',
-            port: 0,
-            tickRateMs: TICK_MS,
-            ordersPerSecond: 1000,
-        },
-        deps,
-    );
-
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
-    });
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    return { httpServer, server, matchmaker };
-}
 
 // ---------------------------------------------------------------------------
 // Browser-side helpers
@@ -220,7 +155,10 @@ async function getGameOverModalTitle(page: Page): Promise<string> {
 test('2-player surrender: both players see correct game-over result', async ({ browser }) => {
     test.setTimeout(90_000);
 
-    const { httpServer, server, matchmaker } = buildStack();
+    const { httpServer, server, matchmaker } = buildLobbyStack({
+        httpServer: 'create',
+        config: { tickRateMs: TICK_MS },
+    });
     await new Promise<void>((resolve, reject) => {
         httpServer.once('error', reject);
         httpServer.listen(0, '127.0.0.1', () => resolve());

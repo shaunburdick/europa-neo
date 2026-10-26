@@ -78,7 +78,9 @@ export const MAX_REGEN_ATTEMPTS_MIN = 1;
 export const MAX_REGEN_ATTEMPTS_MAX = 20;
 
 /** `terrainSmoothing` safe range. Integers in `[0, 8]` (FR-010). */
+/** @lintignore Test seam: clamp tests assert the lower bound. */
 export const TERRAIN_SMOOTHING_MIN = 0;
+/** @lintignore Test seam: clamp tests assert the upper bound. */
 export const TERRAIN_SMOOTHING_MAX = 8;
 
 // ----------------------------------------------------------------------------
@@ -207,6 +209,7 @@ export function clampMaxRegenAttempts(v: number): number {
  * @param v The input value (any number).
  * @returns An integer in `[TERRAIN_SMOOTHING_MIN, TERRAIN_SMOOTHING_MAX]`.
  */
+/** @lintignore Test seam: clamp tests assert smoothing bounds. */
 export function clampTerrainSmoothing(v: number): number {
     return clampInt(v, TERRAIN_SMOOTHING_MIN, TERRAIN_SMOOTHING_MAX);
 }

@@ -68,7 +68,7 @@ export interface CellViewProps {
  * @param info The cell's render data.
  * @param playerNames Optional name map from the session state.
  */
-export function formatCellAriaLabel(info: CellRenderInfo, playerNames?: ReadonlyMap<PlayerId, string>): string {
+function formatCellAriaLabel(info: CellRenderInfo, playerNames?: ReadonlyMap<PlayerId, string>): string {
     const parts: string[] = [`Cell (${info.coord.x}, ${info.coord.y})`, `${info.troops} troops`];
     parts.push(info.owner !== null ? (playerNames?.get(info.owner) ?? info.owner) : 'unowned');
     if (info.isCity) {

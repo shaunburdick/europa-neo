@@ -36,10 +36,13 @@ export const VOID_COLOR = TOKENS.color.voidBg;
  * Page chrome background (mirrors `body` in styles/index.css; CSS
  * stays the styling source of truth). Kept here so the void-vs-page
  * distinctness invariant is testable — see palette.test.ts.
+ *
+ * @public Palette seam asserted by palette tests; mirrors the page background token.
  */
 export const PAGE_BACKGROUND_COLOR = TOKENS.color.pageBg;
 
 /** Water fill — reads unambiguously as blue. */
+/** @lintignore Test seam: palette tests assert water fill and depth shades. */
 export const WATER_COLOR = TOKENS.color.water;
 
 /**
@@ -49,6 +52,7 @@ export const WATER_COLOR = TOKENS.color.water;
  * Each zone has a distinct hue family aligned with the pipe flow
  * formula's behavioral transitions.
  */
+/** @lintignore Test seam: relief tests read zone elevation bounds. */
 export const BIOME_ZONES = TOKENS.color.biomeZones;
 
 /**
@@ -72,7 +76,6 @@ export const PIPE_OUTLINE_COLOR = TOKENS.color.pipeOutline;
 
 /** City outline + pipe indicator color — amber family. */
 export const CITY_COLOR = TOKENS.color.city;
-export const PIPE_COLOR = TOKENS.color.accent;
 
 /**
  * Pipe slope indicator colors (005 FR-013) — downhill green, flat
@@ -127,6 +130,8 @@ export const LAND_BAND_COUNT = BIOME_ZONES.length;
  * Each zone has a single representative lightness (the zone's midpoint).
  * Retained for backward compatibility; prefer `biomeZoneForElevation()`
  * for per-cell lightness computation.
+ *
+ * @public Palette seam asserted by palette tests; zone midpoint lightness values.
  */
 export const LAND_BAND_LIGHTNESS = [
     Math.round((biomeZoneAt(0).lightnessMin + biomeZoneAt(0).lightnessMax) / 2),
@@ -134,9 +139,6 @@ export const LAND_BAND_LIGHTNESS = [
     Math.round((biomeZoneAt(2).lightnessMin + biomeZoneAt(2).lightnessMax) / 2),
     Math.round((biomeZoneAt(3).lightnessMin + biomeZoneAt(3).lightnessMax) / 2),
 ] as const;
-
-/** City glow color (semi-transparent amber overlay). */
-export const CITY_GLOW_COLOR = TOKENS.color.cityGlow;
 
 /** City glow strong color (center dot + border glow). */
 export const CITY_GLOW_STRONG_COLOR = TOKENS.color.cityGlowStrong;
@@ -169,6 +171,7 @@ export const GENERIC_EFFECT_COLOR = TOKENS.color.genericEffect;
  * @param elevation Integer 0–255. Values < 0 clamp to zone 0; values > 255 clamp to zone 3.
  * @returns Biome zone index (0–3), hue, saturation percentage, and interpolated lightness.
  */
+/** @lintignore Test seam: palette tests assert zone boundaries. */
 export function biomeZoneForElevation(elevation: number): {
     zone: number;
     hue: number;
@@ -217,6 +220,7 @@ export function terrainColor(terrain: 'land' | 'water', elevation: number): stri
  *
  * @param depth 0 (shallow), 1 (standard), 2 (deep). Clamped to [0, 2].
  * @returns Hex color string from design tokens.
+ * @public Palette seam asserted by palette tests; depth-to-water-shade mapping.
  */
 export function waterDepthColor(depth: number): string {
     const clamped = Math.max(0, Math.min(2, depth));

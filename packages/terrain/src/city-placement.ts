@@ -356,6 +356,3 @@ export function placeCitiesInBand(
         owner,
     }));
 }
-
-// Re-export `chebyshev` for use by other modules.
-export { chebyshev };

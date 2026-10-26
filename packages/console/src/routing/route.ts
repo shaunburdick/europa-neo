@@ -26,12 +26,20 @@ export type Route =
 const JOIN_SUFFIX = 'join';
 const SPECTATE_SUFFIX = 'spectate';
 
-/** Builds the canonical public lobby URL for an origin. */
+/**
+ * Builds the canonical public lobby URL for an origin.
+ *
+ * @public Canonical URL builder exercised by routing tests.
+ */
 export function buildLobbyUrl(origin: string): string {
     return `${normalizeOrigin(origin)}/lobby`;
 }
 
-/** Builds the canonical profile URL for an origin. */
+/**
+ * Builds the canonical profile URL for an origin.
+ *
+ * @public Canonical URL builder exercised by routing tests.
+ */
 export function buildProfileUrl(origin: string): string {
     return `${normalizeOrigin(origin)}/profile`;
 }

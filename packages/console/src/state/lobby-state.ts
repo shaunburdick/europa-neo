@@ -67,7 +67,7 @@ export type LobbyIdentityStatus = 'unnamed' | 'named' | 'restoring';
  * the URL stays as `/match/<matchId>` throughout; Back/Forward
  * re-resolves the route and dismisses the interstitial.
  */
-export interface DeepLinkInterstitial {
+interface DeepLinkInterstitial {
     /** The resolved route entry from `adaptRoute` (player or spectator). */
     readonly routeEntry: Extract<RouteEntry, { readonly kind: 'player' | 'spectator' }>;
     /** The target match identifier. */

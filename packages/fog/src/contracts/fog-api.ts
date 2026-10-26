@@ -338,13 +338,6 @@ export interface FogConstants {
    * `ENGINE_CONSTANTS.visibilityRadiusDefault`.
    */
   readonly defaultRadiusFallback: number;
-  /**
-   * Default sensor radius used by quickstart scenarios and tests where
-   * the engine's default is not the value under test. Documented as
-   * matching the original Europa's radius (a few cells in each
-   * direction).
-   */
-  readonly testRadius: number;
 }
 
 export declare const FOG_CONSTANTS: FogConstants;

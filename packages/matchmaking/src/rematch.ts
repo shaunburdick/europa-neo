@@ -149,17 +149,3 @@ export function castDeclineVote(
 export function isWindowClosed(offer: RematchOffer, nowMs: number): boolean {
     return nowMs > offer.windowExpiresAtMs;
 }
-
-/**
- * Whether the offer is fully spent at `nowMs`: either the window
- * lapsed unresolved or the rematch already resolved into a new match.
- * Drives the matchmaker's lazy expiry sweep (check-on-access via read
- * paths — no timers, dispatch ruling 1).
- *
- * @param offer - The offer to check.
- * @param nowMs - Current injected-clock reading.
- * @returns `true` iff the offer can no longer accept useful votes.
- */
-export function isOfferExpired(offer: RematchOffer, nowMs: number): boolean {
-    return isWindowClosed(offer, nowMs) || offer.newMatchRecord !== null;
-}

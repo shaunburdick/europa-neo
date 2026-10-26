@@ -5,8 +5,8 @@
  * `engine-to-fog.ts`. It exists so that `@europa/fog` consumers
  * (feature 004 networking, feature 005 console) can import the
  * engine ↔ fog boundary contract from a single canonical location
- * (`@europa/fog/contracts/engine-to-fog`) without taking a direct
- * type dependency on `@europa/engine`.
+ * (the `@europa/fog` root export) without taking a direct type
+ * dependency on `@europa/engine`.
  *
  * The two files MUST remain byte-identical. Drift between this file
  * and feature 001's `engine-to-fog.ts` is caught by
@@ -133,7 +133,7 @@ export declare function computeVisibleSet(
 
 /**
  * Re-export the engine types that fog's public surface depends on, so
- * consumers can `import { World, Coord, PlayerId } from '@europa/fog/contracts/engine-to-fog'`
+ * consumers can `import { World, Coord, PlayerId } from '@europa/fog'`
  * without taking a direct dependency on `@europa/engine`.
  */
 export type { CellView, Coord, MatchConfig, PlayerId, TickEvents, World };

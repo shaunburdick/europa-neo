@@ -25,7 +25,7 @@
 import type { GuestPlayerId } from '../contracts/lobby-types';
 
 /** Connection status of one guest identity inside the registry. */
-export type GuestIdentityStatus =
+type GuestIdentityStatus =
     /** Connected/present: lobby-bound or committed to a match. */
     | 'active'
     /**

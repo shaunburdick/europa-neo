@@ -34,9 +34,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type MatchVisibility = 'public' | 'private';
 
 /** Visual variant of the copy-link button. */
-export type CopyLinkVariant = 'prominent' | 'subtle';
+type CopyLinkVariant = 'prominent' | 'subtle';
 
 /** Result of a copy attempt, passed to the optional callback. */
+/** @lintignore Test seam: copy-link tests assert the result shape. */
 export interface CopyLinkResult {
     /** Whether the clipboard write succeeded. */
     readonly ok: boolean;
