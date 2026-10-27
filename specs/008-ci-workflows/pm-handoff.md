@@ -2,74 +2,75 @@
 
 - Spec: `specs/008-ci-workflows/spec.md` — v1.8, amended 2026-10-27 for a three-way e2e
   shard (FR-046/AC-047) and a dated `manual-ci.yml` exception to NFR-012.
-- Plan / Tasks: `plan.md`, `tasks.md`. **Stale on one point**: §D-9, §D-15 and T-004 still
-  describe the two-way shard; the spec's three-way amendment governs.
-- Branch: `ci/223-ci-base-image` off `origin/main` (`45ece60`), PR **#224** (draft).
+- Plan / Tasks: `plan.md`, `tasks.md` — reconciled with the shipped shape.
+- Branch: `ci/223-ci-base-image` off `origin/main` (`45ece60`), PR **#224**, ready for
+  review, **not merged**. Evidence lives in `pr-body.md`.
 - Constitution: `.specify/memory/constitution.md` · Repo rules: `AGENTS.md`.
 - Tracking issue: https://github.com/shaunburdick/europa-neo/issues/223
 
 ## Phase
 
-Phase 6, one change set carried in four pushes. P1 (image, in-image toolchain, pinned
-labels), P2 (split, two-way shard, config parity), P2b (three-way shard), P3 (timeouts)
-and P4 (docs, pin rationale) are pushed and green. Remaining: T-006 drills, T-007 (ten
-green component/a11y/perf runs), T-008 (sample + attribution + check names), T-009
-(close-out).
+**Phase 6 complete** — T-001…T-009 delivered on one branch in five substantive pushes
+(P1 image, P2 split, P2b three-way shard, P3 timeouts, P4 docs) plus evidence and fix
+commits; every push green, the branch head green. Two things remain and neither is code:
+the maintainer's branch-protection swap, and one post-merge measurement (below).
 
 ## Shipped shape
 
-- **Image**: browser work runs in `mcr.microsoft.com/playwright:v1.62.1-noble` — four
-  definitions (`client-ci.yml` design-browser-test, console-e2e, console-browser,
-  console-coverage) plus `manual-ci.yml` `verify`: **seven image jobs per Client CI run**
-  (the e2e definition is a three-leg matrix).
-- **In-image toolchain**: `.github/actions/build-workspace` takes `runtime: none`, which
-  passes `pnpm/setup` no runtime and `node-version-file: false` — pnpm 11.22.0 is fetched
-  as a native binary and the image's Node 24.18.1 is used. No Node install, no apt, no
-  Playwright install anywhere under `.github/workflows/`.
-- **Split**: `Test suites (console — e2e)` (three-way matrix, `--shard=<n>/3`,
-  `fail-fast: false`, `workers` still 2, contract conformance in every leg) and
+- **Image**: `mcr.microsoft.com/playwright:v1.62.1-noble` for every browser-launching job —
+  four definitions in `client-ci.yml` (design-browser-test, console-e2e, console-browser,
+  console-coverage) plus `manual-ci.yml` `verify`: **seven image jobs per Client CI run**.
+- **In-image toolchain**: `.github/actions/build-workspace` takes `runtime: none` →
+  `pnpm/setup` with no runtime and `node-version-file: false`; pnpm 11.22.0 is fetched as a
+  native binary and the image's Node 24.18.1 is used. No Node, apt or Playwright install
+  anywhere under `.github/workflows/`.
+- **Split**: `Test suites (console — e2e)` (matrix `[1, 2, 3]`, `--shard=<n>/3`,
+  `fail-fast: false`, `workers` 2, contract conformance in every leg) and
   `Test suites (console — browser: component/a11y/perf)` (`test:component`, `test:a11y`,
-  `test:perf` at `EUROPA_PERF_BUDGET_FACTOR=2`). The combined job is gone; step names
-  carried over unchanged.
-- **Reload class**: both browser configs pre-bundle the same four React entries in
-  `optimizeDeps.include` (FR-043). Zero `optimized dependencies changed` lines in every
-  run since.
+  `test:perf` at `EUROPA_PERF_BUDGET_FACTOR=2`). Combined job gone; step names carried over.
+- **Reload class**: both browser configs pre-bundle the same four React entries (FR-043).
+- **Container fix**: every in-image job trusts the checkout
+  (`git config --global --add safe.directory "$GITHUB_WORKSPACE"`) — root in a container
+  over a runner-owned checkout is refused by git, and suites shell out to it.
+- **Version guard**: the tag/CLI comparison now exits non-zero on a mismatch. It did not
+  before the drill found `test A && test B` to be exempt from `set -e`.
 - **Labels**: every `runs-on` in the nine package workflows is `ubuntu-24.04`, with the
-  pin's reason in one comment per file. The six non-package workflows are untouched.
-- **Timeouts**: re-derived from measured maxima (plan §D-7). The two new definitions carry
-  computed values (`console-e2e` 5 min against 198 s, `console-browser` 4 min against
-  161 s); the other 36 values were above their maxima and are kept; the nine `changes`
-  jobs gained 2 min where they had none.
-- **`manual-ci.yml`** stays in the image under NFR-012's dated exception: 61 s → 96 s
-  against a 71 s allowance, because a ~26 s anonymous pull replaced a Playwright install
-  whose cache key hashed a path that does not exist.
+  pin's reason in one comment per file.
+- **Timeouts**: 28 kept, 2 computed (`console-e2e` 5 min from 198 s, `console-browser`
+  4 min from 161 s), 9 `changes` clocks added at 2 min; none below its measured maximum.
+- **`manual-ci.yml`** stays in the image under NFR-012's dated exception: 61 → 96 s
+  against a 71 s allowance, measured 94–140 s across five runs.
 
-## Measurements so far (Client CI, `pull_request`)
+## Measurements
 
-| Run | Shape | Wall clock | Slowest job |
-| --- | --- | --- | --- |
-| `40540579650` | P1 | failed — git ownership in the container (fixed in `6614c08`) | — |
-| `40542172649` | P1 | 159 s (after one job rerun) | browser 285 s |
-| `40545266584` | P2 two-way | 249 s | e2e (2) 192 s |
-| `40546399155` | P2 follow-up | 250 s | e2e (2) 198 s |
-| `40548273445` | P2b three-way | **187 s** | e2e (3) 173 s |
+| Push | Run | Client CI | Legs | Slowest job |
+| --- | --- | --- | --- | --- |
+| P1 | `40542172649` | 159 s (one job rerun) | — | browser 285 s |
+| P2 two-way | `40545266584` | 249 s | 170 / 192 | e2e (2) 192 s |
+| P2b three-way | `40548273445` | **187 s** | 135 / 157 / 173 | e2e (3) 173 s |
+| P3 | `40549605350` | 202 s | 124 / 151 / 187 | e2e (3) 187 s |
+| P4 | `40550565526` | 215 s | 147 / 146 / 186 | e2e (3) 186 s |
 
-Baseline: 306 s median, 337 s allowance. Reload lines: **0 in every run since the config
-parity** — three so far (`40545266584`, `40546399155`, `40548273445`); T-007 needs ten.
+Baseline 306 s median, allowance 337 s. Client CI's three-sample median is **202 s**, best
+187 s. The third leg bought 19 s, not the ~40–50 s forecast, because each leg pays ~74 s of
+pull + prologue + console build and the expensive specs cluster in one leg.
 
-## Open for the next slice
+Reload lines: **0 in 10 consecutive green component/a11y/perf attempts** (job ids in
+`pr-body.md` § Flake closure).
 
-- **T-006 drills** (scratch branch, never on the PR branch): negative tag drill
-  (`v1.61.1-noble` against the 1.62.1 catalog) and the shard-coverage check.
-- **T-007**: ten consecutive green `component/a11y/perf` runs, each log grepped for the
-  reload line.
-- **T-008**: three-run sample + attribution per workflow, AC-040(b) step-name diff,
-  check-name photograph from the jobs API.
-- **T-009**: full `pnpm verify`, truthfulness audit, NFR-012 verdicts (manual exempt),
-  branch-protection order, dated comment on #223.
-- **Branch protection**: add `Test suites (console — e2e) (1)`, `(2)`, `(3)` and
-  `Test suites (console — browser: component/a11y/perf)` before merge; remove
-  `Test suites (console — browser)` after.
-- **Doc sync**: plan §D-9/§D-15 and tasks T-004 say two-way; spec Edge Case "Matrix check
-  names" still says "two required checks"; FR-045/AC-046 still say the e2e job runs
-  `test:e2e` where it runs `exec playwright test --shard`.
+**NFR-012 does not hold on six non-client workflows in this sample** (Core 90, Engine 123,
+Fog 80, Matchmaking 114, Network 157, Manual 134 s). The attribution is start-up latency,
+not job work: job durations match the baseline (Network test 78 vs 79 s, Engine test 36 vs
+37 s, Fog coverage 41 vs 41 s), while one Engine run waited 302 s for a runner. Every push
+touched all nine workflow files, so all 13 workflows fired together — not a normal PR. The
+separable re-measurement is one post-merge PR touching a single workflow; if it is still
+above allowance, the `ubuntu-24.04` pin is a cost and FR-038 needs revisiting.
+
+## Post-merge (maintainer)
+
+1. **Branch protection, in this order**: add `Test suites (console — e2e) (1)`, `(2)`,
+   `(3)` and `Test suites (console — browser: component/a11y/perf)` before merge; after
+   merge remove `Test suites (console — browser)`. No other check name moves.
+2. **The NFR-012 re-measurement** described above, on a PR that touches one workflow.
+3. Nothing else: no publish step, no image to rebuild, no follow-up code. A Playwright
+   bump is a tag change plus the catalog entry inside its own Dependabot-style PR.

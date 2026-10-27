@@ -1,9 +1,48 @@
-# CI: browser image, job split and two-way e2e shard (#223)
+# CI: browser image, job split and three-way e2e shard (#223)
 
 Spec: `specs/008-ci-workflows/spec.md` v1.8 · Plan: `plan.md` · Tasks: `tasks.md`
 Scope: the nine package workflows, `.github/actions/build-workspace`, one console vitest
-config. No workflow is added — the inventory stays 15. This is a draft: P1 (the image)
-is the first tree change; P2–P4 and the drills land on the same branch.
+config, `CONTRIBUTING.md`, and the spec/plan/tasks records. No workflow is added — the
+inventory stays 15.
+
+## What changed and why
+
+CI was flaky on failures its gates did not own, and paid the same setup 29 times a run.
+Playwright was installed at four sites — two with `--with-deps` (apt system libraries on
+every run), two without, so browser launch depended on whatever the runner image happened
+to carry — and three `~/.cache/ms-playwright` caches keyed on a lockfile hash with no
+Playwright version and no `restore-keys`. The browser job was the critical path: 302 s
+against the next-largest job's 118 s in run `40399256099`.
+
+This change set runs every browser-launching job inside the upstream
+`mcr.microsoft.com/playwright:v1.62.1-noble` image — Chromium, its system libraries and a
+Node runtime come from the image, and nothing installs at run time — splits that 302 s job
+into an e2e job (sharded three ways) and a component/a11y/perf job, gives the coverage
+config the dependency pre-bundle its sibling already had, pins every host label to
+`ubuntu-24.04`, and re-derives every job timeout from measured maxima. Same gates, same
+thresholds, same 15 workflows.
+
+## Outcome
+
+| Measure | Before | After |
+| --- | --- | --- |
+| Client CI wall clock, PR runs | 306 s median (allowance 337 s) | **202 s median** of the first three shipped-shape runs (P2b/P3/P4: 187, 202, 215 s); best **187 s**; 187–218 s over six green runs |
+| Longest job | `Test suites (console — browser)` **302 s** | `Test suites (console — e2e)` leg **173–187 s** |
+| Browser job shape | one job, four browser suites in series | three e2e legs of 20 tests + one component/a11y/perf job |
+| Playwright installs / browser caches per run | 4 install sites, 3 caches | **0 / 0** — the image supplies Chromium |
+| Browser-job runtime | runner's `node@22` via `pnpm/setup` | image's Node 24.18.1, pnpm 11.22.0, no Node install |
+| Dependency-optimizer reloads | observed twice in P1 | **0 in 10 consecutive** green component/a11y/perf attempts |
+| Job timeouts | 36 clocks; 9 jobs with none | 28 kept, 2 computed, 9 `changes` clocks added; none below its measured maximum |
+
+The three-way shard bought **19 s** on the longest leg (192 → 173 s), not the ~40–50 s the
+two-way arithmetic implied: every leg pays the same ~74 s of image pull, prologue and
+console build, and the expensive specs (`selfhost.spec.ts`'s production build, the
+`full-stack*` server boots) still cluster in one leg — legs ran 135 / 157 / 173 s, the
+third carrying ≈94 s of test time against the first's ≈56 s.
+
+The one thing this PR cannot claim on its own sample is the per-workflow NFR-012 bound:
+see § NFR-012 verdict — six of the eight non-client workflows measured above their
+allowance, and the attribution is start-up latency under a 13-workflow burst, not job work.
 
 ## Baselines
 
@@ -544,3 +583,180 @@ a hung `changes` job gates every other job in its workflow.
 Confirmation samples: P3's and P4's own runs. A value either run exceeds is raised
 before close-out (T-009).
 
+## Drills (T-006)
+
+### Tag mismatch (AC-036) — and the defect the drill found
+
+A scratch branch `ci/223-drill` (never pushed) pointed all four `client-ci.yml` container
+tags at `v1.61.1-noble` while the catalog resolves `@playwright/test` 1.62.1. The job's
+version-agreement step was extracted from that workflow and run in the image with the
+shell flags GitHub uses (`bash -e -o pipefail`), against a disposable copy with
+dependencies installed:
+
+```
+=== step as shipped in P1..P4 (tag v1.61.1-noble) ===
+$ bash -eo pipefail step.sh
+v24.18.1
+EXIT=0
+```
+
+Exit 0 with a drifted tag: **the guard was inert.** `test "$tag" = "$expected" && test
+"$cli" = "$expected"` is an AND-OR list, and bash's `set -e` ignores a failure in every
+command of such a list except the last, so the mismatch neither aborted the step nor
+printed anything. With `-x` the trace shows the comparison failing and execution carrying
+on:
+
+```
++ tag=1.61.1
++ test 1.61.1 = 1.62.1
++ pnpm --filter @europa/console why playwright-core
+...
++ node --version
+v24.18.1
+```
+
+Fixed in `d28deb6`: each comparison is its own list ending in `exit 1`, with both values
+in the message. Same copy, same shell, first the shipped tag then the drill tag:
+
+```
+=== control: tag v1.62.1 (as shipped) ===
+$ bash -eo pipefail step-drill.sh
+v24.18.1
+EXIT=0
+
+=== drill: tag v1.61.1-noble, catalog 1.62.1 ===
+$ bash -eo pipefail step-drill.sh
+::error::image tag 1.61.1 != resolved @playwright/test 1.62.1
+EXIT=1
+```
+
+The broken tag never reached the branch: `git log origin/main..HEAD` contains no
+`v1.61.1` and no drill commit, and the scratch branch was deleted.
+
+### Shard coverage (AC-046/AC-047)
+
+CI's dot reporter prints counts, not titles, so the partition is proven with Playwright's
+own `--list` (nothing runs, no server boots) against the shipped tree:
+
+```bash
+for n in 1 2 3; do
+  pnpm --filter @europa/console exec playwright test --list --shard=$n/3 | sort > /tmp/leg-$n.txt
+done
+pnpm --filter @europa/console exec playwright test --list | sort > /tmp/leg-all.txt
+```
+
+| Check | Result |
+| --- | --- |
+| What each leg reports | CI logs: "Running 20 tests using 2 workers, shard n of 3" then "20 passed" |
+| Union of the three legs | **60 tests** |
+| Suite total (`--list`, no shard) | **60 tests** |
+| Pairwise overlap (1∩2, 1∩3, 2∩3) | **0, 0, 0** |
+| Gap (suite − union) | **0** |
+| Spec files per leg | 7 / 3 / 8 — **16 distinct** across the legs (a file can span legs; `--shard` divides by test, not file) |
+
+## Flake closure (FR-043, T-007)
+
+Ten consecutive green attempts of `Test suites (console — browser: component/a11y/perf)`,
+each log grepped for both `optimized dependencies changed` and `dependency optimized`:
+
+| # | Job id | Run | Duration | Reload lines |
+| --- | --- | --- | --- | --- |
+| 1 | `122334175673` | P2 `40545266584` | 161 s | 0 |
+| 2 | `122338203357` | P2 follow-up `40546399155` | 161 s | 0 |
+| 3 | `122344808068` | P2b `40548273445` | 120 s | 0 |
+| 4 | `122349538944` | P3 `40549605350` | 164 s | 0 |
+| 5 | `122352920878` | P4 `40550565526` | 123 s | 0 |
+| 6 | `122356899913` | tally fix `40551676699` | 175 s | 0 |
+| 7 | `122365918574` | guard fix `40554154072` | 165 s | 0 |
+| 8 | `122368377913` | rerun of job 7 | 131 s | 0 |
+| 9 | `122369816857` | rerun of job 7 | 134 s | 0 |
+| 10 | `122371242652` | rerun of job 7 | 162 s | 0 |
+
+**Zero reload lines in all ten**, and the cause is on record: `packages/console/vitest.config.coverage.ts`'s
+browser project now pre-bundles the same four React entries as `vitest.config.browser.ts`
+(FR-043), while P1's pre-fix run `40540579650` reloaded twice on `react-dom/client` and
+cost `waiting-overlay.test.tsx` its 15 tests. Local control on that file: 2 reload lines
+with the block stashed, 0 with it.
+
+## NFR-012 verdict
+
+Medians of the three shipped-shape PR runs (P2b `c02ede9`, P3 `608fcac`, P4 `53446ee`),
+wall clock as `run_started_at` → `updated_at`; the longest job's median is the attribution
+column:
+
+| Workflow | median clock | median longest job | start-up/idle | baseline | allowance | verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| Client CI | **202 s** | 186 s | 16 s | 306 s | 337 s | **inside** |
+| Manual CI | 134 s | 86 s | 48 s | 61 s | 71 s | above — the dated exception |
+| Core CI | 90 s | 32 s | 58 s | 74 s | 84 s | above |
+| Engine CI | 123 s | 44 s | 79 s | 75 s | 85 s | above |
+| Terrain CI | 86 s | 52 s | 34 s | 97 s | 107 s | **inside** |
+| Network CI | 157 s | 78 s | 79 s | 92 s | 102 s | above |
+| Matchmaking CI | 114 s | 55 s | 59 s | 94 s | 104 s | above |
+| Fog CI | 80 s | 38 s | 42 s | 51 s | 61 s | above |
+| Logging CI | 48 s | 33 s | 15 s | 39 s | 49 s | **inside** |
+
+**Attribution, and why the bound is not met on six rows.** The job work is unchanged:
+Network's `Test (networking)` medians 78 s against 79 s in the baseline sample, Engine's
+`Test (engine)` 36 s against 37 s, Fog's coverage 41 s against 41 s, Matchmaking's lint
+55 s against 58 s. Every excess sits in start-up: first-job start plus runner queueing.
+The clearest single sample is Engine CI's P2b run `40548273436`, where `Coverage gate
+(engine ≥ 80%)` sat **302 s waiting for a runner** (started at +314 s, ran 52 s) while its
+siblings started at +52–62 s, giving 367 s of clock for 98 s of work.
+
+The cause is this change set's own shape: every push touches all nine workflow files plus
+the shared action, so all 13 workflows fire at once — ~50 jobs, seven of them pulling a
+2–3 GB image — on every push. The baseline runs were ordinary PRs where one or two
+workflows had `changed == true`. Part of the start-up cost may also be the pinned
+`ubuntu-24.04` label's runner pool rather than the burst; that share is not separable from
+this PR's data.
+
+**Escalation, per AC-045/T-009:** the six rows are recorded above with their run ids and
+attribution rather than averaged away. The separable next measurement is one post-merge PR
+that touches a single workflow, which exercises that workflow's gates alone; if its median
+is still above allowance then the pin, not the burst, is the cost and FR-038's label
+decision needs revisiting. Nothing in this PR promises the bound was met.
+
+## Close-out (T-009)
+
+- **`bash scripts/verify.sh` — exit 0, all 14 phases green.** Phase 7's Playwright
+  E2E run: **60 passed** (the suite the three CI legs split 20/20/20); Phase 8's perf
+  budgets pass at the strict factor 1 locally (paint min-round-median **4.100 ms** against
+  the 8 ms budget, relief addition 5.067 ms against 6 ms); Phase 10's package suites:
+  362 tests across 34 files. Phases 11–14 (privacy, spec consolidation, referenced
+  contracts, knip) green. Run on the branch head before the close-out commit, so the
+  commit that carries this line is docs-only and re-runs the pre-push gate.
+
+Truthfulness sweep:
+
+| Check | Result |
+| --- | --- |
+| Workflow files | **15** (`ls .github/workflows/*.yml \| wc -l`) |
+| FR-028's normative enumeration vs the tree | **set-equal**, 15 names each (the line's extra names — `contract-guard.yml`, `dead-exports.yml` — appear only in its dated v1.5/v1.6 amendment notes) |
+| `README.md` / `AGENTS.md` in the diff | untouched — their "15 CI workflows" text still reads 15 |
+| `CONTRIBUTING.md` | points at FR-028; the stale per-workflow list is gone; § Pull requests left alone |
+| Stale `two-way` / `both legs` / `--shard/2` under `.github/` | none |
+| `packages: write` | 2 lines, both in `docker.yml`'s existing publish jobs |
+| Self-hosted runner labels | none |
+| `docs/manual/**` and `packages/*/tests/**` in the diff | none |
+| Spec, plan, tasks, pm-handoff | committed with the change set; working tree clean |
+
+## Branch protection (maintainer action)
+
+The split and the three-way shard move the required-check list. GitHub appends the matrix
+**value** to the job name, so the legs are `(1)`, `(2)`, `(3)` — the `n/3` form appears only
+inside the `--shard` argument:
+
+| Before | After |
+| --- | --- |
+| `Test suites (console — browser)` | *(removed)* |
+| — | `Test suites (console — e2e) (1)` |
+| — | `Test suites (console — e2e) (2)` |
+| — | `Test suites (console — e2e) (3)` |
+| — | `Test suites (console — browser: component/a11y/perf)` |
+
+**Add the four new names before merge** (they have been reporting and green since P2b), and
+**remove `Test suites (console — browser)` after merge** — from that merge onward it can
+never report, and a required check that cannot report blocks every PR. No other job in any
+of the nine package workflows changed name, was added or removed; `manual-ci.yml` keeps
+`Build + link verification`; the six non-package workflows are untouched.
