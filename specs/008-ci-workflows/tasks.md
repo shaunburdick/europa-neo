@@ -1,320 +1,184 @@
-# Tasks: Coverage-Gate Integrity + Test Infrastructure Consolidation
+# Tasks — Browser Image, Job Split and Two-Way E2E Shard (spec 008 v1.8, issue #223)
 
-**Branch**: `issue-131-coverate-gate-integrity` | **Date**: 2026-09-11 | **Specs**: 008 v1.1, 016 v1.1
+**Plan**: `plan.md` (this amendment) · **Branch**: `ci/223-ci-base-image` off `origin/main` · **Spec**: 008 v1.8
+**Predecessor task list**: `tasks-coverage-gate-integrity.md` (v1.2/v1.3, kept as a record).
+One change set (FR-044), one merge point. The tree is green after **each of the four pushes** (P1–P4 — plan §D-17). Those four pushes are what supply the three measurable post-change runs AC-045 needs: every workflow gets **P1, P3, P4** (`changed == true` for each), and Client CI — which is also touched by P2 — uses its first three, P1–P3. No prepare job, no artifact.
 
----
+## Waves
 
-## Wave 1: Coverage Config Fixes
+| Wave | Tasks | Gate |
+| --- | --- | --- |
+| W0 — evidence, no tree change | T-001, T-002 `[P]` | Baselines and the in-image perf result recorded before the tree moves; a failing perf budget stops the work here |
+| W1 — P1 then P2 | T-003 → T-004 | P1 (image + toolchain + labels) green, then P2 (split + shard + config) green |
+| W2 — P3, P4 and drills | T-005, T-006 `[P]` | P3 (timeout values) then P4 (pin rationale + `CONTRIBUTING.md`) green; drills recorded from a scratch branch, never on the PR branch |
+| W3 — evidence runs | T-007, T-008 `[P]` | 10/10 green component runs, zero reload lines; three-run sample + attribution captured |
+| W4 — close-out | T-009 | Full local gate + truthfulness audit + NFR-012 verdict |
 
-Foundation — these changes affect what the coverage gate measures.
-
-- [ ] T-001: **Fix a11y glob in `vitest.config.coverage.ts`**
-  - File: `packages/console/vitest.config.coverage.ts`
-  - Change: browser project `include` array — line 67 `tests/a11y/**/*.test.ts` → `tests/a11y/**/*.test.{ts,tsx}`
-  - This aligns with `vitest.config.browser.ts` line 30 which already uses the correct glob
-  - Verify: run `pnpm --filter @europa/console test:a11y` — all 8 a11y files (3 `.ts` + 5 `.tsx`) execute
-
-- [ ] T-002: **Remove `src/internal/**` from `vitest.config.ts` coverage exclude**
-  - File: `packages/console/vitest.config.ts`
-  - Change: line 44 — remove `'src/internal/**'` from `exclude` array
-  - Keep `'src/main.tsx'` and `'**/*.d.ts'` exclusions
-  - Note: `vitest.config.ts` only covers `src/state/**`, `src/input/**`, etc. via its `include` — `src/internal/` isn't in the include list either, so this removal is a no-op for this config. Remove anyway for consistency.
-
-- [ ] T-003: **Remove `src/internal/**` from `vitest.config.browser.ts` coverage exclude**
-  - File: `packages/console/vitest.config.browser.ts`
-  - Change: line 39 — remove `'src/internal/**'` from `exclude` array
-  - Keep `'src/main.tsx'` and `'**/*.d.ts'` exclusions
-
-- [ ] T-004: **Remove `src/internal/**` from `vitest.config.coverage.ts` coverage exclude + add per-file exclusions**
-  - File: `packages/console/vitest.config.coverage.ts`
-  - Change: line 25 — remove `'src/internal/**'` from top-level `exclude` array
-  - Add per-file exclusions for DOM-bound entry points that cannot be tested without real-browser + real-socket integration:
-    ```
-    // Untestable: DOM-bound entry point exercised only by real-socket integration and E2E suites.
-    // Covers live-runtime.tsx (the legacy query-driven entry path).
-    'src/internal/live-runtime.tsx',
-    // Untestable: DOM-bound production mount for /lobby, /match/:id routes.
-    // Covered by real-matchmaker E2E suites (full-stack.spec.ts) and semantic-route tests.
-    'src/internal/lobby-runtime.tsx',
-    // Untestable: Dev-server demo mount — only exercised by the Vite dev server.
-    'src/internal/demo-runtime.tsx',
-    ```
-  - Keep `'src/main.tsx'` and `'**/*.d.ts'` exclusions
-  - Verify: `pnpm --filter @europa/console coverage` — `src/internal/` files appear in the report with non-zero hit counts for tested files (test-state.ts, fake-match-client.ts, lobby-layout.tsx, etc.)
-
-- [ ] T-005: **Verify coverage gate passes after config fixes**
-  - Run: `pnpm --filter @europa/console coverage`
-  - Assert: all four metrics ≥ 80%
-  - Assert: `src/internal/test-state.ts` shows non-zero coverage
-  - Assert: a11y `.tsx` files appear in the coverage report
-  - Record before/after metrics for PR description
+9 tasks. Parallel markers are per wave only; a task's `Depends` line is authoritative.
 
 ---
 
-## Wave 2: CI Workflow Changes
+## W0 — Evidence (before touching the tree)
 
-Depends on Wave 1 — coverage configs must be correct before adding CI jobs.
+### T-001 — Capture per-workflow baselines, the gate inventory and the browser job's step breakdown (NFR-012, AC-040, AC-045, AC-047)
 
-- [ ] T-006: **Add `design-coverage` job to `client-ci.yml`** [P]
-  - File: `.github/workflows/client-ci.yml`
-  - Add new job after `design-browser-test`:
-    ```yaml
-    design-coverage:
-      name: Coverage gate (design ≥ 80%)
-      needs: [changes]
-      if: needs.changes.outputs.changed == 'true'
-      runs-on: ubuntu-latest
-      timeout-minutes: 3
-      steps:
-        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
-          with:
-            runtime: 'node@22'
-            cache: true
-            require-lockfile: true
-        - name: Build @europa/design
-          run: pnpm --filter @europa/design build
-        - name: Coverage (design)
-          run: pnpm --filter @europa/design coverage
-    ```
-  - Verify: job runs and passes (design already has ≥80% coverage)
+- **Depends**: none · **Files**: `specs/008-ci-workflows/pr-body.md` (new) § Baselines, § Inventory, § Pre-change browser path
+- Per workflow, the last three green `pull_request` runs in which at least one non-`changes` job ran (`changed == true`): run ids, wall clock (`run_started_at` → `updated_at`), median, NFR-012 allowance (`median + max(10 s, 10%)`). Add run **40399256099** for Client CI as AC-040's named baseline.
+- From the most recent sample of each workflow, the job display names and each job's step names (`gh api /repos/shaunburdick/europa-neo/actions/runs/<id>/jobs --jq '.jobs[] | {name, steps: [.steps[].name]}'`), plus the per-step durations of `Test suites (console — browser)` in run 40399256099 (plan §2.5) as the attribution baseline.
+- Count the e2e specs: `ls packages/console/tests/e2e/*.spec.ts | wc -l` and per-file `test(` counts (plan §2.6).
+- **Done when**: nine rows with three run ids each (or a recorded shortfall), a median and an allowance per row; the inventory dump; the browser job's step table; the 16-file spec inventory. The evidence commit precedes every workflow edit.
+- **Verify**:
+  ```bash
+  sed -n '/^## Baselines/,/^## /p' specs/008-ci-workflows/pr-body.md
+  sed -n '/^## Pre-change browser path/,/^## /p' specs/008-ci-workflows/pr-body.md
+  ls packages/console/tests/e2e/*.spec.ts | wc -l          # 16
+  git log --format='%h %s' origin/main..HEAD               # evidence commit precedes the first "ci:" commit
+  ```
 
-- [ ] T-007: **Add `version-coverage` job to `client-ci.yml`** [P]
-  - File: `.github/workflows/client-ci.yml`
-  - Add new job:
-    ```yaml
-    version-coverage:
-      name: Coverage gate (version ≥ 80%)
-      needs: [changes]
-      if: needs.changes.outputs.changed == 'true'
-      runs-on: ubuntu-latest
-      timeout-minutes: 3
-      steps:
-        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
-          with:
-            runtime: 'node@22'
-            cache: true
-            require-lockfile: true
-        - name: Build @europa/version
-          run: pnpm --filter @europa/version build
-        - name: Coverage (version)
-          run: pnpm --filter @europa/version coverage
-    ```
-  - Verify: job runs and passes (version already has ≥80% coverage — 100%×4 per AGENTS.md)
+### T-002 — Record the image facts and measure `test:perf` inside the image (FR-036, FR-042, AC-036, AC-042, NFR-014)
 
-- [ ] T-008: **Add orphaned vitest config guard to `client-ci.yml`** [P]
-  - File: `.github/workflows/client-ci.yml`
-  - Add a step to an existing lightweight job (e.g., `console-lint`) or a new `config-guard` job:
-    ```yaml
-    - name: Orphaned vitest config guard
-      run: |
-        # Find all vitest config files
-        configs=$(find packages -name 'vitest.config*.ts' -not -path '*/node_modules/*' | sort)
-        orphaned=0
-        for config in $configs; do
-          pkg_dir=$(dirname "$config")
-          pkg_name=$(basename "$pkg_dir")
-          config_basename=$(basename "$config")
-          # Check if any npm script in the package references this config
-          if ! grep -q "$config_basename" "$pkg_dir/package.json" 2>/dev/null; then
-            # Also check if any CI workflow references it
-            if ! grep -rq "$config_basename" .github/workflows/ 2>/dev/null; then
-              echo "::error::Orphaned vitest config: $config (not referenced by any npm script or CI workflow)"
-              orphaned=1
-            fi
-          fi
-        done
-        if [ "$orphaned" -eq 1 ]; then
-          exit 1
-        fi
-        echo "All vitest configs are referenced."
-    ```
-  - Verify: guard passes (zero orphaned configs after our changes)
+- **Depends**: none · **Files**: `pr-body.md` § Image facts, § Perf in the image
+- Probe `mcr.microsoft.com/playwright:v1.62.1-noble`: `node --version` (expect v24.18.1), `npm ls -g --depth=0`, `ls /ms-playwright`, `id`, image digest, and an anonymous pull (`docker logout mcr.microsoft.com && docker pull …`). Record `pnpm why playwright-core` and `pnpm --filter @europa/console exec playwright --version` (expect `Version 1.62.1`).
+- Run `test:perf` in the image per plan §D-8 (disposable copy, `pnpm install && pnpm build` inside, factor unset then `EUROPA_PERF_BUDGET_FACTOR=2`), recording paint min-round-median and p99 against the 8 ms budget.
+- **Done when**: the image facts and the perf table (both runs, pass/fail, numbers) are recorded. If the factor-2 budget fails, **stop** and escalate the numbers to the owner as an FR-042 finding — W1 does not start.
+- **Verify**:
+  ```bash
+  docker run --rm mcr.microsoft.com/playwright:v1.62.1-noble sh -c 'node --version; ls -d /ms-playwright/chromium-*'
+  sed -n '/^## Perf in the image/,/^## /p' specs/008-ci-workflows/pr-body.md
+  ```
 
 ---
 
-## Wave 3: Golden Fixture Replacement
+## W1 — P1 (image, toolchain, labels) then P2 (split + shard)
 
-Independent of Waves 1-2 — can be done in parallel.
+### T-003 — P1: every browser job in the image, no run-time installs, host labels pinned (FR-035…FR-038, FR-047, AC-036, AC-048)
 
-- [ ] T-009: **Rewrite `generate-determinism-golden.ts` to emit hash**
-  - File: `packages/console/scripts/generate-determinism-golden.ts`
-  - Change: instead of writing the full JSON fixture, compute SHA-256 hash of the serialized output and emit a TypeScript constant file
-  - New output: `tests/fixtures/determinism-golden-hash.ts` containing:
-    ```typescript
-    /** Auto-generated by scripts/generate-determinism-golden.ts — DO NOT EDIT */
-    export const GOLDEN_HASH = 'abcdef1234...';
-    export const GOLDEN_TICKS = 1000;
-    ```
-  - Update the script to `console.log` the hash for manual verification
+- **Depends**: T-002 · **Files**: `.github/actions/build-workspace/action.yml`, `.github/workflows/{client,core,engine,fog,logging,matchmaking,network,terrain,manual}-ci.yml`
+- Action: add the `runtime` input (default `node@22`) and the two mutually exclusive `pnpm/setup` steps from plan §D-4.
+- `client-ci.yml`: add `container: { image: mcr.microsoft.com/playwright:v1.62.1-noble }` to `design-browser-test`, `console-e2e` (still the combined job at this push) and `console-coverage`; pass `runtime: none` to their action calls; add the D-6 toolchain/version step to each; delete both `Cache Playwright browsers` steps and both `Install Playwright Chromium` steps.
+- `manual-ci.yml` `verify`: same container, same `runtime: none`, same D-6 step; delete its cache and install steps; keep the job name and the `@europa/design` build list.
+- Every `runs-on` in the nine files becomes `ubuntu-24.04`. Timeouts unchanged at this push (T-005 measures first).
+- **Done when**: no `playwright install`/`--with-deps`/`ms-playwright`/`Cache Playwright` anywhere under `.github/workflows/`; three job definitions in `client-ci.yml` (`design-browser-test`, the still-combined `console-e2e`, `console-coverage`) and `manual-ci.yml`'s `verify` carry `container:` with the exact tag and `runtime: none`; no `ubuntu-latest` remains in the nine; job display names unchanged.
+- **Verify**:
+  ```bash
+  grep -rnE 'playwright install|--with-deps|ms-playwright|Cache Playwright' .github/workflows/   # no output
+  grep -c 'container:' .github/workflows/client-ci.yml            # 3 at this push
+  grep -c 'runtime: none' .github/workflows/client-ci.yml         # 3
+  grep -n 'runtime: none' .github/workflows/manual-ci.yml         # 1
+  grep -c 'ubuntu-latest' .github/workflows/{client,core,engine,fog,logging,matchmaking,network,terrain,manual}-ci.yml  # 0 each
+  python3 -c "import yaml,glob;[yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')];yaml.safe_load(open('.github/actions/build-workspace/action.yml'))"
+  ```
 
-- [ ] T-010: **Rewrite `determinism.test.ts` to use hash comparison**
-  - File: `packages/console/tests/integration/determinism.test.ts`
-  - Change: remove `readFileSync` / JSON comparison; import `GOLDEN_HASH` from the generated hash module
-  - New test structure:
-    ```typescript
-    import { createHash } from 'node:crypto';
-    import { describe, expect, it } from 'vitest';
-    import { runDeterminismScenario, SCENARIO_TICKS } from '../fixtures/determinism-scenario';
-    import { GOLDEN_HASH } from '../fixtures/determinism-golden-hash';
+### T-004 — P2: split the browser job, shard the e2e job two ways, give the coverage config the pre-bundle list (FR-043, FR-045, FR-046, AC-043, AC-046, AC-047)
 
-    describe('determinism: 1000-tick scripted match (T090 / SC-002)', () => {
-        it('produces a deterministic hash matching the golden constant', () => {
-            const run = runDeterminismScenario();
-            expect(run.frames.length).toBe(SCENARIO_TICKS);
-            const hash = createHash('sha256')
-                .update(JSON.stringify(run.frames))
-                .update(JSON.stringify(run.finalState))
-                .digest('hex');
-            expect(hash).toBe(GOLDEN_HASH);
-        });
-    });
-    ```
-  - Verify: `pnpm --filter @europa/console test:determinism` passes
-
-- [ ] T-011: **Delete `golden-1000-tick.json`**
-  - File: `packages/console/tests/fixtures/golden-1000-tick.json` — DELETE
-  - Verify: file is gone, `pnpm --filter @europa/console test:determinism` still passes
-
-- [ ] T-012: **Generate the hash constant**
-  - Run: `pnpm --filter @europa/console exec tsx scripts/generate-determinism-golden.ts`
-  - Verify: `tests/fixtures/determinism-golden-hash.ts` is created with correct hash
-  - Verify: `pnpm --filter @europa/console test:determinism` passes with the new hash
+- **Depends**: T-003 · **Files**: `.github/workflows/client-ci.yml`, `packages/console/vitest.config.coverage.ts`
+- Replace `console-e2e`'s single definition with the two jobs in plan §D-14: `console-e2e` (`Test suites (console — e2e)`, matrix `shard: [1, 2]`, `fail-fast: false`, run step exactly `pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/2`, plus the `contract-conformance` step) and `console-browser` (`Test suites (console — browser: component/a11y/perf)`, `test:component`, `test:a11y`, `test:perf` with `EUROPA_PERF_BUDGET_FACTOR: '2'`). Both: image container, `runtime: none`, the prologue with the old job's package list, `pnpm --filter @europa/console build`, the D-6 step, a `timeout-minutes`.
+- Add the project-level `optimizeDeps.include` block (four entries, identical to `vitest.config.browser.ts`) to the `browser` project in the coverage config.
+- Do not touch `packages/console/playwright.config.ts` (`workers`, `retries`, `webServer` all stay).
+- **Done when**: exactly two job definitions run browser gates; one runs `test:e2e`, one runs the component/a11y/perf trio, and no other job runs either; both build the console, both declare the image container and pass `runtime: none`; every moved step keeps its old name; the two `optimizeDeps` blocks are textually identical.
+- **Verify**:
+  ```bash
+  grep -nE 'name: Test suites \(console — ' .github/workflows/client-ci.yml     # exactly the two new names
+  grep -nE 'name: Test suites \(console — browser\)$' .github/workflows/client-ci.yml   # no match (anchored; a substring grep also hits the new component name)
+  grep -c 'container:' .github/workflows/client-ci.yml                         # 4 — design-browser-test, console-e2e (one definition, two matrix legs), console-browser, console-coverage
+  grep -c 'runtime: none' .github/workflows/client-ci.yml                      # 4 — one per in-image job definition that uses the action (same four)
+  grep -c 'build-workspace' .github/workflows/client-ci.yml                    # 8 (7 existing consumers + the new job)
+  grep -n 'shard' .github/workflows/client-ci.yml                              # matrix [1, 2] + --shard=${{ matrix.shard }}/2
+  grep -cE 'test:(e2e|component|a11y|perf)' .github/workflows/client-ci.yml   # 4, one each
+  grep -c 'EUROPA_PERF_BUDGET_FACTOR' .github/workflows/client-ci.yml          # 2
+  diff <(sed -n '/optimizeDeps/,/},/p' packages/console/vitest.config.browser.ts) \
+       <(sed -n '/optimizeDeps/,/},/p' packages/console/vitest.config.coverage.ts)
+  python3 -c "import yaml;yaml.safe_load(open('.github/workflows/client-ci.yml'))"
+  ```
 
 ---
 
-## Wave 4: Test-Only Module Relocation
+## W2 — P3 and P4 (numbers, then rationale + docs) and the drills
 
-Independent of Waves 1-3.
+### T-005 — P3 + P4: keep-or-raise timeouts, then the pinned-label rationale and the `CONTRIBUTING.md` pointer (FR-041, FR-044, AC-041, AC-044)
 
-- [ ] T-013: **Relocate `fake-match-client.ts` from `src/internal/` to `tests/fixtures/`**
-  - Move: `packages/console/src/internal/fake-match-client.ts` → `packages/console/tests/fixtures/fake-match-client.ts`
-  - No production imports exist (verified by grep — zero hits in `src/`)
-  - Verify: `pnpm --filter @europa/console typecheck` passes (tsconfig excludes tests/ from compilation, so no import errors in production code)
+Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs and the one-line rationale comment. P4 is not cosmetic: `CONTRIBUTING.md` is in no workflow's change filter, so without a touch to the nine workflow files the eight non-client workflows would finish this change set with only two measurable runs (P1 and P3) — and a run whose gates all skipped is not a sample.
 
-- [ ] T-014: **Update imports for relocated `fake-match-client.ts`**
-  - Search for any test files importing from `../../src/internal/fake-match-client` or similar
-  - If found, update paths to `../fixtures/fake-match-client`
-  - Verify: `pnpm --filter @europa/console test:unit` passes
+- **Depends**: T-004 · **Files**: P3 — the nine workflow files; P4 — the nine workflow files, `CONTRIBUTING.md`
+- **P3**: from the per-job maxima of the P1 and P2 runs, apply plan §D-7: **keep** a job's current `timeout-minutes` when it is at or above that job's measured maximum; **raise** it to `ceil(max/60) + 1` when it is below. The two new job definitions get `ceil(max/60) + 1` outright (they have no current value). Record every row in `pr-body.md` § Timeouts as `max → kept|raised value`.
+- **P4**: one comment line above each of the nine `runs-on: ubuntu-24.04` values recording why the label is pinned (008 FR-038) — the pin's rationale currently lives only in the spec, and every file carries it; plus the `## CI` bullet in `CONTRIBUTING.md` replaced with plan §D-11's text (leave § Pull requests, line 157, alone).
+- **Done when**: every job in the nine files has a timeout, no value sits below its measured maximum, the two new jobs have one, and the recorded table matches the YAML row for row; each of the nine files carries the pin rationale; the CI section names FR-028 and no longer lists workflow files. P3's and P4's own runs are the confirmation samples (T-008): a value either run exceeds is raised before close-out.
+- **Verify**:
+  ```bash
+  # P3
+  grep -n 'timeout-minutes' .github/workflows/*.yml
+  sed -n '/^## Timeouts/,/^## /p' specs/008-ci-workflows/pr-body.md      # compare each pair by hand
+  # P4
+  grep -c '008 FR-038' .github/workflows/{client,core,engine,fog,logging,matchmaking,network,terrain,manual}-ci.yml   # 1 each
+  sed -n '/^## CI/,/^## Player manual/p' CONTRIBUTING.md
+  grep -c 'core, engine, terrain' CONTRIBUTING.md                        # 1 — only § Pull requests
+  python3 -c "import yaml,glob;[yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"
+  ```
 
-- [ ] T-015: **Verify `test-state.ts` is correctly excluded from coverage but not from source**
-  - `test-state.ts` is imported by `App.tsx` (production) — it stays in `src/internal/`
-  - After Wave 1 changes, it should appear in coverage reports (not excluded by blanket `src/internal/**`)
-  - Verify: `pnpm --filter @europa/console coverage` shows `test-state.ts` in the report
+### T-006 — Drills on a scratch branch (AC-036, AC-046, AC-047) `[P]`
 
----
-
-## Wave 5: setTimeout Replacements (Unit Tests Only)
-
-Independent of Waves 1-4.
-
-- [ ] T-016: **Audit `tests/unit/runtime.test.ts` setTimeout pattern**
-  - File: `packages/console/tests/unit/runtime.test.ts` line 375
-  - Pattern: `await new Promise(resolve => setTimeout(resolve, 50))`
-  - Assess: is this waiting for a DOM render in happy-dom? Replace with `vi.waitFor()` if the condition can be polled.
-  - If the setTimeout is inside a `vi.useFakeTimers()` context, verify fake timers are advanced correctly.
-
-- [ ] T-017: **Audit `tests/unit/net/ws-lobby-client.test.ts` setTimeout patterns**
-  - File: `packages/console/tests/unit/net/ws-lobby-client.test.ts` lines 119, 286
-  - Line 119: `setTimeout(fn, ms)` — appears to be a fake timer setup method override
-  - Line 286: `setTimeout(resolve, 0)` — yield to microtask queue
-  - Assess: verify these are within fake-timer contexts and not wall-clock waits
-
-- [ ] T-018: **Verify no remaining wall-clock setTimeout in unit tests**
-  - Run: `grep -rn "setTimeout" packages/*/tests/unit/ --include="*.test.ts" --include="*.test.tsx"`
-  - Any remaining hits should be in fake-timer contexts (verifiable by checking `vi.useFakeTimers()` in the same describe block)
-  - Document findings in PR description
+- **Depends**: T-003 · **Files**: scratch branch `ci/223-drill` (branch off the PR branch; nothing merged back)
+- **Negative tag drill (AC-036)**: point one in-image job's tag at `v1.61.1-noble` while the catalog says `1.62.1`; push the scratch branch; confirm the D-6 step exits non-zero and the job fails; record run id + failing step + output; drop the branch.
+- **Shard drill (AC-046/AC-047)**: from a P2 run, confirm the two e2e legs report `shard 1/2` and `2/2`, that the executed spec files across both legs cover all 16 files, and that no leg runs the other's steps; record both job ids and the file lists.
+- **Done when**: the failing step's output and the two shard logs are pasted into `pr-body.md` § Drills; the PR branch's diff contains no `v1.61.1` and no drill commit.
+- **Verify**:
+  ```bash
+  gh run view <drill_run_id> --json conclusion --jq '.conclusion'          # failure
+  gh run view <drill_run_id> --json jobs --jq '.jobs[] | select(.conclusion=="failure") | .name'
+  sed -n '/^## Drills/,/^## /p' specs/008-ci-workflows/pr-body.md
+  git log --oneline origin/main..HEAD | grep -ci 'drill\|v1\.61\.1'        # 0
+  ```
 
 ---
 
-## Wave 6: Unfalsifiable Assertion Audit
+## W3 — Evidence runs
 
-Independent of Waves 1-5.
+### T-007 — Close the reload class with ten green component/a11y/perf runs (FR-043, AC-043)
 
-- [ ] T-019: **Audit `toBeDefined()` assertions in engine tests**
-  - Files: `packages/engine/tests/unit/terminal.test.ts`, `packages/engine/tests/unit/capture.test.ts`, `packages/engine/tests/quickstart/*.test.ts`
-  - Check each: can the function under test actually return `undefined`? If not, replace with `expect(value).toBe(true)` or similar meaningful assertion.
-  - Document each decision (keep/replace) in PR description.
+- **Depends**: T-004 · **Files**: `pr-body.md` § Flake closure
+- Re-run `Test suites (console — browser: component/a11y/perf)` (`gh run rerun <run_id> --job <job_id>`) on runs whose `changed` was true until ten consecutive successful attempts exist. Record each job id; grep every log for `optimized dependencies changed. reloading` (zero hits).
+- **Done when**: ten consecutive green attempts listed with job ids and a zero-hit grep for each; or the class is still open, in which case the change does not land (plan §R-3).
+- **Verify**:
+  ```bash
+  for j in <job_id_1> … <job_id_10>; do
+    gh api /repos/shaunburdick/europa-neo/actions/jobs/$j --jq '"\(.id) \(.name) \(.conclusion)"'
+    gh api /repos/shaunburdick/europa-neo/actions/jobs/$j/logs 2>/dev/null | grep -c 'optimized dependencies changed. reloading'
+  done
+  ```
 
-- [ ] T-020: **Audit `toBeDefined()` assertions in console tests**
-  - Files: `packages/console/tests/unit/state/pipe-intensities.test.ts` (6 instances), `packages/console/tests/unit/render/canvas-terrain.test.ts` (2 instances), others
-  - Same methodology as T-019
+### T-008 — Post-change sample, attribution breakdown and the check-name photograph (NFR-012, AC-040, AC-045, AC-048)
 
-- [ ] T-021: **Audit `not.toBeNull()` assertions in networking tests**
-  - Files: `packages/networking/tests/unit/reconnect.test.ts`, `packages/networking/tests/unit/connection.test.ts`, others
-  - Same methodology — verify each assertion is capable of failing
-
-- [ ] T-022: **Audit `toBeDefined()`/`toBeTruthy()` in design tests**
-  - Files: `packages/design/tests/preview.test.ts`, `packages/design/tests/brand/*.test.ts`, `packages/design/tests/dev-page.test.ts`
-  - Focus on `toBeTruthy()` calls — these are weaker than `toBeDefined()` and may be unfalsifiable for non-empty strings
-
----
-
-## Wave 7: Final Verification
-
-Depends on all previous waves.
-
-- [ ] T-023: **Run full `pnpm verify` gate**
-  - `pnpm typecheck` — all packages
-  - `pnpm lint` — Biome clean
-  - `pnpm format:check` — formatted
-  - `pnpm test` — all package tests pass
-  - Verify: zero failures
-
-- [ ] T-024: **Verify all acceptance criteria**
-  - AC-007 (spec 008): a11y glob fix — all 8 a11y files execute in coverage
-  - AC-008 (spec 008): `src/internal/**` not in any `coverage.exclude`
-  - AC-009 (spec 008): `design-coverage` CI job exists and passes
-  - AC-010 (spec 008): `version-coverage` CI job exists and passes
-  - AC-011 (spec 008): orphaned-config guard passes
-  - AC-012 (spec 008): `design-browser-test` → `test:browser` → `vitest.config.browser.ts` chain verified
-  - AC-013 (spec 008): `pnpm coverage` (console) shows `src/internal/` files with non-zero coverage
-  - AC-012 (spec 016): `golden-1000-tick.json` deleted; determinism test passes via hash
-  - AC-013 (spec 016): zero wall-clock setTimeout in unit tests
-  - AC-015 (spec 016): `fake-match-client.ts` relocated; no `src/` file imported exclusively by tests
-  - AC-016 (spec 016): `pnpm coverage` ≥80% all metrics for all packages
-
-- [ ] T-025: **Update spec status lines**
-  - `specs/008-ci-workflows/spec.md`: flip status to `Implemented`
-  - `specs/016-test-suite-cleanup/spec.md`: flip status to `Implemented`
-  - Commit: `docs(specs): mark 008 v1.1 and 016 v1.1 as Implemented`
+- **Depends**: T-005 · **Files**: `pr-body.md` § Post-change sample, § Attribution, § Check names
+- Record the post-change sample: **P1, P3 and P4** for every workflow (their ids, wall clocks, median); for Client CI also record P2 — its first three are P1, P2, P3, and P2's run is the only one of those that reflects the final job shape. P2 is **not** a sample for the other eight: it touches only `client-ci.yml` and a console config, so `changed == false` there and every gate skipped — a skipped-gates run is not a sample (the same rule T-001 applied to the baselines). Say so in the section so nobody counts it.
+- Break Client CI's figures out by effect — prologue/setup, each e2e shard leg, component/a11y/perf — and note that its three-sample median includes one intermediate shape (P1, pre-split), which the breakdown explains.
+- Run the AC-040(b) step-name diff against T-001's inventory and name every moved and removed step.
+- Photograph the check names from the jobs API (`gh run view <id> --json jobs --jq '.jobs[].name'`) and record the exact strings the maintainer must require.
+- **Done when**: 3 + 3 run ids and medians per workflow (Client CI: 4 + 3, with P2 labelled "context, not a sample"); the attribution table; the step diff; the exact new check names (`… (1)`, `… (2)`, `… component/a11y/perf`) and the one removed name.
+- **Verify**:
+  ```bash
+  sed -n '/^## Post-change sample/,/^## /p' specs/008-ci-workflows/pr-body.md
+  gh run view <P4_run_id> --json jobs --jq '.jobs[] | select(.name|test("console — ")) | .name'
+  gh api /repos/shaunburdick/europa-neo/actions/runs/<run_id>/jobs \
+    --jq '.jobs[] | "\(.name)\t\(((.completed_at|fromdate)-(.started_at|fromdate)))s"'
+  ```
 
 ---
 
-## v1.3 — Commit-Message Hygiene (commitlint)
+## W4 — Close-out
 
-Depends on: spec v1.3 amendment (FR-018–FR-023).
+### T-009 — Final audit and NFR-012 verdict (AC-041…AC-048)
 
-- [ ] T-026: **Add commitlint dependencies**
-  - Add `@commitlint/cli: ^21.2.2` and `@commitlint/config-conventional: ^21.2.2` to the `catalog` in `pnpm-workspace.yaml`
-  - Add both to root `devDependencies` in `package.json` (catalog: references)
-  - Run `pnpm install` to update the lockfile
-
-- [ ] T-027: **Create `commitlint.config.ts`** (FR-018, FR-022)
-  - `extends: ['@commitlint/config-conventional']`
-  - Plugin rule `no-bot-coauthors`: reject `Co-authored-by:` trailers naming Copilot or Claude (case-insensitive, any casing/version suffix), matched against `parsed.raw`
-  - Wire rule as `'no-bot-coauthors': [2, 'always']`
-  - `export default` (ESM repo)
-
-- [ ] T-028: **Add `.husky/commit-msg` hook** (FR-019)
-  - Content: `pnpm exec commitlint --edit "$1"`
-  - Executable bit set (husky v9 requires it)
-
-- [ ] T-029: **Create `.github/workflows/commitlint.yml`** (FR-020, FR-021, FR-023)
-  - Trigger: `pull_request` (branches: [main]) + `workflow_dispatch`; NOT path-gated
-  - `concurrency` group + `contents: read` permissions
-  - Job `lint-pr-title`: `echo "$PR_TITLE" | pnpm exec commitlint`
-  - Job `lint-pr-commits`: `git rev-list --no-merges "$BASE..$HEAD"` loop, `git show -s --format=%B | pnpm exec commitlint` per commit, `::error::` annotations on failure
-  - SHA-pinned actions with version comments (checkout v7.0.1, pnpm/setup v2.1.0 — same pins as spec-guard.yml)
-
-- [ ] T-030: **Update AGENTS.md workflow rules**
-  - Add a bullet documenting commitlint enforcement (conventional commits + no bot co-author trailers) in the Workflow rules section
-
-- [ ] T-031: **Verify locally** (AC-019, AC-020, AC-021)
-  - Good message passes; non-conventional fails; Copilot trailer fails; Claude trailer fails
-  - `pnpm verify:changed` passes
-
-- [ ] T-032: **Update spec status + commit**
-  - Verify spec 008 v1.3 change log entry present
-  - Commit: `feat(ci): enforce commit hygiene with commitlint in husky and CI (spec 008 v1.3)`
+- **Depends**: T-005, T-007, T-008
+- Run the full local gate and the truthfulness audit; compute the NFR-012 verdict per workflow against T-001's baselines; record the branch-protection sequence from plan §D-16 (add the three new names before merge, then remove the old one after); post a dated comment on issue #223 pointing at the spec's two strategy changes (image, split/shard).
+- **Done when**: `bash scripts/verify.sh` and `pnpm guard:specs` are green; 15 workflow files; `README.md`/`AGENTS.md` absent from the diff; no `docs/manual/**` or `packages/*/tests/**` change; every AC in plan §10 has its evidence line in `pr-body.md`; every workflow's post-change median is inside its allowance or the shortfall is escalated with the attribution; the PR body carries the three-name-add-then-old-name-remove order.
+- **Verify**:
+  ```bash
+  bash scripts/verify.sh
+  pnpm guard:specs
+  ls .github/workflows/*.yml | wc -l                        # 15
+  grep -rn 'packages: write' .github/workflows/ | wc -l     # 2 (docker.yml only)
+  grep -rniE 'self-hosted|runs-on:.*self' .github/workflows/   # no output (AC-041 / NFR-013)
+  grep -nE 'name: Test suites \(console — browser\)$' .github/workflows/client-ci.yml   # no match
+  git diff --stat origin/main...HEAD -- README.md AGENTS.md docs/manual packages/*/tests   # empty
+  git diff --stat origin/main...HEAD
+  ```
