@@ -7,6 +7,7 @@ on:
       - 'packages/networking/**'
       - 'packages/core/**'
       - '.github/workflows/network-ci.yml'
+      - '.github/actions/build-workspace/**'
       - 'specs/004-multiplayer-networking/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
@@ -43,7 +44,9 @@ jobs:
   # diffs against the previous commit on push. This job must never fail: a
   # failure would skip its dependents silently (dependent-job-skip).
   changes:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: OS drift must not arrive between image releases (008 FR-038).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
     permissions:
       contents: read
       pull-requests: read
@@ -65,6 +68,7 @@ jobs:
               - 'packages/networking/**'
               - 'packages/core/**'
               - '.github/workflows/network-ci.yml'
+              - '.github/actions/build-workspace/**'
               - 'specs/004-multiplayer-networking/**'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
@@ -79,7 +83,7 @@ jobs:
     name: Lint (networking)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -104,7 +108,7 @@ jobs:
     name: Test (networking)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -120,7 +124,7 @@ jobs:
     name: Coverage gate (networking ≥ 80%)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

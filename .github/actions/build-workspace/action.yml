@@ -1,21 +1,38 @@
 name: 'Build workspace dependencies'
 description: >-
-  Shared package-workflow prologue (008 FR-026): pnpm setup (node@22, store
-  cache, lockfile required) plus an ordered build of the listed @europa
-  workspace packages. Callers keep actions/checkout as the job's first step —
-  a local composite action resolves only from the checked-out workspace
-  (documented GitHub Actions platform constraint; 008 FR-026 v1.4 amendment).
+  Shared package-workflow prologue (008 FR-026): pnpm setup (store cache,
+  lockfile required) plus an ordered build of the listed @europa workspace
+  packages. Callers keep actions/checkout as the job's first step — a local
+  composite action resolves only from the checked-out workspace (documented
+  GitHub Actions platform constraint; 008 FR-026 v1.4 amendment).
 inputs:
   packages:
     description: 'Space-separated @europa package names to build, in dependency order'
     required: false
     default: ''
+  runtime:
+    description: >-
+      Runtime for pnpm/setup. `none` keeps the runner's or image's own runtime
+      and installs no Node — for jobs that run inside a container image which
+      supplies it (008 FR-035/FR-047).
+    required: false
+    default: 'node@22'
 runs:
   using: composite
   steps:
-    - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+    - if: inputs.runtime != 'none'
+      uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
       with:
-        runtime: 'node@22'
+        runtime: '${{ inputs.runtime }}'
+        cache: true
+        require-lockfile: true
+
+    # `node-version-file: false` is what suppresses the Node install: `.node-version`
+    # exists, so an omitted runtime alone would still fetch Node 22 into the image.
+    - if: inputs.runtime == 'none'
+      uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      with:
+        node-version-file: false
         cache: true
         require-lockfile: true
 

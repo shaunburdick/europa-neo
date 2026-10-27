@@ -7,6 +7,7 @@ on:
       - 'packages/console/**'
       - 'packages/core/**'
       - '.github/workflows/client-ci.yml'
+      - '.github/actions/build-workspace/**'
       - 'specs/005-client-console/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
@@ -48,7 +49,9 @@ jobs:
   # diffs against the previous commit on push. This job must never fail: a
   # failure would skip its dependents silently (dependent-job-skip).
   changes:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: OS drift must not arrive between image releases (008 FR-038).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
     permissions:
       contents: read
       pull-requests: read
@@ -70,6 +73,7 @@ jobs:
               - 'packages/console/**'
               - 'packages/core/**'
               - '.github/workflows/client-ci.yml'
+              - '.github/actions/build-workspace/**'
               - 'specs/005-client-console/**'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
@@ -89,7 +93,7 @@ jobs:
     name: Lint + typecheck (console)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -144,17 +148,40 @@ jobs:
     name: Browser-mode tests (design)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Browser jobs run in the upstream Playwright image: Chromium and its system
+    # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # A container job runs as root over a checkout the runner owns, and git
+      # refuses to read such a repository. No suite in this job shells out to git
+      # today; the step stays as precaution for one that moves in.
+      - name: Trust the workspace checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - uses: ./.github/actions/build-workspace
         with:
           packages: 'design'
+          runtime: none
 
-      - name: Install Playwright Chromium
-        run: pnpm --filter @europa/design exec playwright install chromium
+      # Nothing is installed at run time (008 FR-035/FR-037): the image supplies
+      # Chromium, and this fails loudly if the tag, CLI, driver or runtime drifts.
+      - name: Toolchain and Playwright version agreement
+        run: |
+          expected=$(pnpm --filter @europa/design exec node -p "require('@playwright/test/package.json').version")
+          cli=$(pnpm --filter @europa/design exec playwright --version | awk '{print $2}')
+          tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
+          pnpm --filter @europa/design why playwright-core | grep -q "playwright-core@$expected"
+          ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
+          node --version
+          test "$(pnpm --version)" = "$(node -p "require('./package.json').packageManager.split('@').pop()")"
 
       - name: Browser-mode tests (design — focus-trap, a11y)
         run: pnpm --filter @europa/design test:browser
@@ -163,7 +190,7 @@ jobs:
     name: Coverage gate (design ≥ 80%)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -179,7 +206,7 @@ jobs:
     name: Coverage gate (version ≥ 80%)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -195,7 +222,7 @@ jobs:
     name: Test suites (console — node)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -236,13 +263,30 @@ jobs:
         run: pnpm --filter @europa/console test:lobby-integration
 
   console-e2e:
-    name: Test suites (console — browser)
+    name: Test suites (console — e2e)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
+    runs-on: ubuntu-24.04
+    # Browser jobs run in the upstream Playwright image: Chromium and its system
+    # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 5
+    # Fixed at three shards, all required checks (008 FR-046): Playwright splits by
+    # test count, and `workers` stays 2 so a leg cannot buy speed with a timeout.
+    # fail-fast keeps one red leg from cancelling the others, so every check reports.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A container job runs as root over a checkout the runner owns, and git
+      # refuses to read such a repository. No suite in this job shells out to git
+      # today; the step stays as precaution for one that moves in.
+      - name: Trust the workspace checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # Integration wave: the full-stack E2E spec boots a real
       # matchmaker + match server in-process (Node side), so
@@ -250,6 +294,7 @@ jobs:
       - uses: ./.github/actions/build-workspace
         with:
           packages: 'version design core engine terrain fog logging networking matchmaking'
+          runtime: none
 
       # The console's build script runs build-assets.ts which stages
       # brand assets into dist/assets/brand/. host-static.test.ts
@@ -259,29 +304,87 @@ jobs:
       - name: Build console (brand asset staging)
         run: pnpm --filter @europa/console build
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      # Nothing is installed at run time (008 FR-035/FR-037): the image supplies
+      # Chromium, and this fails loudly if the tag, CLI, driver or runtime drifts.
+      - name: Toolchain and Playwright version agreement
+        run: |
+          expected=$(pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version")
+          cli=$(pnpm --filter @europa/console exec playwright --version | awk '{print $2}')
+          tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
+          pnpm --filter @europa/console why playwright-core | grep -q "playwright-core@$expected"
+          ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
+          node --version
+          test "$(pnpm --version)" = "$(node -p "require('./package.json').packageManager.split('@').pop()")"
 
-      # Must precede EVERY browser-launching step below (component,
-      # a11y, e2e, perf all boot Chromium); vitest browser mode fails
-      # with "Executable doesn't exist" without it.
-      - name: Install Playwright Chromium
-        run: pnpm --filter @europa/console exec playwright install --with-deps chromium
+      # Includes the selfhost smoke spec, which production-builds the
+      # console, scans dist/ for remote URLs, and enforces the Q-P03
+      # gzip bundle budget (scripts/test-selfhost.sh).
+      - name: E2E tests (Playwright)
+        run: pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/3
+
+      # Contract conformance (reads source directly — no build needed). Unconditional
+      # in all three legs, so each leg is self-sufficient and cannot hide a gate.
+      - name: Contract conformance
+        run: |
+          pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
+
+  console-browser:
+    # Quoted: the bare scalar is invalid YAML (`: ` reads as a mapping separator);
+    # the display name, which is the required-check name, is unchanged.
+    name: 'Test suites (console — browser: component/a11y/perf)'
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    # Browser jobs run in the upstream Playwright image: Chromium and its system
+    # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A container job runs as root over a checkout the runner owns, and git
+      # refuses to read such a repository. No suite in this job shells out to git
+      # today; the step stays as precaution for one that moves in.
+      - name: Trust the workspace checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: ./.github/actions/build-workspace
+        with:
+          packages: 'version design core engine terrain fog logging networking matchmaking'
+          runtime: none
+
+      # The console's build script runs build-assets.ts which stages
+      # brand assets into dist/assets/brand/. host-static.test.ts
+      # imports BRAND_MANIFEST and verifies every listed asset is
+      # served with the correct MIME type — the test 404s without
+      # the staged files.
+      - name: Build console (brand asset staging)
+        run: pnpm --filter @europa/console build
+
+      # Nothing is installed at run time (008 FR-035/FR-037): the image supplies
+      # Chromium, and this fails loudly if the tag, CLI, driver or runtime drifts.
+      - name: Toolchain and Playwright version agreement
+        run: |
+          expected=$(pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version")
+          cli=$(pnpm --filter @europa/console exec playwright --version | awk '{print $2}')
+          tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
+          pnpm --filter @europa/console why playwright-core | grep -q "playwright-core@$expected"
+          ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
+          node --version
+          test "$(pnpm --version)" = "$(node -p "require('./package.json').packageManager.split('@').pop()")"
 
       - name: Component tests (browser mode)
         run: pnpm --filter @europa/console test:component
 
       - name: Accessibility acceptance tests (axe-core)
         run: pnpm --filter @europa/console test:a11y
-
-      # Includes the selfhost smoke spec, which production-builds the
-      # console, scans dist/ for remote URLs, and enforces the Q-P03
-      # gzip bundle budget (scripts/test-selfhost.sh).
-      - name: E2E tests (Playwright)
-        run: pnpm --filter @europa/console test:e2e
 
       # Shared runners throttle whole test windows (2026-08-23 incident:
       # paint min-round-median 9.2ms vs 8ms budget, p99 225ms). 2×
@@ -291,30 +394,30 @@ jobs:
         env:
           EUROPA_PERF_BUDGET_FACTOR: '2'
 
-      # Contract conformance (reads source directly — no build needed).
-      - name: Contract conformance
-        run: |
-          pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
-
   console-coverage:
     name: Coverage gate (console ≥ 80%)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Browser jobs run in the upstream Playwright image: Chromium and its system
+    # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A container job runs as root over a checkout the runner owns, and git
+      # refuses to read such a repository. The merged-coverage session's
+      # semantic-url-privacy suite shells out to `git ls-files`, so this is load-bearing.
+      - name: Trust the workspace checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # The keepalive integration suite imports the matchmaking runtime.
       - uses: ./.github/actions/build-workspace
         with:
           packages: 'version design core engine terrain fog logging networking matchmaking'
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          runtime: none
 
       # Several real-host integration suites exercised by merged coverage serve
       # the production SPA shell. Keep the application build separate from the
@@ -323,12 +426,20 @@ jobs:
       - name: Build console application (coverage host fixtures)
         run: pnpm --filter @europa/console build
 
-      # The merged-coverage config (vitest.config.coverage.ts) runs a
-      # browser project that launches real Chromium; without the
-      # browser install it contributes 0% and merged totals drop
-      # below the 80% constitution gate.
-      - name: Install Playwright Chromium
-        run: pnpm --filter @europa/console exec playwright install --with-deps chromium
+      # Nothing is installed at run time (008 FR-035/FR-037): the image supplies
+      # Chromium, and this fails loudly if the tag, CLI, driver or runtime drifts.
+      - name: Toolchain and Playwright version agreement
+        run: |
+          expected=$(pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version")
+          cli=$(pnpm --filter @europa/console exec playwright --version | awk '{print $2}')
+          tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
+          pnpm --filter @europa/console why playwright-core | grep -q "playwright-core@$expected"
+          ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
+          node --version
+          test "$(pnpm --version)" = "$(node -p "require('./package.json').packageManager.split('@').pop()")"
 
       # 2× paint-budget headroom for the browser project's perf suite
       # inside merged coverage (shared-runner throttling; see the

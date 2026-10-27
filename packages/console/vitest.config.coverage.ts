@@ -66,6 +66,11 @@ export default defineConfig({
                 },
             },
             {
+                // Pre-bundle React up front: discovering it mid-run triggers a Vite
+                // dependency-optimizer reload, aborting the running test file.
+                optimizeDeps: {
+                    include: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client'],
+                },
                 test: {
                     name: 'browser',
                     // Host env does not reach browser-mode tests via `process`
