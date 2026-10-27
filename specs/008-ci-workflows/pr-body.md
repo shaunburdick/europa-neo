@@ -530,10 +530,11 @@ exercise all nine and confirm them.
 against the tree at this commit), no job lost a clock, and the six non-package
 workflows are untouched. The two new definitions carry computed values rather than the
 6-minute placeholder P2 shipped: `console-e2e` 5 min against a 198 s maximum (the
-two-way leg 2 on `40546399155`; the three-way maximum so far is 173 s) and
-`console-browser` 4 min against 161 s. The 36 other values were generous enough that
+two-way leg 2 on `40546399155`; the three-way maximum is 187 s on P3, § P3 run) and
+`console-browser` 4 min against 161 s. The 28 other values were generous enough that
 the rule keeps every one of them — a re-derivation whose finding is "nothing to
 raise" is the honest outcome, and the table is the measurement, not a promise.
+(39 job definitions in all: 9 `changes` clocks added, 2 computed, 28 kept.)
 
 The nine `changes` jobs had no `timeout-minutes` before and are given 2 min (measured
 max 13 s). AC-041 does not require this — it forbids dropping a clock, and these never
