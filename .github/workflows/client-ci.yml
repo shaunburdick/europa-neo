@@ -172,7 +172,9 @@ jobs:
           expected=$(pnpm --filter @europa/design exec node -p "require('@playwright/test/package.json').version")
           cli=$(pnpm --filter @europa/design exec playwright --version | awk '{print $2}')
           tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
-          test "$tag" = "$expected" && test "$cli" = "$expected"
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
           pnpm --filter @europa/design why playwright-core | grep -q "playwright-core@$expected"
           ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
           node --version
@@ -305,7 +307,9 @@ jobs:
           expected=$(pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version")
           cli=$(pnpm --filter @europa/console exec playwright --version | awk '{print $2}')
           tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
-          test "$tag" = "$expected" && test "$cli" = "$expected"
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
           pnpm --filter @europa/console why playwright-core | grep -q "playwright-core@$expected"
           ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
           node --version
@@ -363,7 +367,9 @@ jobs:
           expected=$(pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version")
           cli=$(pnpm --filter @europa/console exec playwright --version | awk '{print $2}')
           tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
-          test "$tag" = "$expected" && test "$cli" = "$expected"
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
           pnpm --filter @europa/console why playwright-core | grep -q "playwright-core@$expected"
           ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
           node --version
@@ -421,7 +427,9 @@ jobs:
           expected=$(pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version")
           cli=$(pnpm --filter @europa/console exec playwright --version | awk '{print $2}')
           tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
-          test "$tag" = "$expected" && test "$cli" = "$expected"
+          # `test A && test B` is exempt from `set -e`, so each comparison exits itself.
+          [ "$tag" = "$expected" ] || { echo "::error::image tag $tag != resolved @playwright/test $expected"; exit 1; }
+          [ "$cli" = "$expected" ] || { echo "::error::playwright CLI $cli != resolved @playwright/test $expected"; exit 1; }
           pnpm --filter @europa/console why playwright-core | grep -q "playwright-core@$expected"
           ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
           node --version
