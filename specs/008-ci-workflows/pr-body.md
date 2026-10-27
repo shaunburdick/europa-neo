@@ -352,3 +352,66 @@ tests; in the rerun it cost nothing. That is FR-043's flake, in the coverage con
 browser project — the config T-004 gives the pre-bundle list in P2, which is the
 closure mechanism the spec named. It is pre-existing rather than introduced here (the
 config never had `optimizeDeps`), and P1 is green on a rerun, not on a change.
+
+## P2 run (split, shard, config parity)
+
+Client CI **`40545266584`** (push `95e855d`) is green on its **first attempt** — no rerun.
+
+| Measure | Value |
+| --- | --- |
+| Wall clock (`run_started_at` → `updated_at`) | **249 s** (16:53:06 → 16:57:15Z) — baseline median 306 s, allowance 337 s |
+| `Test suites (console — e2e) (1)` | **170 s** — "Running 30 tests using 2 workers, shard 1 of 2" |
+| `Test suites (console — e2e) (2)` | **192 s** — "Running 30 tests using 2 workers, shard 2 of 2" |
+| `Test suites (console — browser: component/a11y/perf)` | **161 s** |
+| `Coverage gate (console ≥ 80%)` | 136 s (unchanged shape; reload-free, see below) |
+| `Test suites (console — node)` / `Lint + typecheck (console)` / `Browser-mode tests (design)` | 69 s / 75 s / 81 s |
+
+The two legs divide the suite 30 / 30 tests, so `--shard` did what FR-046 says it
+does; the 22 s spread between them is the imbalance R-1 predicted, at a size that
+does not matter (the slower leg is 192 s against the 302 s the combined job took).
+
+`Initialize containers` — the image pull, counted inside the job:
+
+| Job | Pull |
+| --- | --- |
+| `Test suites (console — e2e) (1)` | 27 s |
+| `Test suites (console — e2e) (2)` | 26 s |
+| `Test suites (console — browser: component/a11y/perf)` | 26 s |
+| `Coverage gate (console ≥ 80%)` | 25 s |
+| `Browser-mode tests (design)` | 27 s |
+
+That is the same 25–27 s P1 measured, so the pull is stable rather than cold-only —
+worth T-008's attention, since AC-045 compares workflow wall clocks and this cost
+now lands on five jobs per run.
+
+**Reload class (FR-043): zero.** `optimized dependencies changed` and `dependency
+optimized` appear in **none** of the run's 6,237 log lines, across all ten jobs —
+the component/a11y/perf job, the coverage job's browser project and both e2e legs.
+This is evidence item 1 of the N = 10 plan §D-9 pins; T-007 collects the rest.
+
+Run-level overhead, for T-008's attribution rather than a verdict here: the first
+job started 38 s after `run_started_at` (nine workflows fired at once, five of them
+acquiring a container runner), and the run closed 12 s after the longest job ended
+(192 s → 249 s). The job-level critical path fell as §8 predicted; the workflow
+figure is now dominated by start-up, not by the browser work.
+
+### Deviations from T-004's verify block
+
+- `grep -cE 'test:(e2e|component|a11y|perf)'` reports **3**, not 4: the e2e job's
+  step is `pnpm --filter @europa/console exec playwright test --shard=<n>/2`
+  (plan §D-15, AC-047), so the literal `test:e2e` no longer appears. AC-046's
+  "runs exactly `test:e2e`" and AC-047's "exactly `playwright test --shard`"
+  cannot both hold verbatim; D-15 governs. Same suite, same 16 spec files.
+- The component job's `name:` is **single-quoted**, because the display name
+  contains `: ` and an unquoted scalar is invalid YAML (the first parse failed at
+  that colon). AC-046's literal `grep 'name: Test suites (console — '` therefore
+  does not match that line; the display name — the required-check name — is
+  unchanged, and T-008 photographs it from the jobs API.
+- The two `optimizeDeps` blocks are identical **modulo indentation**, as they must
+  be at their nesting depths: T-004's raw `sed` diff shows whitespace only, the
+  whitespace-normalized diff is empty. Local control on `tests/component/ui/waiting-overlay.test.tsx`
+  under the coverage config: **2** reload lines with the block stashed, **0** with it.
+- `grep -c 'container:'` = 4 and `grep -c 'runtime: none'` = 4: four in-image job
+  definitions (design, e2e, browser, coverage), one of which is a two-leg matrix,
+  so five image jobs run per run. `build-workspace` = 8 consumers,
+  `EUROPA_PERF_BUDGET_FACTOR` = 2.
