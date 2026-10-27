@@ -240,9 +240,12 @@ file.
 | `waiting-overlay.spec.ts` | 1 | 301 |
 | `zoom-shortcuts.spec.ts` | 3 | 166 |
 
-59 tests over 16 files. Per-spec durations for the pre-change run are not recoverable
-(its logs have expired), so shard balance is a measured-after risk (plan §R-1), not a
-forecast.
+60 tests over the 16 files. The per-file column above is a `test(` grep and sums to 59, which
+is the grep's artefact, not the suite's size: `full-stack-n-players.spec.ts` declares one test
+inside `for (const N of [3, 4])`, so Playwright registers two (N=3 and N=4) where the pattern
+counts one. `playwright test --list` — 60 — is authoritative. Per-spec durations for the
+pre-change run are not recoverable (its logs have expired), so shard balance is a
+measured-after risk (plan §R-1), not a forecast.
 
 ## Image facts
 
@@ -711,11 +714,58 @@ workflows had `changed == true`. Part of the start-up cost may also be the pinne
 `ubuntu-24.04` label's runner pool rather than the burst; that share is not separable from
 this PR's data.
 
-**Escalation, per AC-045/T-009:** the six rows are recorded above with their run ids and
-attribution rather than averaged away. The separable next measurement is one post-merge PR
-that touches a single workflow, which exercises that workflow's gates alone; if its median
-is still above allowance then the pin, not the burst, is the cost and FR-038's label
-decision needs revisiting. Nothing in this PR promises the bound was met.
+**Five of the eight non-excepted workflows sit above the bound** — Core, Engine, Fog,
+Matchmaking and Network; `manual-ci.yml` is the sixth row and carries NFR-012's dated
+exception. AC-045's verdict is deferred to a post-merge probe: § AC-045 deferral records it
+as deferred evidence, not a relaxed bound.
+
+## AC-045 deferral (owner decision, 2026-10-27)
+
+AC-045's per-workflow verdict is **deferred**, not waived. The bound is unchanged: median of
+three same-class runs against the baseline in § Baselines, `+10 s or +10 %`, whichever is
+larger. What is deferred is the *measurement*, because this PR cannot produce a clean one.
+
+**The five workflows above allowance** (medians of P2b/P3/P4, from § NFR-012 verdict):
+
+| Workflow | measured median | recorded baseline | allowance |
+| --- | --- | --- | --- |
+| Core CI | 90 s | 74 s | 84 s |
+| Engine CI | 123 s | 75 s | 85 s |
+| Fog CI | 80 s | 51 s | 61 s |
+| Matchmaking CI | 114 s | 94 s | 104 s |
+| Network CI | 157 s | 92 s | 102 s |
+
+(`manual-ci.yml`, 134 s against 71 s, is the sixth measured row and is covered by NFR-012's
+dated exception rather than by this deferral.)
+
+**The job durations did not move.** The excess is not work: Network's `Test (networking)`
+medians 78 s where the baseline sample's maximum was 79 s, Engine's `Test (engine)` 36 s
+against 37 s, Fog's `Coverage gate (fog ≥ 80%)` 41 s against 41 s, Matchmaking's
+`Lint (matchmaking)` 55 s against 58 s. Those jobs run the same steps they ran at baseline;
+the composite action's default `node@22` path is unchanged, and the only edit to these
+workflows before P3 was the runner label.
+
+**Where the time went: the runner queue.** Engine CI's P2b run `40548273436` is the clearest
+single sample — `Coverage gate (engine ≥ 80%)` waited **302 s for a runner** (started at
++314 s, then ran 52 s) while its siblings started at +52–62 s, giving 367 s of wall clock for
+98 s of work. The same start-up/idle column in § NFR-012 verdict (42–79 s on the five rows)
+is queueing, not test time.
+
+**Why this PR cannot measure it.** Every push touches all nine workflow files plus the shared
+action, so all 13 workflows fire at once — roughly 50 jobs, seven of them pulling a 2–3 GB
+image — and `dorny/paths-filter` evaluates the PR's cumulative diff, so even docs-only pushes
+run every gate. The baseline runs were ordinary PRs where one or two workflows had
+`changed == true`. Part of the start-up cost may also be the pinned `ubuntu-24.04` label's
+pool rather than the burst; that share is not separable from this PR's data.
+
+**The post-merge probe** (the accepted way to close AC-045): open a PR that touches **one
+package directory only** — a normal contribution, e.g. a `packages/core` change — and take
+that workflow's **three `pull_request` runs**, median against the baseline recorded in this
+body. If the median is inside the allowance, AC-045 passes on evidence a reviewer can
+reproduce. **If it is outside, FR-038 reopens**: the label pin, not the burst, is the cost,
+and the pin is reconsidered on that measurement rather than argued about now.
+
+Until the probe runs, AC-045 stays open in the spec. Nothing above claims the bound was met.
 
 ## Close-out (T-009)
 

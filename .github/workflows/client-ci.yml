@@ -156,7 +156,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A container job runs as root over a checkout the runner owns, and git
-      # refuses to read such a repository; suites that shell out to git need this.
+      # refuses to read such a repository. No suite in this job shells out to git
+      # today; the step stays as precaution for one that moves in.
       - name: Trust the workspace checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
@@ -280,7 +281,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A container job runs as root over a checkout the runner owns, and git
-      # refuses to read such a repository; suites that shell out to git need this.
+      # refuses to read such a repository. No suite in this job shells out to git
+      # today; the step stays as precaution for one that moves in.
       - name: Trust the workspace checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
@@ -343,7 +345,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A container job runs as root over a checkout the runner owns, and git
-      # refuses to read such a repository; suites that shell out to git need this.
+      # refuses to read such a repository. No suite in this job shells out to git
+      # today; the step stays as precaution for one that moves in.
       - name: Trust the workspace checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
@@ -403,7 +406,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A container job runs as root over a checkout the runner owns, and git
-      # refuses to read such a repository; suites that shell out to git need this.
+      # refuses to read such a repository. The merged-coverage session's
+      # semantic-url-privacy suite shells out to `git ls-files`, so this is load-bearing.
       - name: Trust the workspace checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
