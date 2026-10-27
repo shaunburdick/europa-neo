@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/core/**'
       - '.github/workflows/core-ci.yml'
+      - '.github/actions/build-workspace/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -60,6 +61,7 @@ jobs:
             changed:
               - 'packages/core/**'
               - '.github/workflows/core-ci.yml'
+              - '.github/actions/build-workspace/**'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'package.json'

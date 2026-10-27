@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/logging/**'
       - '.github/workflows/logging-ci.yml'
+      - '.github/actions/build-workspace/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -60,6 +61,7 @@ jobs:
             changed:
               - 'packages/logging/**'
               - '.github/workflows/logging-ci.yml'
+              - '.github/actions/build-workspace/**'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'package.json'

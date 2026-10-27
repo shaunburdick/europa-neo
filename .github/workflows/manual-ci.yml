@@ -46,6 +46,7 @@ jobs:
             changed:
               - 'docs/manual/**'
               - '.github/workflows/manual-ci.yml'
+              - '.github/actions/build-workspace/**'
   verify:
     name: Build + link verification
     needs: [changes]
