@@ -51,9 +51,10 @@ the maintainer's branch-protection swap, and one post-merge measurement (below).
 | P3 | `40549605350` | 202 s | 124 / 151 / 187 | e2e (3) 187 s |
 | P4 | `40550565526` | 215 s | 147 / 146 / 186 | e2e (3) 186 s |
 
-Baseline 306 s median, allowance 337 s. Client CI's three-sample median is **202 s**, best
-187 s. The third leg bought 19 s, not the ~40–50 s forecast, because each leg pays ~74 s of
-pull + prologue + console build and the expensive specs cluster in one leg.
+Baseline 306 s median, allowance 337 s. Client CI's three-sample median is **202 s**; six
+green shipped-shape runs span 166–236 s. The third leg bought 19 s, not the ~40–50 s forecast,
+because each leg pays ~74 s of pull + prologue + console build and the expensive specs
+cluster in one leg.
 
 Reload lines: **0 in 10 consecutive green component/a11y/perf attempts** (job ids in
 `pr-body.md` § Flake closure).

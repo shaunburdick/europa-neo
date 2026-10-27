@@ -26,7 +26,7 @@ thresholds, same 15 workflows.
 
 | Measure | Before | After |
 | --- | --- | --- |
-| Client CI wall clock, PR runs | 306 s median (allowance 337 s) | **202 s median** of the first three shipped-shape runs (P2b/P3/P4: 187, 202, 215 s); best **187 s**; 187–218 s over six green runs |
+| Client CI wall clock, PR runs | 306 s median (allowance 337 s) | **202 s median** of the first three shipped-shape runs (P2b/P3/P4: 187, 202, 215 s); six green runs span **166–236 s** |
 | Longest job | `Test suites (console — browser)` **302 s** | `Test suites (console — e2e)` leg **173–187 s** |
 | Browser job shape | one job, four browser suites in series | three e2e legs of 20 tests + one component/a11y/perf job |
 | Playwright installs / browser caches per run | 4 install sites, 3 caches | **0 / 0** — the image supplies Chromium |
