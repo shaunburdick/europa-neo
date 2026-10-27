@@ -1,4 +1,4 @@
-# Tasks — Browser Image, Job Split and Two-Way E2E Shard (spec 008 v1.8, issue #223)
+# Tasks — Browser Image, Job Split and Three-Way E2E Shard (spec 008 v1.8, issue #223)
 
 **Plan**: `plan.md` (this amendment) · **Branch**: `ci/223-ci-base-image` off `origin/main` · **Spec**: 008 v1.8
 **Predecessor task list**: `tasks-coverage-gate-integrity.md` (v1.2/v1.3, kept as a record).
@@ -177,8 +177,8 @@ Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs
 ### T-009 — Final audit and NFR-012 verdict (AC-041…AC-048)
 
 - **Depends**: T-005, T-007, T-008
-- Run the full local gate and the truthfulness audit; compute the NFR-012 verdict per workflow against T-001's baselines — recording `manual-ci` as the spec's dated exception (61 s baseline, 71 s allowance, 96–130 s post-change, median 102 s) rather than as a passing row; record the branch-protection sequence from plan §D-16 (add the four new names before merge, then remove the old one after); post a dated comment on issue #223 pointing at the spec's two strategy changes (image, split/shard).
-- **Done when**: `bash scripts/verify.sh` and `pnpm guard:specs` are green; 15 workflow files; `README.md`/`AGENTS.md` absent from the diff; no `docs/manual/**` or `packages/*/tests/**` change; every AC in plan §10 has its evidence line in `pr-body.md`; every workflow's post-change median is inside its allowance or the shortfall is escalated with the attribution; the PR body carries the three-name-add-then-old-name-remove order.
+- Run the full local gate and the truthfulness audit; compute the NFR-012 verdict per workflow against T-001's baselines — recording `manual-ci` as the spec's dated exception (61 s baseline, 71 s allowance, 96–130 s post-change, median 102 s) rather than as a passing row; record the branch-protection edit exactly as plan §D-16 states it — **one maintainer edit before merge, adding the four replacement contexts and removing `Test suites (console — browser)` in the same change** (performed 2026-10-27, before PR #224 merged; the old context cannot report once the job it names is deleted, so "remove after merge" is not available here); post a dated comment on issue #223 pointing at the spec's two strategy changes (image, split/shard).
+- **Done when**: `bash scripts/verify.sh` and `pnpm guard:specs` are green; 15 workflow files; `README.md`/`AGENTS.md` absent from the diff; no `docs/manual/**` or `packages/*/tests/**` change; every AC in plan §10 has its evidence line in `pr-body.md`; every workflow's post-change median is inside its allowance or the shortfall is escalated with the attribution; the PR body records the single pre-merge ruleset edit (four contexts in, old context out) and the date it was made.
 - **Verify**:
   ```bash
   bash scripts/verify.sh

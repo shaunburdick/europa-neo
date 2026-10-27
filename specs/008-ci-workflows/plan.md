@@ -1,4 +1,4 @@
-# Plan — Browser Image, Job Split and Two-Way E2E Shard (spec 008 v1.8, issue #223)
+# Plan — Browser Image, Job Split and Three-Way E2E Shard (spec 008 v1.8, issue #223)
 
 **Spec**: `specs/008-ci-workflows/spec.md` v1.8 (FR-035…FR-038, FR-040…FR-047, NFR-011…NFR-014, AC-036, AC-040…AC-048)
 **Issue**: [#223](https://github.com/shaunburdick/europa-neo/issues/223) · **Date**: 2026-10-27 (revised after the owner withdrew FR-039) · **Branch**: `ci/223-ci-base-image` (off `origin/main`, carrying the v1.8 spec amendment as its first commit)
@@ -267,11 +267,13 @@ The contract-conformance step runs in **every** leg: the step is unconditional, 
 
 GitHub appends the matrix **value** to the job name, so the legs are `(1)`, `(2)` and `(3)` — the `n/3` form appears only inside the `--shard` argument (see §12). The name check must be **anchored**: `grep -nE 'name: Test suites \(console — browser\)$'` must return nothing, because a plain substring search also matches the new `Test suites (console — browser: component/a11y/perf)` and would "find" the removed check forever.
 
-Maintainer action, in this order (a branch-protection list that names a check which can never report blocks every PR, so the order is not cosmetic):
+Maintainer action — **one edit, made before the merge**: add the four replacement contexts and remove the old one in the same ruleset change. That is not a stylistic preference; it is the only order that works for a job this change set deletes.
 
-1. **Before merge**, while the old check still reports: add `Test suites (console — e2e) (1)`, `Test suites (console — e2e) (2)`, `Test suites (console — e2e) (3)` and `Test suites (console — browser: component/a11y/perf)` to the required list — they have been reporting since P2b, so they are green and selectable.
-2. **Merge** the PR.
-3. **After merge**, remove `Test suites (console — browser)`: from that merge onward it can never report again, and leaving it required would block the next PR.
+- The old context `Test suites (console — browser)` names a job that no longer exists on this PR's head, so from P2b onward it can never report. A "remove it after merge" step therefore leaves the PR blocked on a check that cannot pass — which is exactly what happened on PR #224 until the maintainer edited the ruleset on 2026-10-27.
+- The "add now, remove after merge" order is correct only when the outgoing check **still reports during the transition** — a rename where both names run in the same workflow for a release, for instance. It does not apply here.
+- The four incoming contexts have been reporting since P2b (40548273445), so they are green and selectable before the edit.
+
+**Recorded**: the maintainer made that single edit on 2026-10-27, before PR #224 merged.
 
 Nothing else in any workflow's check list changes.
 

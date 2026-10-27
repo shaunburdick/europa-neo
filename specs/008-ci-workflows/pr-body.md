@@ -35,7 +35,7 @@ thresholds, same 15 workflows.
 | Job timeouts | 36 clocks; 9 jobs with none | 28 kept, 2 computed, 9 `changes` clocks added; none below its measured maximum |
 
 The three-way shard bought **19 s** on the longest leg (192 → 173 s), not the ~40–50 s the
-two-way arithmetic implied: every leg pays the same ~74 s of image pull, prologue and
+earlier forecast implied: every leg pays the same ~74 s of image pull, prologue and
 console build, and the expensive specs (`selfhost.spec.ts`'s production build, the
 `full-stack*` server boots) still cluster in one leg — legs ran 135 / 157 / 173 s, the
 third carrying ≈94 s of test time against the first's ≈56 s.
@@ -211,7 +211,7 @@ are the jobs API's per-step `completed_at − started_at`.
 | Accessibility acceptance tests (axe-core) | 7 | component/a11y/perf |
 | E2E tests (Playwright) | 148 | e2e job, sharded two ways |
 | Perf budgets (SC-003, real Chromium) | 44 | component/a11y/perf, `EUROPA_PERF_BUDGET_FACTOR: '2'` |
-| Contract conformance | 2 | e2e job (runs in both legs; ~2 s each) |
+| Contract conformance | 2 | e2e job (runs in every leg; ~2 s each) |
 | Post: cache, composite action, checkout | 8 | both, minus the cache post |
 | **Job total** | **302** | |
 
@@ -246,6 +246,19 @@ inside `for (const N of [3, 4])`, so Playwright registers two (N=3 and N=4) wher
 counts one. `playwright test --list` — 60 — is authoritative. Per-spec durations for the
 pre-change run are not recoverable (its logs have expired), so shard balance is a
 measured-after risk (plan §R-1), not a forecast.
+
+## Review finding P1 — action-only changes no longer skip CI
+
+`.github/actions/build-workspace` is a dependency of all nine package workflows but appeared
+in no push `paths:` list and no `dorny/paths-filter` list, so a change to the action alone ran
+the workflows with `changed == false` and skipped every gate that consumes it — the class
+FR-001/FR-027 exist to prevent, applied to a dependency that is not a workspace package.
+
+Every package workflow now lists `'.github/actions/build-workspace/**'` next to its own
+`.github/workflows/<file>.yml` entry, in the change filter and, where the workflow has a push
+trigger, in the push `paths:` list as well (`manual-ci.yml` has no push trigger — filter
+only). `grep -c 'actions/build-workspace/\*\*'` per file: 2 for each of the eight, 1 for
+`manual-ci.yml`.
 
 ## Image facts
 
@@ -408,7 +421,7 @@ Client CI **`40545266584`** (push `95e855d`) is green on its **first attempt** �
 | `Coverage gate (console ≥ 80%)` | 136 s (unchanged shape; reload-free, see below) |
 | `Test suites (console — node)` / `Lint + typecheck (console)` / `Browser-mode tests (design)` | 69 s / 75 s / 81 s |
 
-The two legs divide the suite 30 / 30 tests, so `--shard` did what FR-046 says it
+P2's shards divided the suite 30 / 30 tests, so `--shard` did what FR-046 says it
 does; the 22 s spread between them is the imbalance R-1 predicted, at a size that
 does not matter (the slower leg is 192 s against the 302 s the combined job took).
 
@@ -572,7 +585,7 @@ exercise all nine and confirm them.
 against the tree at this commit), no job lost a clock, and the six non-package
 workflows are untouched. The two new definitions carry computed values rather than the
 6-minute placeholder P2 shipped: `console-e2e` 5 min against a 198 s maximum (the
-two-way leg 2 on `40546399155`; the three-way maximum is 187 s on P3, § P3 run) and
+P2 leg 2 on `40546399155`; the three-way maximum is 187 s on P3, § P3 run) and
 `console-browser` 4 min against 161 s. The 28 other values were generous enough that
 the rule keeps every one of them — a re-derivation whose finding is "nothing to
 raise" is the honest outcome, and the table is the measurement, not a promise.
@@ -785,13 +798,13 @@ Truthfulness sweep:
 | FR-028's normative enumeration vs the tree | **set-equal**, 15 names each (the line's extra names — `contract-guard.yml`, `dead-exports.yml` — appear only in its dated v1.5/v1.6 amendment notes) |
 | `README.md` / `AGENTS.md` in the diff | untouched — their "15 CI workflows" text still reads 15 |
 | `CONTRIBUTING.md` | points at FR-028; the stale per-workflow list is gone; § Pull requests left alone |
-| Stale `two-way` / `both legs` / `--shard/2` under `.github/` | none |
+| Stale shard-count wording under `.github/` (the 2-shard forms) | none |
 | `packages: write` | 2 lines, both in `docker.yml`'s existing publish jobs |
 | Self-hosted runner labels | none |
 | `docs/manual/**` and `packages/*/tests/**` in the diff | none |
 | Spec, plan, tasks, pm-handoff | committed with the change set; working tree clean |
 
-## Branch protection (maintainer action)
+## Branch protection (maintainer action, done pre-merge 2026-10-27)
 
 The split and the three-way shard move the required-check list. GitHub appends the matrix
 **value** to the job name, so the legs are `(1)`, `(2)`, `(3)` — the `n/3` form appears only
@@ -799,14 +812,24 @@ inside the `--shard` argument:
 
 | Before | After |
 | --- | --- |
-| `Test suites (console — browser)` | *(removed)* |
+| `Test suites (console — browser)` | *(removed in the same pre-merge save)* |
 | — | `Test suites (console — e2e) (1)` |
 | — | `Test suites (console — e2e) (2)` |
 | — | `Test suites (console — e2e) (3)` |
 | — | `Test suites (console — browser: component/a11y/perf)` |
 
-**Add the four new names before merge** (they have been reporting and green since P2b), and
-**remove `Test suites (console — browser)` after merge** — from that merge onward it can
-never report, and a required check that cannot report blocks every PR. No other job in any
-of the nine package workflows changed name, was added or removed; `manual-ci.yml` keeps
-`Build + link verification`; the six non-package workflows are untouched.
+**One pre-merge edit, not a post-merge one.** The maintainer changed the ruleset on
+**2026-10-27**, before merge, in a single save: the four replacement contexts were added and
+`Test suites (console — browser)` was removed together. That order is forced by this change
+set rather than chosen — the old job no longer exists, so its context can never report on
+this PR, and a required check that can never report blocks the very merge it is meant to
+gate. (PR #224 hit exactly that until the ruleset was edited ahead of the merge.)
+
+The plan's §D-16 recorded the other order — add the new names before merge, remove the old
+one after — which is the right sequence when the old job still reports through the
+transition. It is not applicable here: there is no transition in which
+`Test suites (console — browser)` reports, because the job is deleted in this change set.
+
+No other job in any of the nine package workflows changed name, was added or removed;
+`manual-ci.yml` keeps `Build + link verification`; the six non-package workflows are
+untouched.
