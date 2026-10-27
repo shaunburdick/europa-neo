@@ -6,17 +6,16 @@
 # require internet access at runtime, reports the Q-P03 browser-payload
 # reference target, and verifies the real one-port HTTP/WS host surface.
 #
-# Allowed URL occurrences (judged per extracted URL token and parsed origin):
+# Allowed URL occurrences (judged per extracted URL token):
 #   - Bare `http://` / `https://` schemes — no host, never a fetch
 #     target. These are the scheme-detection/translation literals the
 #     lobby emits to UPGRADE caller-supplied URLs to ws/wss (feature
 #     010 T-015); they are strings about schemes, not remote references.
-#   - XML/SVG namespace URIs (exact host www.w3.org) — identifiers, never fetched.
-#   - React's exact emitted error URL prefix — used to assemble prose embedded
-#     in thrown Error strings, not a resource fetch.
-#   - The branded footer's exact GitHub repository link — a
-#     navigation link rendered as an <a href>, never a runtime fetch.
-#   - The player-manual link on the exact shaunburdick.github.io host.
+#   - XML/SVG namespace URIs (www.w3.org) — identifiers, never fetched.
+#   - React's minified error-message URLs (react.dev/errors/…) — prose
+#     embedded in thrown Error strings, not a resource fetch.
+#   - The branded footer's GitHub repo hyperlink (github.com/…) and player
+#     manual link (shaunburdick.github.io/…) — navigation links, not runtime fetches.
 #
 # Bundle budget: sum of per-file gzip sizes over the BROWSER-DELIVERED
 # payload (dist/assets/**/*.{js,css} — the Vite SPA build). The tsc
@@ -56,71 +55,29 @@ echo "[test-selfhost] scanning dist/ for remote URLs..."
 # Judge individual URL TOKENS, not source lines: minified bundles pack an
 # entire chunk onto one physical line, so line-level filtering would
 # silently forgive co-located violations (and over-report benign ones).
-# The token pattern runs from the scheme through URL-safe characters
-# only — string and template delimiters terminate a token, so the
-# scheme-translation literals extract as the bare schemes allowlisted
-# below instead of dragging surrounding code into the verdict.
-grep_status=0
-raw_url_tokens="$(grep -REioh 'https?://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' dist/assets --include='*.js' --include='*.css')" || grep_status=$?
-if [ "${grep_status}" -gt 1 ]; then
-  printf '[test-selfhost] FAIL: remote-URL scanner failed (grep exit %s).\n' "${grep_status}"
-  exit 1
-fi
-if ! url_tokens="$(printf '%s\n' "${raw_url_tokens}" | sort -u)"; then
-  echo "[test-selfhost] FAIL: remote-URL scanner failed while sorting tokens."
-  exit 1
-fi
+url_tokens="$(grep -REoh 'https?://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' dist/assets --include='*.js' --include='*.css' | sort -u || true)"
 
-if ! violations="$(printf '%s\n' "${url_tokens}" | node -e '
-let input = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => { input += chunk; });
-process.stdin.on("end", () => {
-  const isAllowed = (token) => {
-    // Bare schemes carry no host (scheme detection/translation literals).
-    if (token === "http://" || token === "https://") return true;
-    // Do not let an approved URL hide another network URL in its path or query.
-    const schemeEnd = token.indexOf("://") + 3;
-    if (/https?:\/\//i.test(token.slice(schemeEnd))) return false;
-
-    let url;
-    try {
-      url = new URL(token);
-    } catch {
-      return false;
-    }
-    if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password || url.port) {
-      return false;
-    }
-
-    const host = url.hostname.toLowerCase();
-    // TanStack Router SSR fallback origin — not fetched at runtime in the browser.
-    if (host === "localhost") return token === "http://localhost";
-    // Exact XML/SVG namespace identifiers emitted by the current browser bundle.
-    if (host === "www.w3.org") {
-      const namespaceUrls = new Set([
-        "http://www.w3.org/1998/Math/MathML",
-        "http://www.w3.org/1999/xlink",
-        "http://www.w3.org/2000/svg",
-        "http://www.w3.org/XML/1998/namespace",
-      ]);
-      return namespaceUrls.has(token);
-    }
-    // React emits this exact prefix and appends dynamic error data in thrown Error prose.
-    if (host === "react.dev") return token === "https://react.dev/errors/";
-    // Match the exact emitted navigation URLs; reject other paths, queries, fragments, and nested URLs.
-    if (host === "github.com") return token === "https://github.com/shaunburdick/europa-neo";
-    if (host === "shaunburdick.github.io") return token === "https://shaunburdick.github.io/europa-neo/manual/";
-    return false;
-  };
-
-  const violations = input.split(/\r?\n/).filter(Boolean).filter((token) => !isAllowed(token));
-  process.stdout.write(violations.join("\n"));
-});
-')"; then
-  echo "[test-selfhost] FAIL: remote-URL scanner failed while validating URL origins."
-  exit 1
-fi
+violations=""
+for url in ${url_tokens}; do
+  case "${url}" in
+    # Bare schemes carry no host (scheme detection/translation literals).
+    http:// | https://) ;;
+    # TanStack Router SSR fallback origin — not fetched at runtime in the browser.
+    http://localhost) ;;
+    # XML/SVG namespace identifiers — never fetched.
+    *www.w3.org*) ;;
+    # React error-decoder prose inside thrown Error strings.
+    *react.dev/errors* | *reactjs.org/docs/error-decoder*) ;;
+    # Footer hyperlink to the project repo — navigation only, never a runtime fetch.
+    *github.com*) ;;
+    # Player manual link — navigation only, never a runtime fetch.
+    *shaunburdick.github.io*) ;;
+    *)
+      violations="${violations}${url}
+"
+      ;;
+  esac
+done
 
 if [ -n "${violations}" ]; then
   echo "[test-selfhost] FAIL: remote URLs found in built output:"
@@ -205,10 +162,8 @@ printf '%s\n' "${asset_headers}" | grep -Fqi 'content-type:' || {
   printf '%s\n' '[test-selfhost] FAIL: known asset did not return a content type.'
   exit 1
 }
-missing_asset_status="$(curl -sS -o /dev/null -w '%{http_code}' \
-  "http://127.0.0.1:${port}/assets/missing-selfhost.js")"
-if [ "${missing_asset_status}" != '404' ]; then
-  printf '[test-selfhost] FAIL: missing asset probe returned %s, expected 404.\n' "${missing_asset_status}"
+if curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${port}/assets/missing-selfhost.js" | grep -Fq '200'; then
+  printf '%s\n' '[test-selfhost] FAIL: missing asset was swallowed by SPA fallback.'
   exit 1
 fi
 

@@ -346,6 +346,10 @@ supersedes the numeric-failure severity only.
 
 ### v1.9 (2026-10-23) — Retired-query/privacy guard coverage includes the manual's `.mdx` pages (issue #202)
 
+**Version-history reconciliation:** issue #202's earlier v1.6 label was
+renumbered v1.9 after the intervening issue #201 amendments were recorded as
+v1.6–v1.8; its guard-coverage correction did not otherwise change.
+
 - The guard named in the Implementation Notes above ("Add a guard for retired
   production `?live` references while allowing historical clarification text
   and unchanged `?e2e` references") MUST cover the manual's `.mdx` page sources

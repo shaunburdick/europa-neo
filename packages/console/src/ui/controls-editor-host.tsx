@@ -77,7 +77,7 @@ export function ControlsEditorHostProvider({
     }, [open]);
 
     const contextValue: ControlsEditorState = { open, openEditor, closeEditor };
-    const gamepadSupported = typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function';
+    const gamepadSupported = controller.isSupported();
 
     return (
         <ControlsEditorContext.Provider value={contextValue}>

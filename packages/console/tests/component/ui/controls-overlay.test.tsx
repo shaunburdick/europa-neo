@@ -5,7 +5,10 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { ControlMappingSession, matchKeyboardBinding } from '../../../src/input/control-mapping';
+import { ControlMappingProvider } from '../../../src/input/control-mapping-context';
 import type { GamepadCaptureHandler } from '../../../src/input/gamepad-controller';
+import { GamepadController } from '../../../src/input/gamepad-controller';
+import { ControlsEditorHostProvider } from '../../../src/ui/controls-editor-host';
 import { ControlsOverlay } from '../../../src/ui/controls-overlay';
 
 afterEach(() => {
@@ -152,6 +155,36 @@ describe('ControlsOverlay', () => {
             mapping: 'standard',
             button: 0,
         });
+    });
+
+    test('disables Gamepad capture when the poller API throws without disabling keyboard controls', async () => {
+        vi.spyOn(navigator, 'getGamepads').mockImplementation(() => {
+            throw new DOMException('Gamepad access is unavailable', 'SecurityError');
+        });
+        const session = new ControlMappingSession();
+        const controller = new GamepadController(session);
+        await render(
+            <ControlMappingProvider session={session} gamepadController={controller}>
+                <ControlsEditorHostProvider launcherPlacement="host-shell" />
+            </ControlMappingProvider>,
+        );
+
+        const launcher = [...document.querySelectorAll('button')].find((button) =>
+            button.textContent?.trim().startsWith('Configure controls'),
+        );
+        await userEvent.click(launcher as HTMLButtonElement);
+        await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+
+        expect(document.body.textContent).toContain('Gamepad input is unavailable in this browser.');
+        const addGamepad = [...document.querySelectorAll('button')].find(
+            (button) => button.textContent?.trim() === 'Add Gamepad binding',
+        );
+        const addKeyboard = [...document.querySelectorAll('button')].find(
+            (button) => button.textContent?.trim() === 'Add keyboard binding',
+        );
+        expect(addGamepad?.disabled).toBe(true);
+        expect(addKeyboard?.disabled).toBe(false);
+        expect(document.body.textContent).toContain('Board gesture');
     });
 
     test('reserved browser chords remain usable and capture still works from modal footer focus', async () => {

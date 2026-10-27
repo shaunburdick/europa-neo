@@ -765,11 +765,17 @@ converts legacy `ConsoleConfig.inputMapping` into this representation. Updates
 are in-memory only; reload constructs a new session, and no mapping value is
 persisted or sent over the network.
 
-M1 supports logical keyboard `event.key` and pointer bindings. Standard Gamepad
-binding shapes are reserved in the type union but are rejected by M1's source
-capabilities until the M2 adapter is implemented. Physical keyboard
-`event.code` is not currently supported, and Ctrl/Meta keyboard chords remain
-reserved for browser shortcuts. Middle pointer input remains owned by the
-zoom/pan controller; the pipe mappings keep left/right and Alt+left behavior.
+M1–M3 are implemented (spec 005 FR-052–FR-055). M1 routes the current keyboard
+and pointer defaults through the runtime mapping seam; M2 accepts feature-detected
+standard-mapped Gamepad button and signed-axis bindings; M3 provides Original,
+MMO/WASD, and Custom keyboard profiles. The default Gamepad D-pad buttons 12–15
+and left-stick axes 0/1 move selection only; compatible custom bindings may map
+discrete Gamepad controls to existing actions. One runtime-owned poller is shared
+by capture and match input. Unsupported Gamepad APIs leave keyboard and pointer
+controls available. No physical controller smoke has been performed, so hardware
+validation is not claimed. Physical keyboard `event.code` remains unsupported,
+and Ctrl/Meta keyboard chords remain reserved for browser shortcuts. Middle
+pointer input remains owned by the zoom/pan controller; the pipe mappings keep
+left/right and Alt+left behavior.
 Atomic validation rejects overlapping conflicts and leaves the prior snapshot
 unchanged; controller consumers read the current snapshot without remounting.

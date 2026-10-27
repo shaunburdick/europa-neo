@@ -34,9 +34,13 @@ Public data types are declared in
 - Ctrl/Meta keyboard chords remain reserved for browser commands and are
   rejected by M1 mapping validation. Distinct supported Alt/Shift chords remain
   independently bindable.
-- M1 accepts keyboard and pointer bindings. Although the type union reserves
-  standard Gamepad binding shapes, M1 validation rejects them; no Gamepad
-  polling or hardware implementation is active in this milestone.
+- M1–M3 are implemented: M1 routes keyboard and pointer defaults through the
+  mapping seam, M2 accepts feature-detected standard-mapped Gamepad button and
+  signed-axis bindings, and M3 provides keyboard profiles. Default Gamepad
+  bindings move selection only; unsupported Gamepad APIs disable Gamepad input
+  and capture without disabling keyboard or pointer controls. FR-053/055/057 in
+  spec 005 govern the supported mappings and lifecycle. No physical controller
+  smoke has been performed; hardware validation is not claimed.
 - In the composed app the middle pointer button is owned by the zoom/pan
   controller and is not a M1 pipe binding. Default pipe pointer behavior stays
   primary/left toggle, secondary/right exclusive, and Alt+left exclusive.
