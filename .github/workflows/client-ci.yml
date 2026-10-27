@@ -318,7 +318,7 @@ jobs:
         run: pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/3
 
       # Contract conformance (reads source directly — no build needed). Unconditional
-      # in both legs, so each leg is self-sufficient and cannot hide a gate.
+      # in all three legs, so each leg is self-sufficient and cannot hide a gate.
       - name: Contract conformance
         run: |
           pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
