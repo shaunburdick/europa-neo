@@ -415,3 +415,131 @@ figure is now dominated by start-up, not by the browser work.
   definitions (design, e2e, browser, coverage), one of which is a two-leg matrix,
   so five image jobs run per run. `build-workspace` = 8 consumers,
   `EUROPA_PERF_BUDGET_FACTOR` = 2.
+
+## P2b run (three-way shard)
+
+Client CI **`40548273445`** (push `c02ede9`) — green on its **first attempt**.
+
+| Measure | P2b (3 legs) | P2 (2 legs) | baseline |
+| --- | --- | --- | --- |
+| Client CI wall clock | **187 s** | 249 s | 306 s median, 337 s allowance |
+| `…e2e (1)` | **135 s** — "Running 20 tests using 2 workers, shard 1 of 3" | 170 s | — |
+| `…e2e (2)` | **157 s** — shard 2 of 3 | 192 s | — |
+| `…e2e (3)` | **173 s** — shard 3 of 3 | — | — |
+| `…browser: component/a11y/perf` | **120 s** | 161 s | — |
+| `Coverage gate (console ≥ 80%)` | 111 s | 136 s | — |
+| `Test suites (console — node)` | 105 s | 69 s | — |
+| `Lint + typecheck (console)` / `Browser-mode tests (design)` / `changes` | 65 s / 82 s / 8 s | 75 s / 81 s / 13 s | — |
+
+The three legs divide the suite 20 / 20 / 20 tests. Spread is 135–173 s: **38 s**, a
+1.28× ratio against the 1.5× bar, so no leg is pathological and the count stays at 3.
+
+The slowest leg fell 19 s (192 → 173 s), not the ~40–50 s FR-046 anticipated. The
+reason is visible in the arithmetic: each leg pays the same fixed cost (~74 s of pull,
+prologue and console build), and the expensive specs — `selfhost.spec.ts`'s production
+build, the `full-stack*` server boots — still run serially inside one leg, so leg 3
+carries ≈94 s of test time against leg 1's ≈56 s. Recorded, not tuned: FR-046 fixes
+the count at 3 for this revision. The workflow figure is now 187 s against a 306 s
+baseline (**−39 %**), and the browser job is no longer the critical path by itself
+(leg 3 at 173 s vs the component job's 120 s).
+
+`Initialize containers` — every image job in this run:
+
+| Job | Pull |
+| --- | --- |
+| `Test suites (console — e2e) (1)` | 37 s |
+| `Test suites (console — e2e) (2)` | 30 s |
+| `Test suites (console — e2e) (3)` | 34 s |
+| `Test suites (console — browser: component/a11y/perf)` | 31 s |
+| `Coverage gate (console ≥ 80%)` | 33 s |
+| `Browser-mode tests (design)` | 26 s |
+
+Seven image jobs per Client CI run now pull concurrently, and the per-pull cost rose
+from P2's 25–27 s to 26–37 s — contended pulls, still far below the workflow's fixed
+test work.
+
+**Reload class: zero.** `optimized dependencies changed` / `dependency optimized` in
+none of this run's 6,742 log lines. Tally since the config parity landed (P2): **0 lines
+in 3 consecutive green runs** — `40545266584`, `40546399155`, `40548273445`. T-007 needs
+ten of the component/a11y/perf job.
+
+## NFR-012 exception: `manual-ci.yml`
+
+The spec's dated exception (NFR-012, 2026-10-27) rests on these numbers: baseline median
+61 s, allowance 71 s; post-change `Manual CI` runs **96 s** (`40542172721`), 130 s
+(`40544212641`), 102 s (`40545266597`), 107 s (`40546399397`), 94 s (`40548273475`) —
+every one above the allowance, median of the first three **102 s**. The single gate job
+pays a 26–27 s anonymous image pull that replaced a Playwright install whose cache key
+hashed `docs/manual/pnpm-lock.yaml`, a path that does not exist, so that cache never
+hit. The workflow stays in the image; the bound continues to apply to the other eight.
+## Timeouts (FR-041, plan §D-7)
+
+Rule applied: **keep** a job's current `timeout-minutes` when it is at or above that
+job's measured maximum, otherwise **raise to `ceil(max/60)+1`**; a job that had no
+clock gets the computed value. Measurements are per-job `started_at → completed_at`
+maxima across every green post-change run available at this commit — P1
+`40542172649` / `40542172721`, P2 `40545266584` / `40545266597`, the follow-up
+`40546399155` / `40546399397`, P2b `40548273445` — except where this PR had not yet
+made a workflow's own file change, so its gates never ran: those rows take the maximum
+from the three pre-change baseline runs in § Baselines and say so. P3's and P4's runs
+exercise all nine and confirm them.
+
+| Workflow | Job | before | measured max | source | decision | chosen (min) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `client-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `client-ci.yml` | `console-lint` | 2 | 75 s | post | kept (≥ max) | **2** |
+| `client-ci.yml` | `design-browser-test` | 5 | 85 s | post | kept (≥ max) | **5** |
+| `client-ci.yml` | `design-coverage` | 6 | 48 s | post | kept (≥ max) | **6** |
+| `client-ci.yml` | `version-coverage` | 3 | 32 s | post | kept (≥ max) | **3** |
+| `client-ci.yml` | `console-test` | 3 | 105 s | post | kept (≥ max) | **3** |
+| `client-ci.yml` | `console-e2e` | 6 | 198 s | post | computed `ceil(max/60)+1` | **5** |
+| `client-ci.yml` | `console-browser` | 6 | 161 s | post | computed `ceil(max/60)+1` | **4** |
+| `client-ci.yml` | `console-coverage` | 6 | 153 s | post | kept (≥ max) | **6** |
+| `manual-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `manual-ci.yml` | `verify` | 3 | 91 s | post | kept (≥ max) | **3** |
+| `core-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `core-ci.yml` | `core-lint` | 2 | 27 s | baseline | kept (≥ max) | **2** |
+| `core-ci.yml` | `core-test` | 2 | 32 s | baseline | kept (≥ max) | **2** |
+| `core-ci.yml` | `core-coverage` | 2 | 37 s | baseline | kept (≥ max) | **2** |
+| `engine-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `engine-ci.yml` | `engine-lint` | 2 | 35 s | baseline | kept (≥ max) | **2** |
+| `engine-ci.yml` | `engine-test` | 2 | 37 s | baseline | kept (≥ max) | **2** |
+| `engine-ci.yml` | `engine-coverage` | 2 | 42 s | baseline | kept (≥ max) | **2** |
+| `terrain-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `terrain-ci.yml` | `terrain-lint` | 2 | 39 s | baseline | kept (≥ max) | **2** |
+| `terrain-ci.yml` | `terrain-test` | 2 | 46 s | baseline | kept (≥ max) | **2** |
+| `terrain-ci.yml` | `terrain-coverage` | 2 | 63 s | baseline | kept (≥ max) | **2** |
+| `network-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `network-ci.yml` | `network-lint` | 2 | 46 s | baseline | kept (≥ max) | **2** |
+| `network-ci.yml` | `network-test` | 3 | 79 s | baseline | kept (≥ max) | **3** |
+| `network-ci.yml` | `network-coverage` | 2 | 87 s | baseline | kept (≥ max) | **2** |
+| `matchmaking-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `matchmaking-ci.yml` | `matchmaking-lint` | 2 | 58 s | baseline | kept (≥ max) | **2** |
+| `matchmaking-ci.yml` | `matchmaking-test` | 2 | 53 s | baseline | kept (≥ max) | **2** |
+| `matchmaking-ci.yml` | `matchmaking-coverage` | 2 | 53 s | baseline | kept (≥ max) | **2** |
+| `fog-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `fog-ci.yml` | `fog-lint` | 2 | 33 s | baseline | kept (≥ max) | **2** |
+| `fog-ci.yml` | `fog-test` | 2 | 37 s | baseline | kept (≥ max) | **2** |
+| `fog-ci.yml` | `fog-coverage` | 2 | 41 s | baseline | kept (≥ max) | **2** |
+| `logging-ci.yml` | `changes` | — | 13 s | post | added (had no clock) | **2** |
+| `logging-ci.yml` | `logging-lint` | 2 | 33 s | baseline | kept (≥ max) | **2** |
+| `logging-ci.yml` | `logging-test` | 2 | 27 s | baseline | kept (≥ max) | **2** |
+| `logging-ci.yml` | `logging-coverage` | 2 | 31 s | baseline | kept (≥ max) | **2** |
+
+**Result: no value sits below its job's measured maximum** (checked programmatically
+against the tree at this commit), no job lost a clock, and the six non-package
+workflows are untouched. The two new definitions carry computed values rather than the
+6-minute placeholder P2 shipped: `console-e2e` 5 min against a 198 s maximum (the
+two-way leg 2 on `40546399155`; the three-way maximum so far is 173 s) and
+`console-browser` 4 min against 161 s. The 36 other values were generous enough that
+the rule keeps every one of them — a re-derivation whose finding is "nothing to
+raise" is the honest outcome, and the table is the measurement, not a promise.
+
+The nine `changes` jobs had no `timeout-minutes` before and are given 2 min (measured
+max 13 s). AC-041 does not require this — it forbids dropping a clock, and these never
+had one — but T-005's `Done when` asks that every job in the nine files carry one, and
+a hung `changes` job gates every other job in its workflow.
+
+Confirmation samples: P3's and P4's own runs. A value either run exceeds is raised
+before close-out (T-009).
+

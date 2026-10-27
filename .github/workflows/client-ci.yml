@@ -49,6 +49,7 @@ jobs:
   # failure would skip its dependents silently (dependent-job-skip).
   changes:
     runs-on: ubuntu-24.04
+    timeout-minutes: 2
     permissions:
       contents: read
       pull-requests: read
@@ -264,7 +265,7 @@ jobs:
     # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
-    timeout-minutes: 6
+    timeout-minutes: 5
     # Fixed at three shards, all required checks (008 FR-046): Playwright splits by
     # test count, and `workers` stays 2 so a leg cannot buy speed with a timeout.
     # fail-fast keeps one red leg from cancelling the others, so every check reports.
@@ -332,7 +333,7 @@ jobs:
     # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
-    timeout-minutes: 6
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
