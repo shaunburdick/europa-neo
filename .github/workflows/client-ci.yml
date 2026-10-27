@@ -48,6 +48,7 @@ jobs:
   # diffs against the previous commit on push. This job must never fail: a
   # failure would skip its dependents silently (dependent-job-skip).
   changes:
+    # Pinned, not ubuntu-latest: OS drift must not arrive between image releases (008 FR-038).
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     permissions:

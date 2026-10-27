@@ -1,68 +1,75 @@
-# PM Handoff: CI Base Image and Shared Prepare (spec 008 v1.8, issue #223)
+# PM Handoff: CI Base Image, Job Split and Three-Way Shard (spec 008 v1.8, issue #223)
 
-- Spec: `specs/008-ci-workflows/spec.md` (v1.8, working-tree change, **uncommitted**)
-- Plan / Tasks: none yet — architect writes them after Gate 1 approval
-- Constitution: `.specify/memory/constitution.md`
-- Repo rules: `AGENTS.md`
+- Spec: `specs/008-ci-workflows/spec.md` — v1.8, amended 2026-10-27 for a three-way e2e
+  shard (FR-046/AC-047) and a dated `manual-ci.yml` exception to NFR-012.
+- Plan / Tasks: `plan.md`, `tasks.md`. **Stale on one point**: §D-9, §D-15 and T-004 still
+  describe the two-way shard; the spec's three-way amendment governs.
+- Branch: `ci/223-ci-base-image` off `origin/main` (`45ece60`), PR **#224** (draft).
+- Constitution: `.specify/memory/constitution.md` · Repo rules: `AGENTS.md`.
 - Tracking issue: https://github.com/shaunburdick/europa-neo/issues/223
-
-## Branch
-
-`gh-action-cleanup` at `45ece60` (== `origin/main`) + uncommitted `specs/008-ci-workflows/spec.md`
-and this handoff. Recommended implementation branch: `ci/223-ci-base-image` off `origin/main`,
-carrying the spec amendment as its first commit.
 
 ## Phase
 
-Gate 1 complete (three challenge rounds). **Strategy changed by the owner 2026-10-27** after the
-first approval question: the repo-owned GHCR image was withdrawn as overkill; the amendment now
-specifies the upstream Microsoft Playwright image. Spec re-presented for approval.
-Completed: issue #223; evidence from tree + Actions API; amendment; two challenge revisions; strategy
-revision; in-image pnpm gap closed.
-Blocked: none.
+Phase 6, one change set carried in four pushes. P1 (image, in-image toolchain, pinned
+labels), P2 (split, two-way shard, config parity), P2b (three-way shard), P3 (timeouts)
+and P4 (docs, pin rationale) are pushed and green. Remaining: T-006 drills, T-007 (ten
+green component/a11y/perf runs), T-008 (sample + attribution + check names), T-009
+(close-out).
 
-## Decisions
+## Shipped shape
 
-1. **Image (revised 2026-10-27)**: browser jobs run in
-   `mcr.microsoft.com/playwright:v<exact resolved @playwright/test>-noble` (1.62.1 today). No
-   repository-built image, no GHCR package, no publish workflow, no digest ordering. Workflow count
-   stays 15.
-2. **Topology**: keep the 9 package workflow files; one shared prepare job per workflow.
-3. No self-hosted runners; no lowered coverage thresholds; no removed required checks.
-4. Tracking issue: #223.
+- **Image**: browser work runs in `mcr.microsoft.com/playwright:v1.62.1-noble` — four
+  definitions (`client-ci.yml` design-browser-test, console-e2e, console-browser,
+  console-coverage) plus `manual-ci.yml` `verify`: **seven image jobs per Client CI run**
+  (the e2e definition is a three-leg matrix).
+- **In-image toolchain**: `.github/actions/build-workspace` takes `runtime: none`, which
+  passes `pnpm/setup` no runtime and `node-version-file: false` — pnpm 11.22.0 is fetched
+  as a native binary and the image's Node 24.18.1 is used. No Node install, no apt, no
+  Playwright install anywhere under `.github/workflows/`.
+- **Split**: `Test suites (console — e2e)` (three-way matrix, `--shard=<n>/3`,
+  `fail-fast: false`, `workers` still 2, contract conformance in every leg) and
+  `Test suites (console — browser: component/a11y/perf)` (`test:component`, `test:a11y`,
+  `test:perf` at `EUROPA_PERF_BUDGET_FACTOR=2`). The combined job is gone; step names
+  carried over unchanged.
+- **Reload class**: both browser configs pre-bundle the same four React entries in
+  `optimizeDeps.include` (FR-043). Zero `optimized dependencies changed` lines in every
+  run since.
+- **Labels**: every `runs-on` in the nine package workflows is `ubuntu-24.04`, with the
+  pin's reason in one comment per file. The six non-package workflows are untouched.
+- **Timeouts**: re-derived from measured maxima (plan §D-7). The two new definitions carry
+  computed values (`console-e2e` 5 min against 198 s, `console-browser` 4 min against
+  161 s); the other 36 values were above their maxima and are kept; the nine `changes`
+  jobs gained 2 min where they had none.
+- **`manual-ci.yml`** stays in the image under NFR-012's dated exception: 61 s → 96 s
+  against a 71 s allowance, because a ~26 s anonymous pull replaced a Playwright install
+  whose cache key hashed a path that does not exist.
 
-## What the spec now requires (v1.8)
+## Measurements so far (Client CI, `pull_request`)
 
-- FR-035–FR-038: four browser jobs (`console-e2e`, `console-coverage`, `design-browser-test`,
-  `manual-ci verify`) in the upstream image; all four `playwright install` sites and three
-  `ms-playwright` caches deleted; every other job on `ubuntu-24.04` with normal `pnpm/setup`.
-- FR-036: tag == resolved `@playwright/test` == in-image `playwright --version`, checked in-job
-  (negative drill included). Rollback is the tag line.
-- FR-039: one prepare per workflow on the host, sole invoker of `build-workspace`, union build list,
-  consumers fail on missing outputs, 1-day retention; `manual-ci.yml` exempt (single gate job). Every
-  in-image job that runs pnpm: no Node install, pnpm must equal `packageManager` (11.22.0).
-- FR-040: no gate lost — per-workflow baseline, job + step-name diff via the jobs API.
-- FR-041: timeouts re-derived from measured maxima (prepare included).
-- FR-042: 2× perf factor stays; `test:perf` measured inside the image before the switch.
-- FR-043: dependency-optimizer reload closed with evidence (N pinned in plan); no acceptance branch.
-- FR-044: one change set; inventory stays 15; CONTRIBUTING list becomes a pointer to FR-028; README
-  and AGENTS counts must not move; `docs/manual/**` untouched.
-- NFR-011: read scopes only, anonymous public pull. NFR-012: workflow wall clock, median of 3
-  same-class runs, +10 s / +10%. NFR-013: no self-hosted, thresholds unchanged, no test edits.
-  NFR-014: Playwright version single-sourced, moved in one PR.
+| Run | Shape | Wall clock | Slowest job |
+| --- | --- | --- | --- |
+| `40540579650` | P1 | failed — git ownership in the container (fixed in `6614c08`) | — |
+| `40542172649` | P1 | 159 s (after one job rerun) | browser 285 s |
+| `40545266584` | P2 two-way | 249 s | e2e (2) 192 s |
+| `40546399155` | P2 follow-up | 250 s | e2e (2) 198 s |
+| `40548273445` | P2b three-way | **187 s** | e2e (3) 173 s |
 
-## Open for the plan (not spec gaps)
+Baseline: 306 s median, 337 s allowance. Reload lines: **0 in every run since the config
+parity** — three so far (`40545266584`, `40546399155`, `40548273445`); T-007 needs ten.
 
-- Prepare payload (pnpm store vs `dist/**` vs `node_modules`), measured sizes, artifact name.
-- N for FR-043 flake-closure evidence + run ids.
-- How pnpm is supplied in the four in-image jobs (corepack vs pnpm-only setup mode).
-- Per-workflow baseline run ids and medians (recorded in the PR).
-- `test:perf` inside the image against the 2× factor.
+## Open for the next slice
 
-## Next
-
-1. User approves v1.8.
-2. `modern-architect-engineer` → `plan.md` + `tasks.md` in one handoff.
-3. Gate 2 over plan + tasks, then user approval.
-4. Phase 6: likely >15 tasks across 10 files → orchestration with this handoff first.
-5. Gate 3a conformance; before/after workflow medians in the PR body.
+- **T-006 drills** (scratch branch, never on the PR branch): negative tag drill
+  (`v1.61.1-noble` against the 1.62.1 catalog) and the shard-coverage check.
+- **T-007**: ten consecutive green `component/a11y/perf` runs, each log grepped for the
+  reload line.
+- **T-008**: three-run sample + attribution per workflow, AC-040(b) step-name diff,
+  check-name photograph from the jobs API.
+- **T-009**: full `pnpm verify`, truthfulness audit, NFR-012 verdicts (manual exempt),
+  branch-protection order, dated comment on #223.
+- **Branch protection**: add `Test suites (console — e2e) (1)`, `(2)`, `(3)` and
+  `Test suites (console — browser: component/a11y/perf)` before merge; remove
+  `Test suites (console — browser)` after.
+- **Doc sync**: plan §D-9/§D-15 and tasks T-004 say two-way; spec Edge Case "Matrix check
+  names" still says "two required checks"; FR-045/AC-046 still say the e2e job runs
+  `test:e2e` where it runs `exec playwright test --shard`.

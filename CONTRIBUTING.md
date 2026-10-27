@@ -186,7 +186,7 @@ Europa Neo uses a shared design system (`@europa/design`) for consistent visuals
 
 ## CI
 
-- Per-package CI workflows (core, engine, terrain, fog, networking, matchmaking, console, logging, manual) plus shared workflows for Docker, GitHub Pages, releases, and version drift.
+- The workflow inventory is normative in [spec 008 FR-028](specs/008-ci-workflows/spec.md) — nine package workflows plus six shared ones. It is not re-listed here: the copy that used to live in this file drifted from the tree (issue #214), so the spec is the single source.
 - `main` is branch-protected: no direct pushes, no PRs with failing checks.
 - There are never "preexisting" test failures — if CI was green before your branch and is red after, your changes caused it. Fix failures in your branch before requesting review.
 
