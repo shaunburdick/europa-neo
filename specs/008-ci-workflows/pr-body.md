@@ -292,3 +292,63 @@ the spec required before the switch; the 2× factor stays as it is. W1 proceeds.
   no `options:`. `--user 1001` stays rejected as D-5 decided; it would trade the
   ownership signal for a new set of HOME and store-permission unknowns.
   AC-040(b)'s step diff names this added step once, for the four browser jobs.
+
+## P1 run (image, in-image toolchain, pinned labels)
+
+Client CI **`40542172649`** (push `6614c08`) is green; it needed one job rerun, and the
+first attempt **`40540579650`** (push `4175bc8`) failed on the git-ownership finding
+below. Manual CI **`40542172721`** is green with its link test running in the image.
+
+| Workflow (P1 run) | wall clock | baseline median | allowance | verdict |
+| --- | --- | --- | --- | --- |
+| Client CI (`40542172649`) | 159 s run clock, after a rerun — not comparable | 306 s | 337 s | see note |
+| Manual CI (`40542172721`) | 96 s | 61 s | 71 s | above |
+| Core CI (`40542172468`) | 49 s | 74 s | 84 s | inside |
+| Engine CI (`40542172580`) | 55 s | 75 s | 85 s | inside |
+| Terrain CI (`40542172661`) | 66 s | 97 s | 107 s | inside |
+| Network CI (`40542172567`) | 123 s | 92 s | 102 s | above |
+| Matchmaking CI (`40542172750`) | 101 s | 94 s | 104 s | inside |
+| Fog CI (`40542172637`) | 58 s | 51 s | 61 s | inside |
+| Logging CI (`40542172460`) | 69 s | 39 s | 49 s | above |
+
+No NFR-012 verdict is claimed here: the spec measures medians of three same-class runs
+(T-008), and P1 is one sample taken in a burst where all twelve workflows started in
+the same second. Two of the three workflows above their allowance (Logging, Network)
+run no image job at all, so the excess is not the image; Terrain ran 97 s at baseline
+and 66 s here, which is the size of the run-to-run noise on this sample. What the image
+does cost is measured directly below.
+
+### What the image changed, measured
+
+| Effect | Before | P1 |
+| --- | --- | --- |
+| `Initialize containers` (the pull, counted before the first step) | — | 33 s and 36 s in Client CI's two image jobs, 27 s in Manual CI's |
+| Composite prologue (`build-workspace`) | 39 s | 27–30 s |
+| Install Playwright Chromium | 23 s | gone |
+| Cache Playwright browsers | 0 s | gone |
+| Combined browser job | 302 s | 285 s |
+
+Plan §8 budgeted 10–20 s for the pull; the cold figure is 27–36 s. These are cold
+pulls on a fresh image and P3/P4 will show whether the fleet caches it, which is why
+the table is evidence and not a verdict. On the 61 s Manual CI the pull is most of the
++35 s — the one workflow whose allowance the image plausibly exceeds on its own.
+
+### AC-048 observables, from the log
+
+- The `runtime != 'none'` **pnpm/setup step is skipped** (`outcome=skipped`), and the
+  `node-version-file: false` step runs: `Downloading pnpm 11.22.0 from the npm registry`
+  — no Node download, install or version file.
+- `Toolchain and Playwright version agreement` prints `v24.18.1`; it passes in all four
+  in-image jobs.
+- Host jobs still install their runtime — `Coverage gate (version ≥ 80%)` logs
+  `Installing runtime node@22...` — so the default path is unchanged.
+
+### The reload class, observed twice
+
+Both attempts of `Coverage gate (console ≥ 80%)` logged
+`dependency optimized: react-dom/client` → `optimized dependencies changed. reloading`
+(16:36:24 and 16:41:37). In the first attempt it cost `waiting-overlay.test.tsx` its 15
+tests; in the rerun it cost nothing. That is FR-043's flake, in the coverage config's
+browser project — the config T-004 gives the pre-bundle list in P2, which is the
+closure mechanism the spec named. It is pre-existing rather than introduced here (the
+config never had `optimizeDeps`), and P1 is green on a rerun, not on a change.
