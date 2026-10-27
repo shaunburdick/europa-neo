@@ -265,13 +265,13 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 6
-    # Fixed at two shards, both required checks (008 FR-046): Playwright splits by
+    # Fixed at three shards, all required checks (008 FR-046): Playwright splits by
     # test count, and `workers` stays 2 so a leg cannot buy speed with a timeout.
-    # fail-fast keeps one red leg from cancelling the other, so both checks report.
+    # fail-fast keeps one red leg from cancelling the others, so every check reports.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -313,7 +313,7 @@ jobs:
       # console, scans dist/ for remote URLs, and enforces the Q-P03
       # gzip bundle budget (scripts/test-selfhost.sh).
       - name: E2E tests (Playwright)
-        run: pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/2
+        run: pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/3
 
       # Contract conformance (reads source directly — no build needed). Unconditional
       # in both legs, so each leg is self-sufficient and cannot hide a gate.
