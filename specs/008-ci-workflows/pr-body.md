@@ -207,8 +207,70 @@ forecast.
 
 ## Image facts
 
-_Pending T-002._
+Probed on 2026-10-27 with `docker run --rm mcr.microsoft.com/playwright:v1.62.1-noble`.
+
+| Probe | Result |
+| --- | --- |
+| Reference | `mcr.microsoft.com/playwright:v1.62.1-noble` |
+| Digest (recorded, not a pin — plan §2.2) | `mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e` |
+| Anonymous pull | `docker logout mcr.microsoft.com` → `docker pull …` succeeded, no credential |
+| `node --version` | `v24.18.1` — the image's Node, not the repo's 22 (`.node-version`) |
+| npm globals | `corepack@0.35.0`, `npm@11.16.0`, `yarn@1.22.22`; **no `playwright` on PATH** |
+| `/ms-playwright` | `chromium-1234`, `chromium_headless_shell-1234`, `ffmpeg-1011`, `firefox-1538`, `webkit-2336` |
+| `id` | `uid=0(root)` |
+| `zstd` | absent (`gzip` 1.12, `tar` 1.35, `git` 2.43.0 present) |
+| Arch / image size | `x64` / 949 MB |
+
+**Version agreement (FR-036, NFR-014), measured inside the image after
+`pnpm install --frozen-lockfile`:**
+
+| Value | Measured |
+| --- | --- |
+| Workflow tag | `v1.62.1-noble` |
+| Catalog `@playwright/test` | `^1.62.1` → lockfile resolves `1.62.1` |
+| `pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version"` | `1.62.1` |
+| `pnpm --filter @europa/console exec playwright --version` | `Version 1.62.1` |
+| `pnpm why playwright-core` | `playwright-core@1.62.1` (via `@axe-core/playwright@4.13.0` and `@vitest/browser-playwright@4.1.11`) |
+| Chromium revision | `1234`, the revision the resolved `playwright-core` names |
+
+`pnpm` is **not** in the image; the version check above came from the D-8
+measurement's own `npm i -g pnpm@11.22.0`, which is the disposable-copy
+procedure and not the job path. In a job, `.github/actions/build-workspace`
+supplies pnpm 11.22.0 through `pnpm/setup` with `node-version-file: false` and
+no runtime, so no Node is installed (plan §D-4, FR-047).
 
 ## Perf in the image
 
-_Pending T-002._
+`test:perf` run inside the image before the browser jobs switch to it (FR-042,
+plan §D-8): a disposable copy of `HEAD` (`7b13dd3`, pre-change tree) extracted
+with `git archive`, bind-mounted at `/tmp/opencode/perf-image`,
+`npm i -g pnpm@11.22.0`, `pnpm install --frozen-lockfile` (4.4 s), `pnpm build`,
+then `pnpm --filter @europa/console test:perf` — twice at factor 1 (the strict
+spec budget, `EUROPA_PERF_BUDGET_FACTOR` unset) and once at factor 2 (what CI
+sets). `--ipc=host`, `CI=1`. Nothing in this worktree's `node_modules` was
+touched.
+
+| Run | Factor | suite | min-round-median | p50 | p99 | budget | result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1 (strict) | `paintFrame(32×32 full board)` | **4.100 ms** | 4.100 ms | 84.300 ms | 8 ms | **pass** |
+| 1 | 1 (strict) | `reduce(setPipe)` | 0.1 µs | 0.1 µs | 0.1 µs | 1 ms | pass |
+| 1 | 1 (strict) | `localPreflightOrder(paratroop)` | 0.27 µs | 0.27 µs | 1.66 µs | 100 µs | pass |
+| 1 | 1 (strict) | `paintFrame(48×48 relief)` | relief-on 6.800 ms − relief-off 1.800 ms = **5.000 ms** | — | — | 6 ms | pass |
+| 2 | 1 (strict) | `paintFrame(32×32 full board)` | **4.100 ms** | 4.200 ms | 84.300 ms | 8 ms | **pass** |
+| 2 | 1 (strict) | `reduce(setPipe)` | 0.1 µs | 0.1 µs | 0.1 µs | 1 ms | pass |
+| 2 | 1 (strict) | `localPreflightOrder(paratroop)` | 0.27 µs | 0.28 µs | 1.69 µs | 100 µs | pass |
+| 2 | 1 (strict) | `paintFrame(48×48 relief)` | 6.800 ms − 1.767 ms = **5.033 ms** | — | — | 6 ms | pass |
+| 3 | 2 (CI) | `paintFrame(32×32 full board)` | **4.100 ms** | 4.200 ms | 84.800 ms | 16 ms | **pass** |
+| 3 | 2 (CI) | `reduce(setPipe)` | 0.1 µs | 0.1 µs | 0.1 µs | 1 ms | pass |
+| 3 | 2 (CI) | `localPreflightOrder(paratroop)` | 0.27 µs | 0.27 µs | 1.71 µs | 100 µs | pass |
+| 3 | 2 (CI) | `paintFrame(48×48 relief)` | 6.800 ms − 1.800 ms = **5.000 ms** | — | — | 12 ms | pass |
+
+All three runs passed: `Test Files 1 passed (1)`, exit 0 each time.
+
+**Verdict (FR-042): no escalation.** The paint budget's min-of-round-median is
+4.100 ms inside the image — 51 % of the strict 8 ms budget at factor 1, 26 % of
+the 16 ms factor-2 budget — and the relief addition sits at 5.0 ms against a
+6 ms bound that factor 2 doubles to 12 ms. The p99 tail (84.3 ms) is the
+observed jitter the min-round-median estimator exists to absorb; it is printed,
+not asserted. A container is not the stock runner, and this is the measurement
+the spec required before the switch; the 2× factor stays as it is. W1 proceeds.
