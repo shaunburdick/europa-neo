@@ -40,7 +40,7 @@ jobs:
   # diffs against the previous commit on push. This job must never fail: a
   # failure would skip its dependents silently (dependent-job-skip).
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: read
@@ -73,7 +73,7 @@ jobs:
     name: Lint (engine)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -95,7 +95,7 @@ jobs:
     name: Test (engine)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,7 +114,7 @@ jobs:
     name: Coverage gate (engine ≥ 80%)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

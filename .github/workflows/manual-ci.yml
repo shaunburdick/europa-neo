@@ -23,7 +23,7 @@ jobs:
   # diffs against the previous commit on push. This job must never fail: a
   # failure would skip its dependents silently (dependent-job-skip).
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: read
@@ -48,7 +48,11 @@ jobs:
     name: Build + link verification
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Browser jobs run in the upstream Playwright image: Chromium and its system
+    # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 3
     steps:
       - name: Checkout
@@ -57,6 +61,7 @@ jobs:
       - uses: ./.github/actions/build-workspace
         with:
           packages: 'design'
+          runtime: none
 
       - name: Build Astro site
         run: pnpm --filter @europa/manual build
@@ -67,14 +72,18 @@ jobs:
       - name: Documentation privacy check
         run: node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('docs/manual/pnpm-lock.yaml') }}
-
-      - name: Install Playwright browsers
-        run: pnpm --filter @europa/manual exec playwright install chromium
+      # Nothing is installed at run time (008 FR-035/FR-037): the image supplies
+      # Chromium, and this fails loudly if the tag, CLI, driver or runtime drifts.
+      - name: Toolchain and Playwright version agreement
+        run: |
+          expected=$(pnpm --filter @europa/manual exec node -p "require('@playwright/test/package.json').version")
+          cli=$(pnpm --filter @europa/manual exec playwright --version | awk '{print $2}')
+          tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/manual-ci.yml | sort -u)
+          test "$tag" = "$expected" && test "$cli" = "$expected"
+          pnpm --filter @europa/manual why playwright-core | grep -q "playwright-core@$expected"
+          ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
+          node --version
+          test "$(pnpm --version)" = "$(node -p "require('./package.json').packageManager.split('@').pop()")"
 
       - name: Run Playwright link test
         run: pnpm --filter @europa/manual test:links
