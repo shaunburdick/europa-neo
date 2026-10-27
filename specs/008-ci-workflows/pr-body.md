@@ -274,3 +274,21 @@ the 16 ms factor-2 budget — and the relief addition sits at 5.0 ms against a
 observed jitter the min-round-median estimator exists to absorb; it is printed,
 not asserted. A container is not the stock runner, and this is the measurement
 the spec required before the switch; the 2× factor stays as it is. W1 proceeds.
+
+## Plan findings (implementation)
+
+- **D-5's container user, as measured.** `container: { image: … }` with no
+  `options:` runs the job as root (`uid=0`, § Image facts), and the checkout under
+  `/__w/…` belongs to the runner user, so git refuses to read it:
+  `fatal: detected dubious ownership in repository at '/__w/europa-neo/europa-neo'`.
+  The first P1 run (`40540579650`) failed `Coverage gate (console ≥ 80%)` in
+  `semantic-url-privacy.test.ts`, the one suite that shells out to
+  `git ls-files`. Everything else in that run passed — the image pull, the D-6
+  toolchain step, `runtime: none` with pnpm 11.22.0 and no Node install, and the
+  still-combined browser job in full (`Test suites (console — browser)`, 327 s).
+- **Fix.** One step in each of the four in-image jobs:
+  `git config --global --add safe.directory "$GITHUB_WORKSPACE"` — the remedy git
+  itself prints, scoped to the ephemeral container. No test edit, no gate removed,
+  no `options:`. `--user 1001` stays rejected as D-5 decided; it would trade the
+  ownership signal for a new set of HOME and store-permission unknowns.
+  AC-040(b)'s step diff names this added step once, for the four browser jobs.

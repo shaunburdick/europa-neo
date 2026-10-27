@@ -58,6 +58,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # A container job runs as root over a checkout the runner owns, and git
+      # refuses to read such a repository; suites that shell out to git need this.
+      - name: Trust the workspace checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - uses: ./.github/actions/build-workspace
         with:
           packages: 'design'
