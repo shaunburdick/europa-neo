@@ -2,17 +2,17 @@
 
 **Plan**: `plan.md` (this amendment) · **Branch**: `ci/223-ci-base-image` off `origin/main` · **Spec**: 008 v1.8
 **Predecessor task list**: `tasks-coverage-gate-integrity.md` (v1.2/v1.3, kept as a record).
-One change set (FR-044), one merge point. The tree is green after **each of the four pushes** (P1–P4 — plan §D-17). Those four pushes are what supply the three measurable post-change runs AC-045 needs: every workflow gets **P1, P3, P4** (`changed == true` for each), and Client CI — which is also touched by P2 — uses its first three, P1–P3. No prepare job, no artifact.
+One change set (FR-044), one merge point. The tree is green after **each of the five substantive pushes** (P1, P2, P2b, P3, P4 — plan §D-17); two docs-only pushes ride between them. On a PR run the change filter evaluates the PR's cumulative diff, so every push after P1 ran every gate — the sample is P2b, P3, P4 (the shipped three-way shape), with P2 recorded as the two-way comparison. No prepare job, no artifact.
 
 ## Waves
 
 | Wave | Tasks | Gate |
 | --- | --- | --- |
 | W0 — evidence, no tree change | T-001, T-002 `[P]` | Baselines and the in-image perf result recorded before the tree moves; a failing perf budget stops the work here |
-| W1 — P1 then P2 | T-003 → T-004 | P1 (image + toolchain + labels) green, then P2 (split + shard + config) green |
+| W1 — P1, P2, P2b | T-003 → T-004 | P1 (image + toolchain + labels) green, then P2 (split + two-way shard + config) green, then P2b (three-way shard) green |
 | W2 — P3, P4 and drills | T-005, T-006 `[P]` | P3 (timeout values) then P4 (pin rationale + `CONTRIBUTING.md`) green; drills recorded from a scratch branch, never on the PR branch |
-| W3 — evidence runs | T-007, T-008 `[P]` | 10/10 green component runs, zero reload lines; three-run sample + attribution captured |
-| W4 — close-out | T-009 | Full local gate + truthfulness audit + NFR-012 verdict |
+| W3 — evidence runs | T-007, T-008 `[P]` | 10/10 green component runs, zero reload lines; sample + attribution captured |
+| W4 — close-out | T-009 | Full local gate + truthfulness audit + NFR-012 verdict, including the `manual-ci` exception |
 
 9 tasks. Parallel markers are per wave only; a task's `Depends` line is authoritative.
 
@@ -57,33 +57,39 @@ One change set (FR-044), one merge point. The tree is green after **each of the 
 - Action: add the `runtime` input (default `node@22`) and the two mutually exclusive `pnpm/setup` steps from plan §D-4.
 - `client-ci.yml`: add `container: { image: mcr.microsoft.com/playwright:v1.62.1-noble }` to `design-browser-test`, `console-e2e` (still the combined job at this push) and `console-coverage`; pass `runtime: none` to their action calls; add the D-6 toolchain/version step to each; delete both `Cache Playwright browsers` steps and both `Install Playwright Chromium` steps.
 - `manual-ci.yml` `verify`: same container, same `runtime: none`, same D-6 step; delete its cache and install steps; keep the job name and the `@europa/design` build list.
+- Add `Trust the workspace checkout` (`git config --global --add safe.directory "$GITHUB_WORKSPACE"`) as the first step after checkout in every in-image job: the container runs as root over a runner-owned checkout and `selfhost.spec.ts` shells out to `git`, which refuses such a repository. (Shipped in the P1 fix; without it the first image run fails.)
 - Every `runs-on` in the nine files becomes `ubuntu-24.04`. Timeouts unchanged at this push (T-005 measures first).
-- **Done when**: no `playwright install`/`--with-deps`/`ms-playwright`/`Cache Playwright` anywhere under `.github/workflows/`; three job definitions in `client-ci.yml` (`design-browser-test`, the still-combined `console-e2e`, `console-coverage`) and `manual-ci.yml`'s `verify` carry `container:` with the exact tag and `runtime: none`; no `ubuntu-latest` remains in the nine; job display names unchanged.
+- **Done when**: no `playwright install`/`--with-deps`/`ms-playwright`/`Cache Playwright` anywhere under `.github/workflows/`; three job definitions in `client-ci.yml` (`design-browser-test`, the still-combined `console-e2e`, `console-coverage`) and `manual-ci.yml`'s `verify` carry `container:` with the exact tag and `runtime: none`; every in-image job trusts the checkout; no `ubuntu-latest` remains in the nine; job display names unchanged.
 - **Verify**:
   ```bash
   grep -rnE 'playwright install|--with-deps|ms-playwright|Cache Playwright' .github/workflows/   # no output
   grep -c 'container:' .github/workflows/client-ci.yml            # 3 at this push
   grep -c 'runtime: none' .github/workflows/client-ci.yml         # 3
   grep -n 'runtime: none' .github/workflows/manual-ci.yml         # 1
+  grep -c 'safe.directory' .github/workflows/client-ci.yml        # 3 (one per in-image job at this push)
   grep -c 'ubuntu-latest' .github/workflows/{client,core,engine,fog,logging,matchmaking,network,terrain,manual}-ci.yml  # 0 each
   python3 -c "import yaml,glob;[yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')];yaml.safe_load(open('.github/actions/build-workspace/action.yml'))"
   ```
 
-### T-004 — P2: split the browser job, shard the e2e job two ways, give the coverage config the pre-bundle list (FR-043, FR-045, FR-046, AC-043, AC-046, AC-047)
+### T-004 — P2 then P2b: split the browser job, shard e2e two ways, then three ways; give the coverage config the pre-bundle list (FR-043, FR-045, FR-046, AC-043, AC-046, AC-047)
 
-- **Depends**: T-003 · **Files**: `.github/workflows/client-ci.yml`, `packages/console/vitest.config.coverage.ts`
-- Replace `console-e2e`'s single definition with the two jobs in plan §D-14: `console-e2e` (`Test suites (console — e2e)`, matrix `shard: [1, 2]`, `fail-fast: false`, run step exactly `pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/2`, plus the `contract-conformance` step) and `console-browser` (`Test suites (console — browser: component/a11y/perf)`, `test:component`, `test:a11y`, `test:perf` with `EUROPA_PERF_BUDGET_FACTOR: '2'`). Both: image container, `runtime: none`, the prologue with the old job's package list, `pnpm --filter @europa/console build`, the D-6 step, a `timeout-minutes`.
-- Add the project-level `optimizeDeps.include` block (four entries, identical to `vitest.config.browser.ts`) to the `browser` project in the coverage config.
+Two pushes, one task: **P2** carries the split and a two-way shard, **P2b** raises it to three ways. They are separate so the shard's effect is measured against the split's, which is exactly the comparison §8.2 records.
+
+- **Depends**: T-003 · **Files**: P2 — `.github/workflows/client-ci.yml`, `packages/console/vitest.config.coverage.ts`; P2b — `.github/workflows/client-ci.yml`
+- **P2**: replace `console-e2e`'s single definition with the two jobs in plan §D-14: `console-e2e` (`Test suites (console — e2e)`, `fail-fast: false`, run step exactly `pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/<n>`, plus the `contract-conformance` step) and `console-browser` (`Test suites (console — browser: component/a11y/perf)`, `test:component`, `test:a11y`, `test:perf` with `EUROPA_PERF_BUDGET_FACTOR: '2'`). Both: image container, `runtime: none`, the `Trust the workspace checkout` step, the prologue with the old job's package list, `pnpm --filter @europa/console build`, the D-6 step, a `timeout-minutes`. Matrix starts at `[1, 2]`.
+- **P2**: add the project-level `optimizeDeps.include` block (four entries, identical to `vitest.config.browser.ts`) to the `browser` project in the coverage config.
+- **P2b**: raise the matrix to `shard: [1, 2, 3]` and the run step to `--shard=${{ matrix.shard }}/3`. Nothing else changes.
 - Do not touch `packages/console/playwright.config.ts` (`workers`, `retries`, `webServer` all stay).
-- **Done when**: exactly two job definitions run browser gates; one runs `test:e2e`, one runs the component/a11y/perf trio, and no other job runs either; both build the console, both declare the image container and pass `runtime: none`; every moved step keeps its old name; the two `optimizeDeps` blocks are textually identical.
+- **Done when**: exactly two job definitions run browser gates; one runs `test:e2e` across **three** legs, one runs the component/a11y/perf trio, and no other job runs either; both build the console, both declare the image container, trust the checkout and pass `runtime: none`; the matrix is `[1, 2, 3]` and the run step is `--shard=${{ matrix.shard }}/3`; every moved step keeps its old name; the two `optimizeDeps` blocks are textually identical.
 - **Verify**:
   ```bash
   grep -nE 'name: Test suites \(console — ' .github/workflows/client-ci.yml     # exactly the two new names
   grep -nE 'name: Test suites \(console — browser\)$' .github/workflows/client-ci.yml   # no match (anchored; a substring grep also hits the new component name)
-  grep -c 'container:' .github/workflows/client-ci.yml                         # 4 — design-browser-test, console-e2e (one definition, two matrix legs), console-browser, console-coverage
+  grep -c 'container:' .github/workflows/client-ci.yml                         # 4 — design-browser-test, console-e2e (one definition, three matrix legs), console-browser, console-coverage
   grep -c 'runtime: none' .github/workflows/client-ci.yml                      # 4 — one per in-image job definition that uses the action (same four)
+  grep -c 'safe.directory' .github/workflows/client-ci.yml                     # 4 (same four)
   grep -c 'build-workspace' .github/workflows/client-ci.yml                    # 8 (7 existing consumers + the new job)
-  grep -n 'shard' .github/workflows/client-ci.yml                              # matrix [1, 2] + --shard=${{ matrix.shard }}/2
+  grep -nE 'shard: \[1, 2, 3\]|--shard=\$\{\{ matrix\.shard \}\}/3' .github/workflows/client-ci.yml   # matrix + run step, two lines
   grep -cE 'test:(e2e|component|a11y|perf)' .github/workflows/client-ci.yml   # 4, one each
   grep -c 'EUROPA_PERF_BUDGET_FACTOR' .github/workflows/client-ci.yml          # 2
   diff <(sed -n '/optimizeDeps/,/},/p' packages/console/vitest.config.browser.ts) \
@@ -97,17 +103,19 @@ One change set (FR-044), one merge point. The tree is green after **each of the 
 
 ### T-005 — P3 + P4: keep-or-raise timeouts, then the pinned-label rationale and the `CONTRIBUTING.md` pointer (FR-041, FR-044, AC-041, AC-044)
 
-Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs and the one-line rationale comment. P4 is not cosmetic: `CONTRIBUTING.md` is in no workflow's change filter, so without a touch to the nine workflow files the eight non-client workflows would finish this change set with only two measurable runs (P1 and P3) — and a run whose gates all skipped is not a sample.
+Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs and the one-line rationale comment. P4's workflow-file touch is what keeps every workflow's run history rich enough to sample, and the comment is the pin's missing *why*.
 
 - **Depends**: T-004 · **Files**: P3 — the nine workflow files; P4 — the nine workflow files, `CONTRIBUTING.md`
-- **P3**: from the per-job maxima of the P1 and P2 runs, apply plan §D-7: **keep** a job's current `timeout-minutes` when it is at or above that job's measured maximum; **raise** it to `ceil(max/60) + 1` when it is below. The two new job definitions get `ceil(max/60) + 1` outright (they have no current value). Record every row in `pr-body.md` § Timeouts as `max → kept|raised value`.
+- **P3**: from the per-job maxima of the runs available at P3 (P1's fix, P2, P2b), apply plan §D-7: **keep** a job's current `timeout-minutes` when it is at or above that job's measured maximum; **raise** it to `ceil(max/60) + 1` when it is below; give a job with no clock the computed value (`ceil(max/60) + 1`). Record every row in `pr-body.md` § Timeouts as `max → kept|raised|added value`, and record the tally: the shipped result is **28 kept, 2 computed (`console-e2e` 5 min from 198 s, `console-browser` 4 min from 161 s), 9 `changes` jobs added at 2 min, nothing raised**.
 - **P4**: one comment line above each of the nine `runs-on: ubuntu-24.04` values recording why the label is pinned (008 FR-038) — the pin's rationale currently lives only in the spec, and every file carries it; plus the `## CI` bullet in `CONTRIBUTING.md` replaced with plan §D-11's text (leave § Pull requests, line 157, alone).
-- **Done when**: every job in the nine files has a timeout, no value sits below its measured maximum, the two new jobs have one, and the recorded table matches the YAML row for row; each of the nine files carries the pin rationale; the CI section names FR-028 and no longer lists workflow files. P3's and P4's own runs are the confirmation samples (T-008): a value either run exceeds is raised before close-out.
+- **Done when**: every job that carried a `timeout-minutes` on the baseline tree still carries one (FR-041's wording — not "every job has one", which is a stronger claim the spec does not make), no value sits below its job's measured maximum, the two new job definitions carry their computed values, the nine `changes` jobs carry the 2-minute value added here, and the recorded table matches the YAML row for row including the kept/raised/added decision; each of the nine files carries the pin rationale; the CI section names FR-028 and no longer lists workflow files. The `manual-ci` allowance breach is recorded as the spec's dated NFR-012 exception (plan §8.2), not as a passing row.
 - **Verify**:
   ```bash
   # P3
   grep -n 'timeout-minutes' .github/workflows/*.yml
-  sed -n '/^## Timeouts/,/^## /p' specs/008-ci-workflows/pr-body.md      # compare each pair by hand
+  sed -n '/^## Timeouts/,/^## /p' specs/008-ci-workflows/pr-body.md      # compare each pair by hand; tally says 28 kept / 2 computed / 9 added / 0 raised
+  grep -nE 'timeout-minutes: (5|4)' .github/workflows/client-ci.yml      # console-e2e 5, console-browser 4
+  grep -c 'timeout-minutes: 2' .github/workflows/*.yml                   # the changes jobs
   # P4
   grep -c '008 FR-038' .github/workflows/{client,core,engine,fog,logging,matchmaking,network,terrain,manual}-ci.yml   # 1 each
   sed -n '/^## CI/,/^## Player manual/p' CONTRIBUTING.md
@@ -119,8 +127,8 @@ Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs
 
 - **Depends**: T-003 · **Files**: scratch branch `ci/223-drill` (branch off the PR branch; nothing merged back)
 - **Negative tag drill (AC-036)**: point one in-image job's tag at `v1.61.1-noble` while the catalog says `1.62.1`; push the scratch branch; confirm the D-6 step exits non-zero and the job fails; record run id + failing step + output; drop the branch.
-- **Shard drill (AC-046/AC-047)**: from a P2 run, confirm the two e2e legs report `shard 1/2` and `2/2`, that the executed spec files across both legs cover all 16 files, and that no leg runs the other's steps; record both job ids and the file lists.
-- **Done when**: the failing step's output and the two shard logs are pasted into `pr-body.md` § Drills; the PR branch's diff contains no `v1.61.1` and no drill commit.
+- **Shard drill (AC-046/AC-047)**: from the P2b run, confirm the three e2e legs report `shard 1/3`, `2/3` and `3/3`, that the executed spec files across the three legs cover all 16 files, and that no leg runs another's steps; record all three job ids and the file lists. (The two-way P2 run stays recorded as the shard comparison, not as the drill.)
+- **Done when**: the failing step's output and the three shard logs are pasted into `pr-body.md` § Drills; the PR branch's diff contains no `v1.61.1` and no drill commit.
 - **Verify**:
   ```bash
   gh run view <drill_run_id> --json conclusion --jq '.conclusion'          # failure
@@ -149,16 +157,16 @@ Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs
 ### T-008 — Post-change sample, attribution breakdown and the check-name photograph (NFR-012, AC-040, AC-045, AC-048)
 
 - **Depends**: T-005 · **Files**: `pr-body.md` § Post-change sample, § Attribution, § Check names
-- Record the post-change sample: **P1, P3 and P4** for every workflow (their ids, wall clocks, median); for Client CI also record P2 — its first three are P1, P2, P3, and P2's run is the only one of those that reflects the final job shape. P2 is **not** a sample for the other eight: it touches only `client-ci.yml` and a console config, so `changed == false` there and every gate skipped — a skipped-gates run is not a sample (the same rule T-001 applied to the baselines). Say so in the section so nobody counts it.
-- Break Client CI's figures out by effect — prologue/setup, each e2e shard leg, component/a11y/perf — and note that its three-sample median includes one intermediate shape (P1, pre-split), which the breakdown explains.
+- **The three runs the sample uses: P2b, P3 and P4** — the first three green runs of the shipped three-way shape (`40548273445` 187 s, `40549605350` 202 s, `40550565526` 215 s; median 202 s against the 306 s baseline and the 337 s allowance). Record P2 (two-way, 249/250 s) beside the sample as the comparison, and the tally-fix run (`40551676699`, 218 s) as confirmation — neither enters the median, because a median mixing the two-way and three-way shapes describes neither. Record the four-run range (187–218 s) as the outcome. Every other workflow's median uses the runs of the same three pushes; a run whose gates were all skipped is not a sample (the rule T-001 applied to the baselines).
+- Break Client CI's figures out by effect — prologue/setup, each of the three e2e legs, component/a11y/perf — and record the structural finding: the third leg bought 19 s (slowest leg 192 → 173 s), not the ~40–50 s the two-way arithmetic implied, because each leg pays ~74 s fixed and the expensive specs cluster in one leg.
 - Run the AC-040(b) step-name diff against T-001's inventory and name every moved and removed step.
 - Photograph the check names from the jobs API (`gh run view <id> --json jobs --jq '.jobs[].name'`) and record the exact strings the maintainer must require.
-- **Done when**: 3 + 3 run ids and medians per workflow (Client CI: 4 + 3, with P2 labelled "context, not a sample"); the attribution table; the step diff; the exact new check names (`… (1)`, `… (2)`, `… component/a11y/perf`) and the one removed name.
+- **Done when**: 3 + 3 run ids and medians per workflow, with P2 and the tally-fix run labelled "context, not a sample"; the attribution table; the 19 s finding; the step diff; the exact new check names (`… (1)`, `… (2)`, `… (3)`, `… component/a11y/perf`) and the one removed name.
 - **Verify**:
   ```bash
   sed -n '/^## Post-change sample/,/^## /p' specs/008-ci-workflows/pr-body.md
-  gh run view <P4_run_id> --json jobs --jq '.jobs[] | select(.name|test("console — ")) | .name'
-  gh api /repos/shaunburdick/europa-neo/actions/runs/<run_id>/jobs \
+  gh run view 40550565526 --json jobs --jq '.jobs[] | select(.name|test("console — ")) | .name'
+  gh api /repos/shaunburdick/europa-neo/actions/runs/40548273445/jobs \
     --jq '.jobs[] | "\(.name)\t\(((.completed_at|fromdate)-(.started_at|fromdate)))s"'
   ```
 
@@ -169,7 +177,7 @@ Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs
 ### T-009 — Final audit and NFR-012 verdict (AC-041…AC-048)
 
 - **Depends**: T-005, T-007, T-008
-- Run the full local gate and the truthfulness audit; compute the NFR-012 verdict per workflow against T-001's baselines; record the branch-protection sequence from plan §D-16 (add the three new names before merge, then remove the old one after); post a dated comment on issue #223 pointing at the spec's two strategy changes (image, split/shard).
+- Run the full local gate and the truthfulness audit; compute the NFR-012 verdict per workflow against T-001's baselines — recording `manual-ci` as the spec's dated exception (61 s baseline, 71 s allowance, 96–130 s post-change, median 102 s) rather than as a passing row; record the branch-protection sequence from plan §D-16 (add the four new names before merge, then remove the old one after); post a dated comment on issue #223 pointing at the spec's two strategy changes (image, split/shard).
 - **Done when**: `bash scripts/verify.sh` and `pnpm guard:specs` are green; 15 workflow files; `README.md`/`AGENTS.md` absent from the diff; no `docs/manual/**` or `packages/*/tests/**` change; every AC in plan §10 has its evidence line in `pr-body.md`; every workflow's post-change median is inside its allowance or the shortfall is escalated with the attribution; the PR body carries the three-name-add-then-old-name-remove order.
 - **Verify**:
   ```bash
