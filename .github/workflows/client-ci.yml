@@ -256,7 +256,7 @@ jobs:
         run: pnpm --filter @europa/console test:lobby-integration
 
   console-e2e:
-    name: Test suites (console — browser)
+    name: Test suites (console — e2e)
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-24.04
@@ -265,6 +265,13 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 6
+    # Fixed at two shards, both required checks (008 FR-046): Playwright splits by
+    # test count, and `workers` stays 2 so a leg cannot buy speed with a timeout.
+    # fail-fast keeps one red leg from cancelling the other, so both checks report.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -302,17 +309,69 @@ jobs:
           node --version
           test "$(pnpm --version)" = "$(node -p "require('./package.json').packageManager.split('@').pop()")"
 
+      # Includes the selfhost smoke spec, which production-builds the
+      # console, scans dist/ for remote URLs, and enforces the Q-P03
+      # gzip bundle budget (scripts/test-selfhost.sh).
+      - name: E2E tests (Playwright)
+        run: pnpm --filter @europa/console exec playwright test --shard=${{ matrix.shard }}/2
+
+      # Contract conformance (reads source directly — no build needed). Unconditional
+      # in both legs, so each leg is self-sufficient and cannot hide a gate.
+      - name: Contract conformance
+        run: |
+          pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
+
+  console-browser:
+    # Quoted: the bare scalar is invalid YAML (`: ` reads as a mapping separator);
+    # the display name, which is the required-check name, is unchanged.
+    name: 'Test suites (console — browser: component/a11y/perf)'
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    # Browser jobs run in the upstream Playwright image: Chromium and its system
+    # libraries come from the image, so nothing installs at run time (008 FR-035/FR-037).
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A container job runs as root over a checkout the runner owns, and git
+      # refuses to read such a repository; suites that shell out to git need this.
+      - name: Trust the workspace checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: ./.github/actions/build-workspace
+        with:
+          packages: 'version design core engine terrain fog logging networking matchmaking'
+          runtime: none
+
+      # The console's build script runs build-assets.ts which stages
+      # brand assets into dist/assets/brand/. host-static.test.ts
+      # imports BRAND_MANIFEST and verifies every listed asset is
+      # served with the correct MIME type — the test 404s without
+      # the staged files.
+      - name: Build console (brand asset staging)
+        run: pnpm --filter @europa/console build
+
+      # Nothing is installed at run time (008 FR-035/FR-037): the image supplies
+      # Chromium, and this fails loudly if the tag, CLI, driver or runtime drifts.
+      - name: Toolchain and Playwright version agreement
+        run: |
+          expected=$(pnpm --filter @europa/console exec node -p "require('@playwright/test/package.json').version")
+          cli=$(pnpm --filter @europa/console exec playwright --version | awk '{print $2}')
+          tag=$(sed -n 's/.*mcr\.microsoft\.com\/playwright:v\([0-9.]*\)-noble.*/\1/p' .github/workflows/client-ci.yml | sort -u)
+          test "$tag" = "$expected" && test "$cli" = "$expected"
+          pnpm --filter @europa/console why playwright-core | grep -q "playwright-core@$expected"
+          ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null
+          node --version
+          test "$(pnpm --version)" = "$(node -p "require('./package.json').packageManager.split('@').pop()")"
+
       - name: Component tests (browser mode)
         run: pnpm --filter @europa/console test:component
 
       - name: Accessibility acceptance tests (axe-core)
         run: pnpm --filter @europa/console test:a11y
-
-      # Includes the selfhost smoke spec, which production-builds the
-      # console, scans dist/ for remote URLs, and enforces the Q-P03
-      # gzip bundle budget (scripts/test-selfhost.sh).
-      - name: E2E tests (Playwright)
-        run: pnpm --filter @europa/console test:e2e
 
       # Shared runners throttle whole test windows (2026-08-23 incident:
       # paint min-round-median 9.2ms vs 8ms budget, p99 225ms). 2×
@@ -321,11 +380,6 @@ jobs:
         run: pnpm --filter @europa/console test:perf
         env:
           EUROPA_PERF_BUDGET_FACTOR: '2'
-
-      # Contract conformance (reads source directly — no build needed).
-      - name: Contract conformance
-        run: |
-          pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
 
   console-coverage:
     name: Coverage gate (console ≥ 80%)
