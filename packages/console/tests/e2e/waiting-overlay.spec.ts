@@ -27,24 +27,11 @@
 
 import { createRng, parseGuestPlayerId, parsePlayerId } from '@europa/core';
 import { applyCommand, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
-import { computePlayerView } from '@europa/fog';
-import { createMatchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type EngineSession,
-    type Logger,
-    type MatchConfig,
-    type MatchId,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type PlayerId,
-    type RegisterMatchRequest,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
+import type { EngineSession, MatchConfig, MatchId, PlayerId, RegisterMatchRequest, Server } from '@europa/networking';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import { expect, type Page, test } from '@playwright/test';
+
+import { buildLobbyStack } from './helpers/lobby-stack';
 
 /**
  * Tick cadence for THIS spec. Must equal the match's tickIntervalMs
@@ -208,43 +195,11 @@ function overlay(page: Page): ReturnType<Page['locator']> {
 test('first console sees the waiting room while filling; auto-start clears it', async ({ browser }) => {
     test.setTimeout(120_000);
 
-    // -- Stack wiring (full-stack.spec.ts buildStack recipe + tolerance) --
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-    const deps: ServerDeps = {
-        engine: {
-            createMatchSession: () => {
-                throw new Error('engine factory not used (harness pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-    };
-    const server = createMatchServer(
-        {
-            ...NETWORK_DEFAULT_CONFIG,
-            host: '127.0.0.1',
-            port: 0,
-            tickRateMs: TICK_MS,
-            ordersPerSecond: 1000,
-        },
-        deps,
-    );
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
+    // -- Stack wiring (shared harness + duplicate-tolerant registration) --
+    const { server, matchmaker } = buildLobbyStack({
+        config: { tickRateMs: TICK_MS },
+        wrapServer: tolerateDuplicateRegistration,
     });
-    const matchmaker = createMatchmaker({}, { server: tolerateDuplicateRegistration(bindable) });
 
     await server.listen();
     const port = server.__boundPortForTest();

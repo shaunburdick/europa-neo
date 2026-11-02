@@ -10,7 +10,7 @@
  * `__europaTestMatch` live-runtime seam is a PLAYER path and must not
  * be used here — a wire player join would claim an unclaimed seat).
  *
- * Stack recipe: mirrors `lobby.spec.ts` `buildLobbyStack()` — no
+ * Stack recipe: the shared `helpers/lobby-stack.ts` harness with no
  * external `httpServer`; the match server owns its internal HTTP
  * server. The lobby facade is wired via `ServerDeps.lobby`.
  *
@@ -26,93 +26,15 @@
  * Determinism: all waits poll observable DOM/lobby-state conditions.
  */
 
-import { computePlayerView } from '@europa/fog';
-import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
+import type { Server } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
 import { optInLobbyTestHandle, preserveWsQueryInHistory } from './helpers/history-patch';
+import { buildLobbyStack } from './helpers/lobby-stack';
 import { setHandleViaProfile } from './helpers/profile';
-
-const TICK_MS = 250;
 
 /** Default poll timeout for observable state (CI-safe upper bound). */
 const WAIT_TIMEOUT = 15_000;
-
-// ---------------------------------------------------------------------------
-// Stack wiring (mirrors lobby.spec.ts buildLobbyStack)
-// ---------------------------------------------------------------------------
-
-function buildStack(): {
-    server: Server;
-    matchmaker: Matchmaker;
-} {
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-
-    const wiring: { matchmaker: Matchmaker | null; lobby: ReturnType<typeof createLobbyService> | null } = {
-        matchmaker: null,
-        lobby: null,
-    };
-
-    const deps: ServerDeps = {
-        engine: {
-            createMatchSession: () => {
-                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-        lobby: {
-            create: (sink) => {
-                const matchmaker = wiring.matchmaker;
-                if (matchmaker === null) {
-                    throw new Error('host wiring bug: lobby frame arrived before the matchmaker was bound');
-                }
-                const facade = createLobbyService({ matchmaker, deliver: sink.deliver });
-                wiring.lobby = facade;
-                return facade;
-            },
-        },
-    };
-
-    const server = createMatchServer(
-        {
-            ...NETWORK_DEFAULT_CONFIG,
-            host: '127.0.0.1',
-            port: 0,
-            tickRateMs: TICK_MS,
-            ordersPerSecond: 1000,
-        },
-        deps,
-    );
-
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
-    });
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    wiring.matchmaker = matchmaker;
-    return { server, matchmaker };
-}
 
 // ---------------------------------------------------------------------------
 // Lobby-runtime helpers
@@ -197,7 +119,7 @@ test.describe('spectator sidebar parity (FR-021)', () => {
     let wsPort: number;
 
     test.beforeEach(async () => {
-        ({ server } = buildStack());
+        ({ server } = buildLobbyStack());
         await server.listen();
         wsPort = (server as unknown as { __boundPortForTest(): number }).__boundPortForTest() ?? 0;
     });

@@ -3,6 +3,8 @@
 **Feature Branch**: `009-shared-app-versioning`
 
 **Created**: 2026-08-25
+**Last Updated**: 2026-10-23 (v1.3; issue #142 packaging note)
+**Version**: 1.3
 
 **Status**: Implemented (2026-08-25)
 
@@ -185,6 +187,11 @@ Two rulings made on issue #4's stabilization-release branch:
 - 2026-08-25: **Release automation enters scope** via issue #4's flow, superseding the prior Out-of-Scope wording ("automation beyond the bump-commit convention is not specified here"). The admitted contract is FR-013 as implemented by `.github/workflows/release.yml`: automated tag + GitHub Release creation whenever the canonical version changes on `main`. Anything beyond that contract (changelog generation tooling, registry publishing, multi-registry pushes) remains out of scope.
 - 2026-08-25: **Numbering note**: the new requirement's identifier is **FR-013**, assigned by the issue #4 directive and kept stable for cross-references from AGENTS.md and the workflow. This specification has no FR-012 — numbering continues from FR-011 with the gap documented here rather than renumbering already-cited references.
 
+### v1.3 (2026-10-23) — Packaging hygiene (issue #142)
+
+- `@europa/version` is a pure constant leaf and declares `"sideEffects": false`; the package performs no import-time work, so a bundler may drop an unused import safely.
+- Unchanged: the exported `APP_VERSION` constant, every version surface (README, manual, `DESIGN.md`, `/version`, HUD footer), and the FR-009 drift check.
+
 ## Implementation Notes (2026-08-25)
 
 Notable rulings and deviations made during implementation (T-001..T-012).
@@ -198,3 +205,9 @@ truthful).
 4. **Commit attribution (T-004/T-005)**: T-004's `host.ts` wiring hunk rode T-005's commit (shared-worktree staging race between parallel tasks); both commit messages document it. End-state verified correct; no history rewrite per charter.
 5. **`tsx` devDependency remediation**: the initial clean-slate gate run caught a missing `tsx` devDependency in `@europa/version` (a phantom stale binary had masked it during development); fixed in-branch before completion. Lesson recorded: final gates must always run post-wipe.
 6. **Release workflow rides issue #4's bump change set** (branch `issue-4-stabilization-release`, 2026-08-25): `.github/workflows/release.yml` implements FR-013 and shares this branch with issue #4's dedicated bump commit. Design ruling (mirrored from the workflow's own header comment): the paths filter deliberately omits the workflow file itself — unlike every sibling workflow — because self-inclusion would fire the automation on its own landing push and mint a spurious release for the then-current pre-release version; the path filter is the correctness argument, since a real version bump always touches the watched lockstep surfaces. FR-010's one-dedicated-`chore(release)`-commit convention is upheld: upon squash-style merge (house style), `main` receives exactly one `chore(release): v0.1.0` commit touching every FR-009-guarded location — precisely the push event that triggers the first automated release.
+
+## Change Log
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.3 | 2026-10-23 | Packaging hygiene (issue #142): `@europa/version` declares `sideEffects: false` as a pure constant leaf. Version surfaces and the drift check are unchanged. |

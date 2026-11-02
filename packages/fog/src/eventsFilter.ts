@@ -31,8 +31,6 @@
 
 import type { Coord, Order, PlayerId, TickEvents, ValidationError, World } from '@europa/engine';
 
-import { emptyTickEvents } from '@europa/engine';
-
 /**
  * Build a `Set<number>` of flat-index keys from a row-major `Coord`
  * list. Keys are `y * width + x` — the same flat indexing the engine's
@@ -64,6 +62,7 @@ function buildVisibleIndex(visibleCells: readonly Coord[], width: number): Set<n
  * @param order The applied order.
  * @returns An array of cell coordinates (may be empty for `surrender`).
  */
+/** @lintignore Test seam: redaction tests enumerate order cells. */
 export function orderCoords(order: Order): Coord[] {
     switch (order.kind) {
         case 'setPipe':
@@ -92,6 +91,7 @@ export function orderCoords(order: Order): Coord[] {
  * @returns An array of cell coordinates (may be empty for non-cell
  *          variants like `already_surrendered`, `invalid_percent`, etc.).
  */
+/** @lintignore Test seam: redaction tests enumerate error cells. */
 export function validationErrorCoords(reason: ValidationError): Coord[] {
     switch (reason.kind) {
         case 'out_of_bounds':
@@ -239,11 +239,3 @@ export function filterTickEvents(
         errors,
     };
 }
-
-/**
- * Convenience re-export of the engine's `emptyTickEvents` builder so
- * fog modules (and tests) share one canonical "no events" value.
- * Re-exported rather than re-declared to keep a single source of
- * truth for the empty shape.
- */
-export { emptyTickEvents };

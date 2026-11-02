@@ -17,6 +17,7 @@
 import type { Coord } from '../state/types';
 
 /** Coast band width as a fraction of the cell (feature 017 step 1). */
+/** @lintignore Test seam: surface tests pin the coastline width. */
 export const COAST_WIDTH_RATIO = 0.04;
 
 /**
@@ -51,6 +52,7 @@ export const SEAM_WIDTH_PX = 1;
  * zone 1/2 cut, so 17.7 % of its lines fell under the opaque zone seam
  * and vanished; at 28 that share is 1.3 %, at 36 0.1 %.
  */
+/** @lintignore Test seam: surface tests pin the contour interval. */
 export const CONTOUR_INTERVAL = 28;
 
 /** A contour line is one CSS pixel at every zoom (FR-004). */
@@ -91,6 +93,7 @@ export function snappedStrokeCenter(edge: number): number {
  *
  * @param elevation Integer 0–255.
  */
+/** @lintignore Test seam: surface tests assert band boundaries. */
 export function elevationBand(elevation: number): number {
     return Math.floor(elevation / CONTOUR_INTERVAL);
 }

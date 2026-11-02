@@ -6,77 +6,17 @@
  * assertions deterministic while the server ticks in the background.
  */
 
-import { computePlayerView } from '@europa/fog';
-import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
 import { expect, test } from '@playwright/test';
 
 import { preserveWsAndQueryParamsInHistory, preserveWsQueryInHistory } from './helpers/history-patch';
+import { buildLobbyStack } from './helpers/lobby-stack';
 import { setHandleViaProfile } from './helpers/profile';
 
-const TICK_MS = 250;
 const WAIT_TIMEOUT = 15_000;
 
 /** Assert the browser-visible path while allowing the test-only ws seam. */
 async function expectPath(page: import('@playwright/test').Page, pathname: string): Promise<void> {
     await expect.poll(() => page.evaluate(() => window.location.pathname)).toBe(pathname);
-}
-
-interface Stack {
-    readonly server: Server;
-    readonly matchmaker: Matchmaker;
-}
-
-/** Build the same real matchmaker/networking bridge used by the full-stack tests. */
-function buildStack(): Stack {
-    let bridge: MatchmakerBridge = {};
-    const wiring: { matchmaker: Matchmaker | null } = { matchmaker: null };
-    const deps: ServerDeps = {
-        engine: {
-            createMatchSession: () => {
-                throw new Error('matchmaker must provide the engine session');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: {
-            onSeatClaimed: (event) => bridge.onSeatClaimed?.(event),
-            onSeatDisconnected: (event) => bridge.onSeatDisconnected?.(event),
-            onSeatReconnected: (event) => bridge.onSeatReconnected?.(event),
-            onSeatExpired: (event) => bridge.onSeatExpired?.(event),
-            onMatchTerminal: (event) => bridge.onMatchTerminal?.(event),
-        },
-        logger: NULL_LOGGER as Logger,
-        lobby: {
-            create: (sink) => {
-                if (wiring.matchmaker === null) {
-                    throw new Error('routing E2E wiring: lobby opened before matchmaker was ready');
-                }
-                return createLobbyService({ matchmaker: wiring.matchmaker, deliver: sink.deliver });
-            },
-        },
-    };
-    const server = createMatchServer(
-        { ...NETWORK_DEFAULT_CONFIG, host: '127.0.0.1', port: 0, tickRateMs: TICK_MS, ordersPerSecond: 1000 },
-        deps,
-    );
-    const bindable = Object.assign(server, {
-        bindMatchmaker(next: MatchmakerBridge): void {
-            bridge = { ...bridge, ...next };
-        },
-    });
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    wiring.matchmaker = matchmaker;
-    return { server, matchmaker };
 }
 
 /** Wait for the lobby heading without using wall-clock sleeps. */
@@ -108,7 +48,7 @@ test.describe('semantic route browser history', () => {
     test('AC-018: ?ws= override is honored in a production boot with NO history patch (013 FR-025)', async ({
         page,
     }) => {
-        const { server, matchmaker } = buildStack();
+        const { server, matchmaker } = buildLobbyStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
         try {
@@ -132,7 +72,7 @@ test.describe('semantic route browser history', () => {
     });
 
     test('unknown route still redirects to lobby (AC-008)', async ({ page }) => {
-        const { server, matchmaker } = buildStack();
+        const { server, matchmaker } = buildLobbyStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
         try {
@@ -160,7 +100,7 @@ test.describe('semantic route browser history', () => {
     });
 
     test('retires the legacy live query without mounting the live runtime', async ({ page }) => {
-        const { server, matchmaker } = buildStack();
+        const { server, matchmaker } = buildLobbyStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
         try {
@@ -182,7 +122,7 @@ test.describe('semantic route browser history', () => {
     });
 
     test('shows recoverable Match unavailable when Back revisits a released filling match', async ({ page }) => {
-        const { server, matchmaker } = buildStack();
+        const { server, matchmaker } = buildLobbyStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
         try {
@@ -245,7 +185,7 @@ test.describe('semantic route browser history', () => {
     });
 
     test('recovers an unknown path without a redirect loop or match connection', async ({ page }) => {
-        const { server, matchmaker } = buildStack();
+        const { server, matchmaker } = buildLobbyStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
         try {
@@ -275,7 +215,7 @@ test.describe('US3 profile redirect for unnamed deep links (feature 015)', () =>
         page,
         browser,
     }) => {
-        const { server, matchmaker } = buildStack();
+        const { server, matchmaker } = buildLobbyStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
         try {

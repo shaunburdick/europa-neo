@@ -291,8 +291,9 @@ export interface LobbyConnectionTeardown {
 // Dependencies & factory
 // ----------------------------------------------------------------------------
 
-export type CancelScheduled = () => void;
+type CancelScheduled = () => void;
 
+/** @lintignore Test seam: roster tests inject a manual scheduler. */
 export type LobbyScheduler = (callback: () => void, delayMs: number) => CancelScheduled;
 
 /**

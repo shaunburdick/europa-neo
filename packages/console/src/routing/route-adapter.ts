@@ -15,10 +15,11 @@ import type { MatchId } from '../state/types';
 import type { MatchRouteIntent, Route } from './route';
 
 /** Commands used by the adapter; the controller remains Feature 010's authority. */
+/** @lintignore Test seam: route-adapter tests provide a command surface. */
 export type RouteEntryCommands = Pick<LobbyController, 'joinMatch' | 'spectateMatch'>;
 
 /** Why a match route cannot currently produce an entry action. */
-export type RouteEntryUnavailableReason = 'not-found' | 'not-joinable' | 'full' | 'unresolved';
+type RouteEntryUnavailableReason = 'not-found' | 'not-joinable' | 'full' | 'unresolved';
 
 /** The result of adapting a browser route into an application entry point. */
 export type RouteEntry =
@@ -113,6 +114,7 @@ export function adaptRoute(route: Route, snapshot: LobbySnapshot | null): RouteE
  *
  * @param entry Result from {@link adaptRoute}.
  * @param commands Feature 010 lobby command surface.
+ * @public Documented route-entry seam exercised by routing tests.
  */
 export function executeRouteEntry(entry: RouteEntry, commands: RouteEntryCommands): Promise<LobbyCommandResult> | null {
     switch (entry.kind) {

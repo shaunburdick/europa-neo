@@ -31,6 +31,7 @@ import type { MatchRecord } from './internal/matchRecord';
  *   or a corrupt record without its creator seat (defensive; seat 0
  *   is populated atomically at creation).
  */
+/** @lintignore Test seam: lobby projection tests assert entries. */
 export function projectLobbyEntry(match: MatchRecord, nowMs: number): LobbyEntry | null {
     if (match.visibility !== 'public' || match.status !== 'filling') {
         return null;

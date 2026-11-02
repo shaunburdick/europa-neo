@@ -19,32 +19,19 @@
  * source of truth.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type * as Contract from '../src/contracts/engine-to-fog';
 import * as fog from '../src/index';
 import type { PlayerView, VisibleSet } from '../src/types';
 
-// ---------------------------------------------------------------------------
-// (b) Compile-time structural conformance. If any field drifts between
-// fog's re-declarations and the contract originals, these mutual-
-// assignability aliases fail to typecheck.
-// ---------------------------------------------------------------------------
-
-type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
-
-type VisibleSetConforms = AssertMutuallyAssignable<VisibleSet, Contract.VisibleSet>;
-type PlayerViewConforms = AssertMutuallyAssignable<PlayerView, Contract.PlayerView>;
-
-const VISIBLE_SET_CONFORMS: VisibleSetConforms = true;
-const PLAYER_VIEW_CONFORMS: PlayerViewConforms = true;
-
 describe('engine ↔ fog conformance (T039)', () => {
     it('(b) fog re-declared types are mutually assignable with the contract originals', () => {
-        // Compile-time proof lives in the type aliases above; this
-        // runtime assertion keeps them "used" so linters stay quiet.
-        expect(VISIBLE_SET_CONFORMS).toBe(true);
-        expect(PLAYER_VIEW_CONFORMS).toBe(true);
+        // Compile-time proof: `typecheck:conformance` fails on either drift.
+        expectTypeOf<VisibleSet>().toExtend<Contract.VisibleSet>();
+        expectTypeOf<Contract.VisibleSet>().toExtend<VisibleSet>();
+        expectTypeOf<PlayerView>().toExtend<Contract.PlayerView>();
+        expectTypeOf<Contract.PlayerView>().toExtend<PlayerView>();
     });
 
     it('(c) implemented computeVisibleSet conforms to the declared signature', () => {

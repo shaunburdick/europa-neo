@@ -3,6 +3,8 @@
 **Feature Branch**: `012-design-system`
 
 **Created**: 2026-08-30
+**Last Updated**: 2026-10-23 (v1.8; issue #140 removed-catalogue-class migration note)
+**Version**: 1.8
 
 **Status**: Implemented (2026-08-30) — branded-footer addendum shipped in PR #31; unified-dev-page addendum (issue #68) in review
 
@@ -353,15 +355,16 @@ As a contributor or maintainer, I want a single `pnpm dev` page that combines th
   - **024-FR-031**: The palette MUST be deterministic (same elevation → same color).
   - **024-FR-032**: The palette MUST be exported from `@europa/design` for console and manual reuse.
 
-### v1.7 (2026-10-23) — Console payload reference policy alignment
+### v1.7 (2026-10-23) — CSS-side-effectful package metadata (issue #142)
 
-Feature 012's references to the shared console browser-payload metric follow
-spec 005 v1.23 and spec 013 v1.8. Keep the 155,648-byte (152 KiB) reference
-target and count every `.js`/`.css` asset exactly as before. At or above the
-target, report the total/excess and continue the host smoke; only the numeric
-excess is advisory. All non-budget failures remain blocking. This does not
-change `@europa/design`'s separate 20,480-byte component-bundle check or any
-other performance budget.
+- `@europa/design` declares `"sideEffects": ["./dist/design.css", "**/*.css"]` so bundlers retain the shipped stylesheet; the package emits no other import-time behaviour.
+- Unchanged: token values, the component catalog, and the React component surface (no `customElements.define`, no registration side effects).
+
+### v1.8 (2026-10-23) — Removed duplicate modal class (issue #140)
+
+- The catalogue no longer lists `.europa-modal__dialog`: its rule was byte-identical to `.europa-modal`, so `.europa-modal` is the single shell for the backdrop's child.
+- FR-007 migration note recorded in `DESIGN.md` (`.europa-modal__dialog` → `.europa-modal`, no visual change).
+- A byte-identical duplicate that no markup applies is not a catalogue-class removal for FR-007 purposes, and no bump applies.
 
 ## Addendum — Branded Footer (sidecar, in PR #31)
 
@@ -428,3 +431,11 @@ As a player or manual reader, I want every console view and every manual page to
 - **Principle VI (Accessibility)**: WCAG 2.2 AA is encoded in FR-016/SC-005 as a shipped contract, not a follow-up — focus, contrast, reduced motion, and color-alone prohibition are all named.
 - **Principle VII (Self-hostable)**: no external font/CDN/theme gem; the manual's styling is a vendored file that ships inside the `docs/manual` tree, so a self-hosted build stays self-contained.
 - **Additional Constraints**: zero runtime deps → licensing hygiene trivial; `private: true` everywhere honored per binding decision 6.
+
+## Change Log
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.8 | 2026-10-23 | Dead CSS removal (issue #140): `.europa-modal__dialog` dropped from the catalogue as a byte-identical duplicate of `.europa-modal`; migration note added to `DESIGN.md`. |
+| 1.7 | 2026-10-23 | Packaging hygiene (issue #142): `@europa/design` declares a CSS-side-effectful `sideEffects` value (`./dist/design.css`, `**/*.css`). Component and CSS import-time behaviour is unchanged. |
+

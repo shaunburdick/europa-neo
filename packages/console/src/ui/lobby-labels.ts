@@ -59,6 +59,7 @@ export function connectionLabel(connection: LobbyConnectionState): string {
  *
  * @param identityStatus The guest-identity lifecycle.
  * @param handle The confirmed display handle (`null` while unnamed).
+ * @public Lobby label seam exercised by lobby UI tests.
  */
 export function identityStatusLabel(identityStatus: 'unnamed' | 'named' | 'restoring', handle: string | null): string {
     if (identityStatus === 'restoring') {

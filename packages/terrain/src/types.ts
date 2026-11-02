@@ -67,18 +67,3 @@ export type {
     ValidationReport,
     Violation,
 } from './contracts/terrain-types';
-
-// Single value exports from the contract: the terrain API version
-// (constant) and the default settings (used by `resolveSettings` and
-// for tests). Both are runtime artifacts; the rest of this file is
-// types-only.
-export {
-    DEFAULT_GENERATION_SETTINGS,
-    // Cross-package version pin (terrain was built against this engine
-    // API version). Drift between this and the engine's
-    // `ENGINE_API_VERSION` indicates the engine was bumped without
-    // rebuilding terrain — see `engine/contracts-drift.test.ts` for the
-    // engine-side equivalent.
-    ENGINE_API_VERSION_REF,
-    TERRAIN_API_VERSION,
-} from './contracts/terrain-types';

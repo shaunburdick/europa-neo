@@ -52,6 +52,7 @@ export interface TooltipProps {
  * @param tooltipHeight  Estimated tooltip height in pixels.
  * @param preferred  The caller's preferred position ('above' or 'below').
  */
+/** @lintignore Test seam: tooltip unit tests assert collision-aware placement. */
 export function resolveTooltipPosition(
     triggerRect: DOMRectReadOnly | null,
     tooltipHeight: number,

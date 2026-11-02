@@ -20,8 +20,6 @@
  * output on every platform. The function is pure.
  */
 
-import type { MapSeed } from './contracts/terrain-types';
-
 /**
  * Public alias. Carves water pools from the lowest-elevation cells.
  *
@@ -146,10 +144,3 @@ export function extractWater(elev: Uint8Array, width: number, height: number, wa
 export function _extractWater(elev: Uint8Array, width: number, height: number, waterRatio: number): Uint8Array {
     return extractWater(elev, width, height, waterRatio);
 }
-
-// Re-export `MapSeed` so the barrel import (`./contracts/terrain-types`)
-// does not warn about an unused type-only import. The dependency is
-// only there to keep the import graph aligned with the other modules.
-// (Removed in a future refactor if extractWater takes a `MapSeed` for
-// the engine's RNG.)
-export type { MapSeed };

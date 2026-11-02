@@ -20,7 +20,7 @@
  */
 
 import type { GuestPlayerId, PlayerId, RandomBytesSource } from '@europa/core';
-import { DEFAULT_PLAYER_ID_MAX_ATTEMPTS, generatePlayerId, parseGuestPlayerId } from '@europa/core';
+import { generatePlayerId, parseGuestPlayerId } from '@europa/core';
 import type { MatchId } from '@europa/networking';
 import type { PlayerSessionId } from './contracts/match-types';
 import { getRandomValues, randomUUID } from './crypto';
@@ -111,9 +111,6 @@ export function allocateGuestPlayerId(options: AllocatePlayerIdOptions = {}): Gu
     return parseGuestPlayerId(allocatePlayerId(options));
 }
 
-/** Default bounded retry budget re-exported for registry callers/tests. */
-export { DEFAULT_PLAYER_ID_MAX_ATTEMPTS };
-
 /**
  * Case-insensitive RFC 9562 §5.4 UUID v4 shape: version nibble `4`,
  * variant nibble one of `8/9/a/b`.
@@ -171,6 +168,7 @@ export function isValidMatchId(s: string): boolean {
  * @param values - Buffer to read from.
  * @returns The first element, or `0` for an empty buffer.
  */
+/** @lintignore Test seam: id-generation tests pin seed derivation. */
 export function matchSeedFrom(values: Uint32Array): number {
     return values[0] ?? 0;
 }

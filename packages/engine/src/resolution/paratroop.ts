@@ -42,8 +42,7 @@
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushCombatEvent } from '../events';
 import type { PlayerRegistry } from '../playerRegistry';
-import type { Board, Coord, Order, TickEvents, ValidationError, WorldState } from '../types';
-import { validateCommand } from '../validate';
+import type { Board, Order, TickEvents, ValidationError, WorldState } from '../types';
 import { resolveTwoWayAttrition } from './attrition';
 
 const PARATROOP_MAX_RANGE = 2;
@@ -283,10 +282,3 @@ function computeReservesFloor(count: number, reserves: number): number {
     const flowable = Math.floor((count * (10 - reserves)) / 10);
     return count - flowable;
 }
-
-// Reference the Coord type so the import isn't flagged unused.
-export type { Coord };
-// Re-export the validation function so the validateCommand path is
-// kept in sync with this resolver (used internally; not part of the
-// public barrel).
-export { validateCommand };

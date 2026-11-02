@@ -17,9 +17,6 @@
         },
         {
             "includes": [
-                "tests/acceptance/us1-acceptance.test.ts",
-                "tests/acceptance/us2-acceptance.test.ts",
-                "tests/acceptance/us3-acceptance.test.ts",
                 "tests/determinism.test.ts",
                 "tests/fixtures/view.ts",
                 "tests/fixtures/world.ts",
@@ -33,11 +30,9 @@
                 "tests/quickstart/q-f08-edge-cases.test.ts",
                 "tests/redaction.test.ts",
                 "tests/unit/eventsFilter.test.ts",
-                "tests/unit/index.test.ts",
                 "tests/unit/mask.test.ts",
                 "tests/unit/playerView.test.ts",
                 "tests/unit/range.test.ts",
-                "tests/unit/utils.test.ts",
                 "tests/unit/visibleSet.test.ts"
             ],
             "linter": {

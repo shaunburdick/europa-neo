@@ -26,7 +26,6 @@
 import { ENGINE_CONSTANTS } from '@europa/engine';
 
 import type { FogConstants } from './contracts/fog-api';
-import { FOG_API_VERSION } from './contracts/fog-types';
 
 /**
  * Fog rule constants. Imported by every fog module. See
@@ -52,16 +51,4 @@ export const FOG_CONSTANTS: FogConstants = {
     // that may not populate it. Matches the engine's
     // `ENGINE_CONSTANTS.visibilityRadiusDefault` (4 cells).
     defaultRadiusFallback: ENGINE_CONSTANTS.visibilityRadiusDefault,
-    // Default sensor radius used by quickstart scenarios and tests
-    // where the engine's default is not the value under test.
-    // Matches the original Europa's radius (a few cells in each
-    // direction). Documented in spec SC-004 / quickstart Q-F01.
-    testRadius: 4,
 };
-
-// Re-export the fog API version from the single source-of-truth
-// location (the contract). Importing the version through the
-// constants file lets consumers do `import { FOG_API_VERSION }
-// from '@europa/fog'` regardless of which barrel path they hit
-// first.
-export { FOG_API_VERSION };

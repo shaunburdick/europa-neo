@@ -35,9 +35,10 @@
  */
 
 /** Minimum accepted handle length in Unicode code points (post-trim). Mirrors matchmaking's `HANDLE_MIN_CHARS`. */
-export const LOBBY_HANDLE_MIN_CHARS = 1;
+const LOBBY_HANDLE_MIN_CHARS = 1;
 
 /** Maximum accepted handle length in Unicode code points (post-trim). Mirrors matchmaking's `HANDLE_MAX_CHARS`. */
+/** @lintignore Test seam: lobby UI tests assert the handle limit. */
 export const LOBBY_HANDLE_MAX_CHARS = 24;
 
 /**
@@ -46,7 +47,7 @@ export const LOBBY_HANDLE_MAX_CHARS = 24;
  * 'control_character' | 'bidi_control' | 'lone_surrogate'`) so the UI
  * text and the wire's eventual error can never disagree about class.
  */
-export type LobbyHandleIssue = 'empty' | 'too_long' | 'control_character' | 'bidi_control' | 'lone_surrogate';
+type LobbyHandleIssue = 'empty' | 'too_long' | 'control_character' | 'bidi_control' | 'lone_surrogate';
 
 /** Matches Unicode category Cc (see the server mirror's pattern note). */
 const CONTROL_CHARACTER_PATTERN = /\p{Cc}/u;
@@ -62,10 +63,10 @@ const BIDI_CONTROL_PATTERN = /[\u202A-\u202E\u2066-\u2069]/u;
 const SURROGATE_CODE_POINT_PATTERN = /[\uD800-\uDFFF]/u;
 
 /** Result of a successful local validation: the trimmed display handle. */
-export type ValidHandleDraft = { readonly ok: true; readonly value: string };
+type ValidHandleDraft = { readonly ok: true; readonly value: string };
 
 /** Result of a failed local validation: the issue class + actionable message. */
-export interface InvalidHandleDraft {
+interface InvalidHandleDraft {
     readonly ok: false;
     /** Machine-readable rejection class (mirrors the server's `detail.reason`). */
     readonly issue: LobbyHandleIssue;

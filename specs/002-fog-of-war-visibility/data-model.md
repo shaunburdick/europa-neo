@@ -295,11 +295,11 @@ interface FogConstants {
   /** Default sensor radius if world.config.visibilityRadius is somehow missing.
    *  In practice the engine guarantees this field; this is a defensive default. */
   readonly defaultRadiusFallback: number;
-  /** Default sensor radius for tests / quickstart scenarios. Matches the
-   *  engine's ENGINE_CONSTANTS.visibilityRadiusDefault expected value. */
-  readonly testRadius: number;
 }
 ```
+
+Test scenarios declare the radius they exercise in their own fixtures; the
+contract ships no test-only radius.
 
 **Justification**: spec SC-005 mandates "every numeric rule is defined
 in one tunable-constants location." The engine owns the *primary*

@@ -25,7 +25,7 @@
  * `DEFAULT_WS_PORT` (aliased as `HOST_PORT` after the 011 single-port
  * collapse).
  */
-export const LOBBY_DEFAULT_SERVER_PORT = 8080;
+const LOBBY_DEFAULT_SERVER_PORT = 8080;
 
 /** The page-location facts URL resolution needs (structural `Location` subset). */
 export interface PageLocator {
@@ -81,7 +81,7 @@ function normalizeWsUrl(value: string): string {
  * from being sent cross-host. Both ws/wss are accepted for same-host routes;
  * the browser remains responsible for mixed-content enforcement.
  */
-export function validateLobbyServerUrl(value: string, locator: PageLocator): string {
+function validateLobbyServerUrl(value: string, locator: PageLocator): string {
     const normalized = normalizeWsUrl(value.trim());
     let candidate: URL;
     try {

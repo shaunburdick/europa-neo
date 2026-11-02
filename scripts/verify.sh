@@ -139,4 +139,11 @@ echo "--- Phase 13: Referenced-contract-file guard ---"
 pnpm exec tsx scripts/check-referenced-contract-files.ts
 echo ""
 
+# Phase 14: Dead-export gate (008 FR-034 / issue #140). Knip runs in
+# production + exports-only mode: tests/E2E cannot keep an export alive,
+# contracts are excluded by config, and only export findings fail the gate.
+echo "--- Phase 14: Dead-export gate (knip) ---"
+pnpm exec knip --production --exports --no-progress --no-tag-hints
+echo ""
+
 echo "=== All verification checks passed ==="

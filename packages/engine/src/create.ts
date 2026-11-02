@@ -24,13 +24,11 @@ import { hashSeed } from '@europa/core';
 import { createPlayerRegistry } from './playerRegistry';
 import type {
     Board,
-    Cell,
     CityPlacement,
     EngineConstants,
     MatchConfig,
     Player,
     PlayerId,
-    Terrain,
     TickScratchBuffers,
     TransferParams,
     World,
@@ -229,11 +227,6 @@ export function createWorld(config: MatchConfig, board: Board): World {
 
     return world;
 }
-
-// Re-export terrain so we don't trigger the unused-import lint rule
-// (consumers read Terrain via `types.ts`; this module re-asserts the
-// type union inline so a future change to Terrain can be detected here).
-export type { Cell, Terrain };
 
 /**
  * Engine player count constant — matches the maximum number of players

@@ -66,6 +66,7 @@ export function keyToCoord(key: string): Coord {
  * @param playerIds Player identities in placement-slot order.
  * @returns ID → CSS color map for owner/city rendering.
  */
+/** @lintignore Test seam: cell-view tests build player color maps. */
 export function playerColorsFor(playerIds: readonly PlayerId[]): Readonly<Record<PlayerId, string>> {
     const colors: Record<PlayerId, string> = {};
     playerIds.forEach((id, index) => {

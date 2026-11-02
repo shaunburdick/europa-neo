@@ -16,8 +16,6 @@
  * scripts, future balance mod support) all import this one object.
  */
 
-export type { EngineConstants } from '@europa/core';
-
 /**
  * Engine rule constants. Imported by every resolution rule module.
  * Re-exported from `@europa/core` (issue #96). See core's

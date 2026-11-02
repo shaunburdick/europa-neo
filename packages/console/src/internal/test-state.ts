@@ -35,6 +35,7 @@ let injectedState: ConsoleState | null = null;
  * JSDoc for the MVP rationale + deprecation boundary).
  *
  * @param state The state the App should render standalone.
+ * @public Documented test seam for component tests (set injected state).
  */
 export function setConsoleStateForTesting(state: ConsoleState): void {
     injectedState = state;
@@ -42,6 +43,8 @@ export function setConsoleStateForTesting(state: ConsoleState): void {
 
 /**
  * Clear any injected test state (test teardown hygiene).
+ *
+ * @public Documented test seam for component tests (clear injected state).
  */
 export function clearConsoleStateForTesting(): void {
     injectedState = null;
@@ -76,7 +79,7 @@ export function createStubConsoleState(view: PlayerView): ConsoleState {
 }
 
 /** Board size of the deterministic demo view (16×16). */
-export const DEMO_BOARD_SIZE = 16;
+const DEMO_BOARD_SIZE = 16;
 
 /**
  * Deterministic demo `PlayerView` for the dev-server mount (T047:

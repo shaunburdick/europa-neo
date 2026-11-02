@@ -13,6 +13,12 @@ import { GenerationError } from '../../src/contracts/terrain-types';
 import { generateBoard, hashBoard } from '../../src/generate';
 import { engineSfc32, SEED_42, SEED_C0FFEE } from '../fixtures/seeds';
 
+/**
+ * Committed hash of the SEED_C0FFEE / 32×32 / 2-player default board.
+ * Regenerate only when a board change is intentional.
+ */
+const SEED_C0FFEE_GOLDEN_HASH = '1df24b2693bf062b';
+
 function invalidPlayerCountRequest(playerCount: number): TerrainGenerationRequest {
     return {
         boardSize: 16,
@@ -114,16 +120,7 @@ describe('generateBoard', () => {
                 settings: DEFAULT_GENERATION_SETTINGS,
             };
             const result = generateBoard(req);
-            const hash = hashBoard(result.board);
-            // Snapshot hash: must be stable across runs.
-            // Format: 16-char hex string.
-            expect(hash).toMatch(/^[0-9a-f]{16}$/);
-            // Capture the hash for the first run so we can compare on
-            // re-run. (The first run sets the expected value; subsequent
-            // runs verify it matches.)
-            // We assert non-empty and format-correct here; the strict
-            // equality is asserted in the determinism integration test.
-            expect(hash.length).toBe(16);
+            expect(hashBoard(result.board)).toBe(SEED_C0FFEE_GOLDEN_HASH);
         });
 
         it('hashBoard returns the same value for the same Board', () => {

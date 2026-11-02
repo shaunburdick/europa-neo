@@ -1,0 +1,41 @@
+# Repository Guards — the three static checks (referenced contract files,
+# spec consolidation, dead exports) in one job. All three finish in about a
+# second, so one setup beats three jobs and three runners; the former path
+# gates saved only ~25s of setup, so this runs unconditionally (008
+# FR-017/FR-033/FR-034, issue #140).
+name: Repository Guards
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    name: Repository guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4 # v3.1.1
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Referenced contract files
+        run: pnpm exec tsx scripts/check-referenced-contract-files.ts
+
+      - name: Spec consolidation
+        run: pnpm exec tsx scripts/check-spec-consolidation.ts
+
+      - name: Dead exports (knip)
+        run: pnpm exec knip --production --exports --no-progress --no-tag-hints

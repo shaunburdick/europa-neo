@@ -28,7 +28,6 @@
 import { Link } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { useEffect } from 'react';
-import { createRoot } from 'react-dom/client';
 import { BrandedFooter } from './branded-footer';
 
 /** Canonical GitHub Pages URL for the player manual (FR-005). */
@@ -176,13 +175,4 @@ export function WelcomeScreen(): JSX.Element {
             </main>
         </div>
     );
-}
-
-/**
- * Mount the welcome screen into the given DOM element.
- *
- * @param root The SPA mount node (`#root`).
- */
-export function mountWelcomeScreen(root: HTMLElement): void {
-    createRoot(root).render(<WelcomeScreen />);
 }

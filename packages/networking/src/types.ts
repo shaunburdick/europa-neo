@@ -39,27 +39,42 @@ export type {
     // Transport-layer payloads
     ErrorPayload,
     // Feature 010 lobby family (branded + domain + payload shapes)
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     GuestIdentityClaim,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     GuestPlayerId,
     HelloAckPayload,
     HelloPayload,
     IdentityState,
     JoinAckPayload,
     JoinMatchPayload,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyActionId,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyCreatePayload,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyErrorCode,
     LobbyEvent,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyEventPayload,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyIdentityPayload,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyJoinPayload,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyLeavePayload,
     LobbyMatchSettings,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyRevision,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbySetHandlePayload,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbySnapshot,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbySpectatePayload,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbyStatus,
+    /** @public Wire-contract re-export consumed by the networking wire fixture. */
     LobbySubscribePayload,
     LobbyTerrainSettings,
     // Branded primitive
@@ -89,11 +104,6 @@ export type {
     TerminalPayload,
     TickBroadcastPayload,
 } from './contracts/network-types';
-
-// The wire-protocol version constant — the single runtime artifact in
-// the contract. Re-exported here so consumers can do
-// `import { NETWORK_API_VERSION } from '@europa/networking'`.
-export { NETWORK_API_VERSION } from './contracts/network-types';
 
 // ----------------------------------------------------------------------------
 // Engine + fog types (per the boundary rules)

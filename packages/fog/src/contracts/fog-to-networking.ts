@@ -94,8 +94,8 @@ import type { PlayerView, VisibleSet } from './fog-types';
 
 /**
  * Re-export the engine ↔ fog boundary types for networking convenience.
- * Networking's `import { PlayerView } from '@europa/fog/contracts/fog-to-networking'`
- * gives it everything it needs without reaching into the engine.
+ * Networking's `import { PlayerView } from '@europa/fog'` gives it
+ * everything it needs without reaching into the engine.
  */
 export type { PlayerView, VisibleSet };
 

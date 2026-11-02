@@ -53,6 +53,7 @@ export interface RosterCardProps {
  * @param status The roster status value.
  * @returns The display label.
  */
+/** @lintignore Test seam: roster card tests assert status copy. */
 export function rosterStatusLabel(status: RosterStatus): string {
     switch (status) {
         case 'in_lobby':
@@ -74,6 +75,7 @@ export function rosterStatusLabel(status: RosterStatus): string {
  * @param roster The current roster state.
  * @returns The heading text.
  */
+/** @lintignore Test seam: roster card tests assert heading copy. */
 export function rosterHeadingText(roster: RosterState): string {
     if (!roster.connected) {
         return 'Players online (?)';

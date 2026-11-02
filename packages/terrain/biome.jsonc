@@ -18,8 +18,6 @@
                 "tests/unit/elevation.test.ts",
                 "tests/unit/fbm.test.ts",
                 "tests/unit/rng-adapter.test.ts",
-                "tests/unit/seed-fixtures.test.ts",
-                "tests/unit/value-noise.test.ts",
                 "tests/unit/water.test.ts"
             ],
             "linter": {
@@ -40,8 +38,6 @@
                 "tests/unit/elevation.test.ts",
                 "tests/unit/fbm.test.ts",
                 "tests/unit/rng-adapter.test.ts",
-                "tests/unit/seed-fixtures.test.ts",
-                "tests/unit/value-noise.test.ts",
                 "tests/unit/water.test.ts",
                 "tests/fixtures/board.ts",
                 "tests/integration/balance.test.ts",
@@ -51,7 +47,6 @@
                 "tests/integration/sc-001-determinism.test.ts",
                 "tests/integration/sc-002-balance.test.ts",
                 "tests/integration/sc-003-performance.test.ts",
-                "tests/unit/board-fixtures.test.ts",
                 "tests/unit/board.test.ts",
                 "tests/unit/city-band.test.ts",
                 "tests/unit/city-placement.test.ts",
@@ -68,10 +63,8 @@
         },
         {
             "includes": [
-                "tests/contracts-drift.test.ts",
                 "tests/unit/clamp.test.ts",
                 "tests/unit/generate.test.ts",
-                "tests/unit/index.test.ts",
                 "tests/unit/settings.test.ts",
                 "tests/unit/validate.test.ts"
             ],

@@ -27,8 +27,6 @@ import { buildWorldWithCities, buildWorldWithTroops } from '../fixtures/world';
 /**
  * Scenario radius per quickstart Q-F01 ("Chebyshev range 3"): a
  * radius-3 disk is 7×7 = 49 cells unclipped, 4×4 = 16 at a corner.
- * (`FOG_CONSTANTS.testRadius` mirrors the ENGINE default of 4 and is
- * asserted separately in `index.test.ts`.)
  */
 const RADIUS = 3;
 

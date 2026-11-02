@@ -2,6 +2,7 @@
     "name": "@europa/core",
     "version": "0.2.0",
     "private": true,
+    "sideEffects": false,
     "description": "Europa Neo shared foundation — core game types, deterministic PRNG, and version constant. Zero workspace dependencies; builds first to resolve the engine ↔ terrain ordering constraint.",
     "type": "module",
     "exports": {

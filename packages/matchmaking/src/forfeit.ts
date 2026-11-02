@@ -61,7 +61,7 @@ export interface ForfeitContext {
 }
 
 /** What the policy decided for an expired seat. */
-export type ForfeitOutcome =
+type ForfeitOutcome =
     /** Surrender submitted to a running match's engine session. */
     | 'surrendered'
     /** Filling-phase inline seat release (no engine session existed). */
@@ -88,7 +88,7 @@ export interface SeatExpiredResult {
  * @param ctx - Injected store/server/logger/emit context.
  * @param nowMs - Epoch ms of the teardown.
  */
-export function handleAllPlayersForfeited(match: MatchRecord, ctx: ForfeitContext, nowMs: number): void {
+function handleAllPlayersForfeited(match: MatchRecord, ctx: ForfeitContext, nowMs: number): void {
     const world = match.engineSession?.world();
     if (world !== undefined) {
         const cancelled = buildMatchResultsRecord({

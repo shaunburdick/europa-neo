@@ -10,6 +10,7 @@
 import { RELIEF_HIGHLIGHT_COLOR, RELIEF_SHADOW_COLOR } from './palette';
 
 /** Bevel width as a fraction of the tile size for step 1, 2, 3 (capped at 10 %). */
+/** @lintignore Test seam: relief tests pin the width ladder. */
 export const RELIEF_WIDTH_RATIOS = [0.04, 0.07, 0.1] as const;
 
 /**
@@ -23,6 +24,7 @@ export const RELIEF_WIDTH_RATIOS = [0.04, 0.07, 0.1] as const;
  * and only an unusually large drop reaches the 10 % cap. Re-pin them
  * if the terrain generator's relief changes.
  */
+/** @lintignore Test seam: relief tests pin the step thresholds. */
 export const RELIEF_STEP_THRESHOLDS = [4, 9] as const;
 
 /**
@@ -30,6 +32,7 @@ export const RELIEF_STEP_THRESHOLDS = [4, 9] as const;
  * gains per step. Hue and saturation are kept exactly, so the band stays
  * the same material; only its lightness moves toward the lit anchor.
  */
+/** @lintignore Test seam: relief tests pin lit lightness steps. */
 export const RELIEF_LIT_LIGHTNESS_STEPS = [0.74, 0.79, 0.84] as const;
 
 /**
@@ -39,6 +42,7 @@ export const RELIEF_LIT_LIGHTNESS_STEPS = [0.74, 0.79, 0.84] as const;
  * tone floor, while a dark zone's shade would reach black under the
  * same share.
  */
+/** @lintignore Test seam: relief tests pin shaded lightness steps. */
 export const RELIEF_SHADED_LIGHTNESS_STEPS = [0.4, 0.5, 0.6] as const;
 
 /** The four tile sides, in paint order. */
@@ -48,7 +52,7 @@ export const RELIEF_SIDES = ['N', 'E', 'S', 'W'] as const;
 export type ReliefSide = (typeof RELIEF_SIDES)[number];
 
 /** Step at which both width and tone stop growing. */
-export const RELIEF_MAX_STEP = RELIEF_WIDTH_RATIOS.length;
+const RELIEF_MAX_STEP = RELIEF_WIDTH_RATIOS.length;
 
 /** The lit and shaded lightness anchors, taken from the token extremes. */
 const LIT_ANCHOR_LIGHTNESS = hexLightness(RELIEF_HIGHLIGHT_COLOR);
@@ -72,6 +76,7 @@ export function reliefStep(delta: number): number {
  *
  * @param delta Positive elevation drop (`own − neighbour`).
  */
+/** @lintignore Test seam: relief tests pin the width-ratio mapping. */
 export function reliefWidthRatio(delta: number): number {
     const step = reliefStep(delta);
     return step === 0 ? 0 : (RELIEF_WIDTH_RATIOS[step - 1] ?? 0);

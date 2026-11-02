@@ -49,7 +49,7 @@ import { describeActionError } from './lobby-labels';
  * note). The create payload spreads this and overrides
  * `citiesPerPlayer`.
  */
-export const CREATE_TERRAIN_PRESET: LobbyTerrainSettings = {
+const CREATE_TERRAIN_PRESET: LobbyTerrainSettings = {
     waterRatio: 0.1,
     roughness: 0.5,
     octaves: 4,
@@ -65,13 +65,13 @@ export const CREATE_TERRAIN_PRESET: LobbyTerrainSettings = {
  * generation is unreliable — follow-up issue #26); the selectable set is
  * 32|48 until the terrain fix lands. Both are safely above the terrain
  * placement constraints' practical floor; 32 is the shipped default. */
-export const CREATE_BOARD_SIZES: readonly number[] = [32, 48] as const;
+const CREATE_BOARD_SIZES: readonly number[] = [32, 48] as const;
 
 /** Cities-per-player options (GenerationSettings safe range [1, 4]). */
-export const CREATE_CITIES_OPTIONS: readonly number[] = [1, 2, 3, 4] as const;
+const CREATE_CITIES_OPTIONS: readonly number[] = [1, 2, 3, 4] as const;
 
 /** Player counts per the engine contract (engine FR-019: 2..4). */
-export const CREATE_PLAYER_COUNTS: readonly (2 | 3 | 4)[] = [2, 3, 4] as const;
+const CREATE_PLAYER_COUNTS: readonly (2 | 3 | 4)[] = [2, 3, 4] as const;
 
 /** The form's editable values. */
 export interface LobbyCreateFormValues {
@@ -119,6 +119,7 @@ export function buildCreateSettings(values: LobbyCreateFormValues): Partial<Lobb
  * @param nextCount Newly selected player count.
  * @returns The board size that should now be selected.
  */
+/** @lintignore Test seam: lobby create-form tests assert pre-selection. */
 export function resolveBoardSizeOnPlayerCountChange(
     previousCount: PlayerCount,
     currentBoardSize: number | null | undefined,

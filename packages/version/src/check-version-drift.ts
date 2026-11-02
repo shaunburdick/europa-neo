@@ -32,7 +32,7 @@ export type VersionSourceKind =
     | 'design-md';
 
 /** Every non-workspace surface the gatherer must observe exactly once. */
-export const REQUIRED_VERSION_SOURCE_KINDS: readonly VersionSourceKind[] = [
+const REQUIRED_VERSION_SOURCE_KINDS: readonly VersionSourceKind[] = [
     'root-package',
     'constant',
     'readme',

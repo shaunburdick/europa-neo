@@ -67,7 +67,7 @@
  * Mirrors the engine's `ENGINE_API_VERSION` discipline: every consumer
  * pin-checks at startup, incrementing forces a coordinated update.
  */
-export const FOG_API_VERSION = '0.1.0' as const;
+export const FOG_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine types (re-exported for convenience, not re-defined)

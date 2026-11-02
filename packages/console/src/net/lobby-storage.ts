@@ -45,6 +45,7 @@ import type { GuestPlayerId } from '@europa/matchmaking';
  * {@link StoredLobbyClaim}. Versioned suffix (`v1`) so a future shape
  * change can migrate instead of misreading old payloads.
  */
+/** @lintignore Test seam: persistence and resume E2E tests read this key. */
 export const LOBBY_STORAGE_KEY = 'europa:lobby:identity:v1';
 
 /** Fallback marker substituted for a redacted secret in text output. */

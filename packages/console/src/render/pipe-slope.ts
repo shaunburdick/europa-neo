@@ -77,6 +77,7 @@ export const PIPE_SLOPE_CONSTANTS: PipeSlopeConstants = {
  * @param constants The console-side constants mirror.
  * @returns Troops moved per tick along the pipe (≥ 0; 0 = stall).
  */
+/** @lintignore Test seam: slope-drift tests compare rate calculations. */
 export function pipeFlowRate(delta: number, perPipe: number, constants: PipeSlopeConstants): number {
     const { flowDownhillStep, flowUphillStep, flowSlopeDeltaCap } = constants;
     if (delta < 0) {
