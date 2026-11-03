@@ -64,8 +64,9 @@ rebuild the action registry, mapping validation, profiles, or editor.
 - Host the existing editor, mapping session, capture handler, open state, and
   focus-return behavior in the persistent production lobby shell. Add the
   design-system “Configure controls…” entry on `/lobby` before Create/Join and
-  public-match actions. Remove the production active-match sidebar launcher
-  while retaining Help, Surrender/modal exclusivity, targeting, and input guards.
+  public-match actions. Do not place the editor launcher in the production
+  active-match sidebar; retain Help, Surrender/modal exclusivity, targeting, and
+  input guards.
 - Offer the same editor on the current deep-link pre-join screen before Play.
   Route shapes, authoritative eligibility checks, and immediate entry behavior
   stay unchanged.

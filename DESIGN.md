@@ -822,7 +822,7 @@ Drift guards (see `specs/012-design-system/data-model.md` § Drift Guard):
 - **G-05** vendored-asset byte identity (FR-014)
 - **G-06** version-header lockstep (FR-017 / FR-020 / spec 009 FR-009)
 - **G-07** measured contrast for every § 3 pairing (FR-016)
-- **G-08** console browser-payload gzip reference 155,648 bytes (152 KiB): warn at/above with total/excess and continue required host smoke (NFR-005, spec 005 v1.23)
+- **G-08** console browser-payload policy (NFR-005): measure the sum of per-file gzip sizes for every browser-delivered `.js` and `.css` asset under `dist/assets`. At or above the advisory reference, report the measured total and excess as a warning, then continue to the required HTTP/WS host smoke; payload size alone is not a failure. Build, remote-URL scan, measurement/tooling, asset/probe, and host-smoke failures remain blocking. See [Q-P03 policy](specs/005-client-console/spec.md#q-p03-policy).
 - **G-09** Pages artifact scope (FR-013)
 
 Every guard runs locally (`pnpm` scripts under `packages/design`) and in CI.

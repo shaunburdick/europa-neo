@@ -251,7 +251,7 @@ Chromium via Vitest Browser Mode. It measures:
 - `reduce(state, action)` under 1 ms (no DOM, pure JS).
 - Initial browser-delivered bundle (sum of per-file gzip sizes for every `.js`
   and `.css` asset under `dist/assets`): `test:selfhost` reports the measured
-  total against the advisory 155,648-byte (152 KiB) reference target. At or
+  total against the advisory Q-P03 reference target ([spec 005 §Q-P03](./spec.md#q-p03-policy)). At or
   above target it warns with the exact excess and still runs the host smoke.
 - 1000-tick deterministic replay produces byte-identical
   `MapView` snapshots (SC-002).

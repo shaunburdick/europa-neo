@@ -1,7 +1,7 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-24 (v1.23; issue #201 Q-P03 advisory policy clarification; merge reconciliation)
+**Last Updated**: 2026-11-02 (v1.23; Q-P03 canonical-source reconciliation)
 **Version**: 1.23
 
 **Created**: 2026-08-21
@@ -253,17 +253,18 @@ truthful).
    effects**: never emitted by the v1 reducer. The runtime handles
    them defensively (log / sound seam / modal epoch) so future
    emitters work without runtime changes.
- 4. **Bundle payload reference (Q-P03)**: the browser-delivered initial bundle
-    is measured as the sum of per-file gzip sizes over every
-    `dist/assets/**/*.{js,css}` asset. The 155,648-byte (152 KiB) value is an
-    advisory reference target: at or above it, `scripts/test-selfhost.sh` MUST
-    report the exact total and excess, then continue to the required host smoke.
-    Numeric payload size alone MUST NOT fail self-host verification. Build,
-    remote-URL scan, measurement/tooling errors, asset checks, and HTTP/WS host
-    smoke remain blocking. The tsc library tree also emitted into `dist/` is
-    consumed by bundling hosts, never fetched by browsers, and remains outside
-    the Q-P03 browser-payload measurement. The browser-mode perf suite cannot
-    read the filesystem, hence the post-build reporting point.
+4. **Bundle payload reference (Q-P03)**: <a id="q-p03-policy"></a>
+   The browser-delivered initial bundle
+   is measured as the sum of per-file gzip sizes over every
+   `dist/assets/**/*.{js,css}` asset. The 155,648-byte (152 KiB) value is an
+   advisory reference target: at or above it, `scripts/test-selfhost.sh` MUST
+   report the exact total and excess, then continue to the required host smoke.
+   Numeric payload size alone MUST NOT fail self-host verification. Build,
+   remote-URL scan, measurement/tooling errors, asset checks, and HTTP/WS host
+   smoke remain blocking. The tsc library tree also emitted into `dist/` is
+   consumed by bundling hosts, never fetched by browsers, and remains outside
+   the Q-P03 browser-payload measurement. The browser-mode perf suite cannot
+   read the filesystem, hence the post-build reporting point.
 5. **Coverage gate scope (T094/T097)**: DOM-bound modules
    (`src/render/`, `src/ui/`, `src/qol/minimap.tsx`) are covered by
    the component/a11y/E2E suites in real Chromium; node-only coverage
@@ -409,7 +410,7 @@ truthful).
 | Q-E01..Q-E15 (E2E) | `test:e2e` — 7 Playwright specs covering US1–US5 wire-level acceptance + selfhost smoke | PASS |
 | Q-A01..Q-A08 (a11y E2E) | `test:a11y` — 19 axe-core acceptance tests | PASS |
 | Q-P01/P02/P04 (perf budgets) | `test:perf` — paint 1.8 ms (<8), reduce ~0.2 µs (<1 ms), preflight ~0.3 µs (<0.1 ms) | PASS |
-| Q-P03 (bundle < 150 KB gz) | `test:selfhost` — 76,528 bytes over `dist/assets` | PASS |
+| Q-P03 historical (former < 150 KiB target) | `test:selfhost` — 76,528 bytes over `dist/assets` | PASS |
 | SC-002 determinism | `test:determinism` — 1000-tick golden fixture, zero divergence | PASS |
 | SC-004 parity | `test:parity` + original-subcell fixture | PASS |
 | Constitution VII self-host | remote-URL scan in `test:selfhost` | PASS |
@@ -428,19 +429,6 @@ truthful).
 | FR-021 spectator parity | `test:e2e` (spectator sidebar) | PASS |
 | FR-022 sidebar owned by App | code review: `App.tsx` contains the sidebar, no lobby-runtime sidebar | PASS |
 | FR-023 toasts on right side | `test:component` (toast position over sidebar) | PASS |
-
-| Quickstart items | Proving suite | Result |
-| --- | --- | --- |
-| Q-C01..Q-C03 (dev-mode boots) | Manual smoke; `?e2e` harness covered by Playwright specs | Manual |
-| Q-U01..Q-U10 (unit) | `test:unit` — 192 tests incl. reducer arms/invariants, net layer, preflight, zoom math, controllers | PASS |
-| Q-B01..Q-B08 (component) | `test:component` — 25 tests | PASS |
-| Q-E01..Q-E15 (E2E) | `test:e2e` — 7 Playwright specs covering US1–US5 wire-level acceptance + selfhost smoke | PASS |
-| Q-A01..Q-A08 (a11y E2E) | `test:a11y` — 19 axe-core acceptance tests | PASS |
-| Q-P01/P02/P04 (perf budgets) | `test:perf` — paint 1.8 ms (<8), reduce ~0.2 µs (<1 ms), preflight ~0.3 µs (<0.1 ms) | PASS |
-| Q-P03 (bundle < 150 KB gz) | `test:selfhost` — 76,528 bytes over `dist/assets` | PASS |
-| SC-002 determinism | `test:determinism` — 1000-tick golden fixture, zero divergence | PASS |
-| SC-004 parity | `test:parity` + original-subcell fixture | PASS |
-| Constitution VII self-host | remote-URL scan in `test:selfhost` | PASS |
 
 Historical validation counts are configuration-specific and intentionally
 not a current total; run the package commands above for the authoritative
@@ -988,20 +976,9 @@ or entry delay is added.
 The owner comment on PR #210 says: “Yep! I think payload size checks are there
 just as a gate vs a hard limit.” The user clarified that this means the
 155,648-byte value is advisory, not a strict line, and explicitly authorized
-the corresponding contract/test behavior change. The comment does not specify
-a new numeric threshold or prescribe warning wording.
-
-- Keep 155,648 bytes (152 KiB) as the reference target and retain the exact
-  existing measurement: sum every per-file gzip size for every `.js` and `.css`
-  file under `dist/assets`.
-- At or above the reference target, `test:selfhost` MUST print the measured
-  total and excess as a warning and continue to the one-port HTTP/WS smoke. The
-  numeric result alone MUST NOT fail `test:selfhost` or `pnpm verify`.
-- Build failures, URL-scan violations/tool failures, invalid measurements,
-  asset/probe failures, and HTTP/WS smoke failures remain blocking. No assets
-  are excluded, no other performance/design budget changes, and no warning
-  wrapper may turn those failures into success.
-- The earlier v1.21 description of a strict numeric failure remains a
-  historical record of the implementation at that time; this v1.23 clause
-  supersedes only that enforcement interpretation. The measured value itself
-  and all other verification gates are unchanged.
+the corresponding contract/test behavior change. The comment did not specify
+a new numeric threshold or prescribe warning wording. This entry records that
+decision and the historical transition; [Implementation Note 4 (Q-P03)](#q-p03-policy)
+above is the sole current owner of the unchanged value, measurement, and live
+verification policy. The earlier v1.21 strict-failure description remains a
+truthful account of the implementation at that time.

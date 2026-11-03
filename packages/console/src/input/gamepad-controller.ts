@@ -13,7 +13,7 @@ const MOVE_REPEAT_INTERVAL_MS = 140;
 const MAX_BUTTONS = 32;
 const MAX_AXES = 4;
 
-export interface StandardGamepadButtonState {
+interface StandardGamepadButtonState {
     readonly pressed: boolean;
     readonly value: number;
 }

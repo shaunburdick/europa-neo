@@ -96,9 +96,10 @@ contracts (FR-001..FR-019) are preserved; only the route-selection mechanism cha
 
 Historical v1.1 validation: 134,689 B gz < 153,600 B (12.3% headroom),
 measured under the then-current limit. The current FR-030 reference target is
-155,648 B (152 KiB); v1.8 makes numeric excess warning-only while keeping the
-same asset count, remote-URL scan, and required host smoke. See feature 005
-v1.23 and the follow-on execution record for current verification evidence.
+defined by [Feature 005's Q-P03 policy](../005-client-console/spec.md#q-p03-policy);
+v1.8 makes numeric excess warning-only while keeping the same asset count,
+remote-URL scan, and required host smoke. See feature 005 v1.23 and the
+follow-on execution record for current verification evidence.
 
 ### Test counts (post-migration)
 
@@ -126,9 +127,9 @@ v1.23 and the follow-on execution record for current verification evidence.
 | FR-027 | Loader caching does not change route-entry authority | Unit deferred-resolution tests (snapshot authority preserved) | PASS |
 | FR-028 | Deep-link / unnamed-identity / welcome / not-found preserved | E2E deep-link interstitial tests, a11y notice tests | PASS |
 | FR-029 | Browser-visible URL shapes identical | E2E reload / Back-Forward tests, determinism tests | PASS |
-| FR-030 | Report all browser-delivered JS/CSS gzip sizes against the 155,648 B reference; warn at/above and still run the host smoke | `test:selfhost` via the selfhost E2E spec | PASS — exact-head GitHub Actions evidence; no full `pnpm verify` claim |
+| FR-030 | Report all browser-delivered JS/CSS gzip sizes against the reference defined by [Feature 005's Q-P03 policy](../005-client-console/spec.md#q-p03-policy); warn at/above and still run the host smoke | `test:selfhost` via the selfhost E2E spec | PASS — exact-head GitHub Actions evidence; no full `pnpm verify` claim |
 
-**Current verification provenance:** GitHub Actions Client CI run
+**Historical exact-head CI provenance (not evidence for the f166 baseline/current worktree):** GitHub Actions Client CI run
 [40108464258](https://github.com/shaunburdick/europa-neo/actions/runs/40108464258)
 passed on PR #210 head
 `29c8c30b42e12a1eb2cbed17bb8c56354ee2ae79`. Its browser job's E2E step runs

@@ -50,34 +50,17 @@ fi
 . scripts/browser-bundle-budget.sh
 browser_assets="$(find dist/assets -type f \( -name '*.js' -o -name '*.css' \) -print)"
 require_browser_assets "dist/assets" "${browser_assets}"
+browser_asset_paths=()
+while IFS= read -r asset; do
+  browser_asset_paths+=("${asset}")
+done <<<"${browser_assets}"
 
 echo "[test-selfhost] scanning dist/ for remote URLs..."
 # Judge individual URL TOKENS, not source lines: minified bundles pack an
 # entire chunk onto one physical line, so line-level filtering would
 # silently forgive co-located violations (and over-report benign ones).
 url_tokens="$(grep -REoh 'https?://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' dist/assets --include='*.js' --include='*.css' | sort -u || true)"
-
-violations=""
-for url in ${url_tokens}; do
-  case "${url}" in
-    # Bare schemes carry no host (scheme detection/translation literals).
-    http:// | https://) ;;
-    # TanStack Router SSR fallback origin — not fetched at runtime in the browser.
-    http://localhost) ;;
-    # XML/SVG namespace identifiers — never fetched.
-    *www.w3.org*) ;;
-    # React error-decoder prose inside thrown Error strings.
-    *react.dev/errors* | *reactjs.org/docs/error-decoder*) ;;
-    # Footer hyperlink to the project repo — navigation only, never a runtime fetch.
-    *github.com*) ;;
-    # Player manual link — navigation only, never a runtime fetch.
-    *shaunburdick.github.io*) ;;
-    *)
-      violations="${violations}${url}
-"
-      ;;
-  esac
-done
+violations="$(printf '%s\n' "${url_tokens}" | pnpm exec tsx scripts/check-remote-urls.ts)"
 
 if [ -n "${violations}" ]; then
   echo "[test-selfhost] FAIL: remote URLs found in built output:"
@@ -90,13 +73,7 @@ if [ -n "${violations}" ]; then
   exit 1
 fi
 
-REFERENCE_TARGET_BYTES=155648
-total_bytes=0
-while IFS= read -r asset; do
-  gz="$(gzip -c -- "${asset}" | wc -c)"
-  total_bytes=$((total_bytes + gz))
-done <<<"${browser_assets}"
-report_browser_bundle_budget "${total_bytes}" "${REFERENCE_TARGET_BYTES}"
+pnpm exec tsx scripts/report-browser-bundle-budget.ts "${browser_asset_paths[@]}"
 
 echo "[test-selfhost] starting one-port host smoke..."
 port="$(node -e "const net=require('node:net'); const s=net.createServer(); s.listen(0,'127.0.0.1',()=>{process.stdout.write(String(s.address().port)); s.close();});")"
