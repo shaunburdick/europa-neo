@@ -30,6 +30,8 @@
 import { computeViewportOffset } from '../render/viewport-offset';
 import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, Coord, CursorTarget, Direction, PlayerAction, ScreenPoint } from '../state/types';
+import type { ControlMappingReader } from './control-mapping';
+import { ControlMappingSession, matchPointerBinding } from './control-mapping';
 import { directionFromRegion, hitTest } from './hit-test';
 
 /** Physical pointer button, mirroring `PointerBinding['button']`. */
@@ -118,6 +120,8 @@ export function pipePresentInDirection(state: ConsoleState, cell: Coord, directi
 
 /** Callbacks the controller invokes for cross-layer coordination. */
 export interface RegionSelectCallbacks {
+    /** Runtime-owned mapping source; read at event time without reattaching. */
+    readonly mappingSession?: ControlMappingReader | undefined;
     /**
      * Called on every pointer move with the fresh hit-test result and
      * a monotonic timestamp. The keyboard draft layer consumes this to
@@ -145,6 +149,8 @@ export class RegionSelectController {
 
     private readonly onCursor: ((target: CursorTarget, atMs: number) => void) | undefined;
 
+    private readonly mappingSession: ControlMappingReader;
+
     private lastHover: Coord | null = null;
 
     private disposed = false;
@@ -161,6 +167,7 @@ export class RegionSelectController {
         this.element = element;
         this.store = store;
         this.onCursor = callbacks?.onCursor;
+        this.mappingSession = callbacks?.mappingSession ?? new ControlMappingSession();
     }
 
     /**
@@ -277,10 +284,19 @@ export class RegionSelectController {
         if (button === undefined) {
             return;
         }
+        const modifiers = new Set<'alt' | 'ctrl' | 'meta' | 'shift'>();
+        if (event.altKey) modifiers.add('alt');
+        if (event.ctrlKey) modifiers.add('ctrl');
+        if (event.metaKey) modifiers.add('meta');
+        if (event.shiftKey) modifiers.add('shift');
+        const gesture = matchPointerBinding(this.mappingSession.getSnapshot(), button, modifiers);
+        if (gesture === null) {
+            return;
+        }
         const decision = decideRegionClick({
             target,
-            button,
-            altKey: event.altKey,
+            button: gesture === 'pointerPipeExclusive' ? 'right' : 'left',
+            altKey: false,
             shiftKey: event.shiftKey,
             exclusiveMode: state.exclusiveMode,
             hasExistingPipe:

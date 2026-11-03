@@ -27,6 +27,9 @@
 import { EuropaModal } from '@europa/design/components';
 import type { JSX } from 'react';
 
+import { controlMappingFromLegacy } from '../input/control-mapping';
+import type { ControlActionId, ControlMapping, KeyboardControlBinding } from '../state/types';
+import { DEFAULT_INPUT_MAPPING } from '../state/types';
 import './help-overlay.css';
 
 /** Props for {@link HelpOverlay}. */
@@ -45,6 +48,8 @@ export interface HelpOverlayProps {
     readonly matchStatus: string;
     /** Total participant count (server roster). */
     readonly playerCount: number;
+    /** Active runtime bindings; omitted only by isolated component consumers. */
+    readonly controlMapping?: ControlMapping | undefined;
 }
 
 /** Symbol legend entries (FR-004). Hardcoded content. */
@@ -72,18 +77,59 @@ const SYMBOL_LEGEND: ReadonlyArray<{ readonly symbol: string; readonly descripti
     { symbol: '─── Gun', description: 'Gun fire line' },
 ];
 
-/** Keyboard shortcut entries (FR-005). Hardcoded from DEFAULT_INPUT_MAPPING. */
-const KEYBOARD_SHORTCUTS: ReadonlyArray<{ readonly keys: string; readonly action: string }> = [
-    { keys: 'i / j / k / l', action: 'Toggle pipe N / W / S / E' },
-    { keys: 'Alt+i / Alt+j / Alt+k / Alt+l', action: 'Exclusive pipe N / W / S / E' },
-    { keys: 'Space', action: 'Clear all pipes in selected cell' },
-    { keys: 'p (or h)', action: 'Fire paratroop' },
-    { keys: 'g (or o)', action: 'Fire gun' },
-    { keys: '0–9', action: 'Set reserves 0%–90%' },
-    { keys: 'Escape', action: 'Cancel selection' },
-    { keys: 'Arrow keys', action: 'Move selection' },
-    { keys: '?', action: 'Toggle this help' },
+const DEFAULT_CONTROL_MAPPING = controlMappingFromLegacy(DEFAULT_INPUT_MAPPING);
+
+const SHORTCUT_ROWS: ReadonlyArray<{ readonly action: ControlActionId; readonly label: string }> = [
+    { action: 'pipeNorth', label: 'Toggle pipe North' },
+    { action: 'pipeWest', label: 'Toggle pipe West' },
+    { action: 'pipeSouth', label: 'Toggle pipe South' },
+    { action: 'pipeEast', label: 'Toggle pipe East' },
+    { action: 'pipeNorthExclusive', label: 'Set pipe North exclusively' },
+    { action: 'pipeWestExclusive', label: 'Set pipe West exclusively' },
+    { action: 'pipeSouthExclusive', label: 'Set pipe South exclusively' },
+    { action: 'pipeEastExclusive', label: 'Set pipe East exclusively' },
+    { action: 'clearCellPipes', label: 'Clear all pipes in selected cell' },
+    { action: 'paratroop', label: 'Fire paratroop' },
+    { action: 'gun', label: 'Fire gun' },
+    { action: 'reserve0', label: 'Set reserves to 0%' },
+    { action: 'reserve1', label: 'Set reserves to 10%' },
+    { action: 'reserve2', label: 'Set reserves to 20%' },
+    { action: 'reserve3', label: 'Set reserves to 30%' },
+    { action: 'reserve4', label: 'Set reserves to 40%' },
+    { action: 'reserve5', label: 'Set reserves to 50%' },
+    { action: 'reserve6', label: 'Set reserves to 60%' },
+    { action: 'reserve7', label: 'Set reserves to 70%' },
+    { action: 'reserve8', label: 'Set reserves to 80%' },
+    { action: 'reserve9', label: 'Set reserves to 90%' },
+    { action: 'cancel', label: 'Cancel selection' },
+    { action: 'moveNorth', label: 'Move selection North' },
+    { action: 'moveWest', label: 'Move selection West' },
+    { action: 'moveSouth', label: 'Move selection South' },
+    { action: 'moveEast', label: 'Move selection East' },
+    { action: 'zoomIn', label: 'Zoom in' },
+    { action: 'zoomOut', label: 'Zoom out' },
+    { action: 'zoomReset', label: 'Reset zoom to fit' },
+    { action: 'helpToggle', label: 'Toggle this help' },
 ];
+
+function formatBinding(binding: KeyboardControlBinding): string {
+    const modifiers = binding.modifiers.map((modifier) => `${modifier[0]?.toUpperCase()}${modifier.slice(1)}`);
+    const value = binding.value === ' ' ? 'Space' : binding.value;
+    return [...modifiers, value].join('+');
+}
+
+function activeKeyboardShortcuts(
+    mapping: ControlMapping,
+): ReadonlyArray<{ readonly keys: string; readonly action: string }> {
+    return SHORTCUT_ROWS.flatMap(({ action, label }) => {
+        const bindings = mapping[action].filter(
+            (binding): binding is KeyboardControlBinding => binding.kind === 'keyboard',
+        );
+        if (bindings.length === 0) return [];
+        const keys = bindings.map(formatBinding);
+        return [{ keys: keys.join(' / '), action: label }];
+    });
+}
 
 /** The player manual URL (FR-006). */
 const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/manual/';
@@ -102,7 +148,9 @@ export function HelpOverlay({
     playerColor,
     matchStatus,
     playerCount,
+    controlMapping = DEFAULT_CONTROL_MAPPING,
 }: HelpOverlayProps): JSX.Element {
+    const keyboardShortcuts = activeKeyboardShortcuts(controlMapping);
     return (
         <EuropaModal title="Game Help" open={open} onClose={onClose}>
             <div className="europa-help-overlay__content">
@@ -131,7 +179,7 @@ export function HelpOverlay({
                         </tr>
                     </thead>
                     <tbody>
-                        {KEYBOARD_SHORTCUTS.map((entry) => (
+                        {keyboardShortcuts.map((entry) => (
                             <tr key={entry.keys}>
                                 <td>{entry.keys}</td>
                                 <td>{entry.action}</td>

@@ -31,6 +31,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { MatchRouteIntent, Route } from '../routing/route';
 import { adaptRoute } from '../routing/route-adapter';
 import type { MatchId } from '../state/types';
+import { useControlsEditor } from '../ui/controls-editor-host';
 import { DeepLinkInterstitial } from '../ui/deep-link-interstitial';
 import { RouteNotice } from '../ui/route-notice';
 import { useLobbyLayout } from './lobby-layout';
@@ -89,6 +90,7 @@ function buildMatchRoute(pathname: string, matchId: string): Extract<Route, { ki
 export function MatchLayout(): JSX.Element {
     const { matchId: rawMatchId } = useParams({ from: '/match/$matchId' });
     const { controller, announcer } = useLobbyLayout();
+    const controlsEditor = useControlsEditor();
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
     const navigate = useNavigate();
 
@@ -264,6 +266,7 @@ export function MatchLayout(): JSX.Element {
                     void controller.spectateMatch(interstitial.matchId);
                 }}
                 onReturnToLobby={returnToLobby}
+                onConfigureControls={controlsEditor.openEditor}
                 announcer={announcer ?? undefined}
             />
         );

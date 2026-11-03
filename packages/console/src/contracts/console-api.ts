@@ -47,6 +47,32 @@
  * console is a leaf consumer.
  */
 
+
+import type {
+  Coord,
+  Direction,
+  Order,
+  PlayerId,
+  ReservesPct,
+  World,
+} from '@europa/engine';
+import type { PlayerView } from '@europa/fog';
+import type {
+  ConnectionState,
+  MatchId,
+  SessionToken,
+} from '@europa/networking';
+import type {
+  ActionId,
+  ConsoleAction,
+  ReduceOptions,
+  ReducerEffect,
+} from './console-state';
+import type {
+  ConsoleClient,
+  ConsoleClientConfig,
+  ConsoleClientDeps,
+} from './console-to-networking';
 import type {
   CameraState,
   ConsoleConnectionStatus,
@@ -58,70 +84,39 @@ import type {
   PlayerAction,
   QoLSettings,
 } from './console-types';
-
 import { CONSOLE_API_VERSION } from './console-types';
-
-import type {
-  ActionId,
-  ConsoleAction,
-  ReduceOptions,
-  ReducerEffect,
-} from './console-state';
-
-import type {
-  ConsoleClient,
-  ConsoleClientConfig,
-  ConsoleClientDeps,
-} from './console-to-networking';
-
-import type {
-  Coord,
-  Direction,
-  Order,
-  PlayerId,
-  ReservesPct,
-  World,
-} from '@europa/engine';
-
-import type { PlayerView } from '@europa/fog';
-
-import type {
-  ConnectionState,
-  MatchId,
-  SessionToken,
-} from '@europa/networking';
 
 // ----------------------------------------------------------------------------
 // Re-exports for convenience
 // ----------------------------------------------------------------------------
 
 export type {
+  ActionId,
   CameraState,
+  ConnectionState,
+  ConsoleAction,
+  ConsoleClient,
+  ConsoleClientConfig,
+  ConsoleClientDeps,
   ConsoleConnectionStatus,
   ConsoleState,
+  Coord,
+  Direction,
   FeedbackMessage,
   InputMapping,
   MapEffect,
   MapLabel,
+  MatchId,
+  Order,
   PlayerAction,
+  PlayerId,
+  PlayerView,
   QoLSettings,
-  ActionId,
-  ConsoleAction,
   ReduceOptions,
   ReducerEffect,
-  ConsoleClient,
-  ConsoleClientConfig,
-  ConsoleClientDeps,
-  Coord,
-  Direction,
-  Order,
-  PlayerId,
   ReservesPct,
-  World,
-  PlayerView,
-  ConnectionState,
-  MatchId,
   SessionToken,
+  World,
 };
 
 // ----------------------------------------------------------------------------
@@ -150,8 +145,9 @@ export interface ConsoleConfig {
    */
   readonly displayName?: string;
   /**
-   * Optional input mapping override. Defaults to `DEFAULT_INPUT_MAPPING`
-   * (the original Europa control set).
+   * Optional legacy input mapping used to seed this runtime's mutable
+   * per-action control map. Defaults to `DEFAULT_INPUT_MAPPING` (the
+   * original Europa control set); runtime updates are in-memory only.
    */
   readonly inputMapping?: InputMapping;
   /**

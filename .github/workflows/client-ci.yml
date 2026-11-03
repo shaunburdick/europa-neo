@@ -278,8 +278,8 @@ jobs:
         run: pnpm --filter @europa/console test:a11y
 
       # Includes the selfhost smoke spec, which production-builds the
-      # console, scans dist/ for remote URLs, and enforces the Q-P03
-      # gzip bundle budget (scripts/test-selfhost.sh).
+      # console, scans dist/ for remote URLs, reports the advisory Q-P03
+      # gzip reference, and runs the required host smoke (test-selfhost.sh).
       - name: E2E tests (Playwright)
         run: pnpm --filter @europa/console test:e2e
 

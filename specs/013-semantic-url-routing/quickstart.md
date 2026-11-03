@@ -94,7 +94,12 @@ contracts (FR-001..FR-019) are preserved; only the route-selection mechanism cha
 | TanStack Router contribution | ~3–5 KB gz | — | — |
 | Largest chunk (vendor / React 19) | 84,823 B gz | — | — |
 
-FR-030 budget met: 134,689 B gz < 153,600 B (12.3% headroom).
+Historical v1.1 validation: 134,689 B gz < 153,600 B (12.3% headroom),
+measured under the then-current limit. The current FR-030 reference target is
+defined by [Feature 005's Q-P03 policy](../005-client-console/spec.md#q-p03-policy);
+v1.8 makes numeric excess warning-only while keeping the same asset count,
+remote-URL scan, and required host smoke. See feature 005 v1.23 and the
+follow-on execution record for current verification evidence.
 
 ### Test counts (post-migration)
 
@@ -122,7 +127,20 @@ FR-030 budget met: 134,689 B gz < 153,600 B (12.3% headroom).
 | FR-027 | Loader caching does not change route-entry authority | Unit deferred-resolution tests (snapshot authority preserved) | PASS |
 | FR-028 | Deep-link / unnamed-identity / welcome / not-found preserved | E2E deep-link interstitial tests, a11y notice tests | PASS |
 | FR-029 | Browser-visible URL shapes identical | E2E reload / Back-Forward tests, determinism tests | PASS |
-| FR-030 | Bundle under 153,600 B gz budget | `test:selfhost` bundle check (134,689 B gz) | PASS |
+| FR-030 | Report all browser-delivered JS/CSS gzip sizes against the reference defined by [Feature 005's Q-P03 policy](../005-client-console/spec.md#q-p03-policy); warn at/above and still run the host smoke | `test:selfhost` via the selfhost E2E spec | PASS — exact-head GitHub Actions evidence; no full `pnpm verify` claim |
+
+**Historical exact-head CI provenance (not evidence for the f166 baseline/current worktree):** GitHub Actions Client CI run
+[40108464258](https://github.com/shaunburdick/europa-neo/actions/runs/40108464258)
+passed on PR #210 head
+`29c8c30b42e12a1eb2cbed17bb8c56354ee2ae79`. Its browser job's E2E step runs
+`test:e2e`, including `tests/e2e/selfhost.spec.ts` and
+`scripts/test-selfhost.sh`, so this is exact-head CI evidence for the selfhost
+scan and HTTP/WS smoke. It is not evidence that `pnpm verify` passed on that
+head. The corrected local full-gate result in
+[`specs/005-client-console/issue-201-lobby-controls-tasks.md`](../005-client-console/issue-201-lobby-controls-tasks.md)
+is pinned to earlier HEAD `816bcd487dce253985808c4320e164ddb3eb53f4` and
+manifest `8932ca5fd91bd8f0bf679c42e4ca9c34d45ab260118ab2a2bf48ac1f4c557a1e`;
+it remains historical and does not verify the later PR head.
 
 ### Key preservation guarantees
 
