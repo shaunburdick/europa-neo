@@ -24,10 +24,10 @@ on:
       - 'packages/design/**'
       - 'DESIGN.md'
   # PRs are NOT path-filtered here: every required check must report on every
-  # PR. The `changes` job below gates the heavy jobs via job-level `if:`
-  # skips, which report "skipped" and satisfy the required check (see
-  # docs.github.com troubleshooting-required-status-checks). The push-to-main
-  # paths filter above keeps post-merge runs efficient.
+  # PR. The `changes` job gates the heavy jobs via job-level `if:` skips, which
+  # report "skipped" and satisfy the required check — except a skipped matrix,
+  # which reports one base-name check (see `e2e-gate`). The push-to-main paths
+  # filter above keeps post-merge runs efficient.
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -272,9 +272,10 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 5
-    # Fixed at three shards, all required checks (008 FR-046): Playwright splits by
-    # test count, and `workers` stays 2 so a leg cannot buy speed with a timeout.
-    # fail-fast keeps one red leg from cancelling the others, so every check reports.
+    # Fixed at three shards, required through `e2e-gate` (008 FR-046):
+    # Playwright splits by test count, and `workers` stays 2 so a leg cannot buy
+    # speed with a timeout. fail-fast keeps one red leg from cancelling the
+    # others, so every check reports.
     strategy:
       fail-fast: false
       matrix:
@@ -330,6 +331,23 @@ jobs:
       - name: Contract conformance
         run: |
           pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
+
+  # A matrix job skipped by a job-level `if:` reports one check under its base
+  # name, never per-leg names. This plain job always runs and always reports;
+  # it is the only console e2e context the ruleset requires (008 FR-046 v1.9).
+  e2e-gate:
+    name: E2E shards gate (console)
+    needs: [console-e2e]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Shards passed, or the change set left them nothing to run
+        run: |
+          case "${{ needs.console-e2e.result }}" in
+            success|skipped) echo "e2e shards: ${{ needs.console-e2e.result }}" ;;
+            *) echo "::error::e2e shards: ${{ needs.console-e2e.result }}"; exit 1 ;;
+          esac
 
   console-browser:
     # Quoted: the bare scalar is invalid YAML (`: ` reads as a mapping separator);
