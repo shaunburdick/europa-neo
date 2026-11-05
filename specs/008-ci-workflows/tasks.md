@@ -190,3 +190,19 @@ Two pushes, one task. **P3** carries the timeout values; **P4** carries the docs
   git diff --stat origin/main...HEAD -- README.md AGENTS.md docs/manual packages/*/tests   # empty
   git diff --stat origin/main...HEAD
   ```
+
+---
+
+## v1.9 — Required-check gate over the e2e shards (2026-11-04, PR #225)
+
+**Spec**: 008 v1.9 (FR-046, AC-047) · **Plan**: §D-18 · **Branch**: `ci/e2e-required-gate` off `main`
+
+### T-010 — Gate job and the spec amendment
+
+- [x] **T-010** — `Files: .github/workflows/client-ci.yml`, `specs/008-ci-workflows/spec.md`, `plan.md`, this file`. Add `e2e-gate` (`name: E2E shards gate (console)`, `needs: [console-e2e]`, `if: always()`, one step that passes on `success`/`skipped` and fails otherwise); correct the two workflow comments that claimed a skip always satisfies a required check; amend FR-046 and AC-047 plus the two Edge Cases that describe the skip.
+- **Done when**: `grep -n 'E2E shards gate (console)' .github/workflows/client-ci.yml` matches the job name once; the step's `case` passes `success` and `skipped` only; spec 008 reads v1.9.
+
+### T-011 — Ruleset swap (post-merge maintainer action)
+
+- [ ] **T-011** — After this change merges, one edit on the `Main Protection` ruleset: add `E2E shards gate (console)` and remove `Test suites (console — e2e) (1)`, `(2)` and `(3)` in the same save. Then push to (or re-run) an open path-irrelevant PR — #225 — so its next run reports the gate.
+- **Done when**: `gh api repos/shaunburdick/europa-neo/rulesets/21447927 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context] | map(select(test("e2e")))'` lists `E2E shards gate (console)` and none of the three leg names, and #225's check list shows the gate green.
