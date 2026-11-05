@@ -297,6 +297,23 @@ Two docs-only pushes (the P2 record at `6e2d5a40`, the tally correction at `cb7c
 
 The per-job maxima of P2b, P3 and P4 feed D-7. Drills run on a scratch branch (`ci/223-drill`) and never appear in the PR history (AC-036: "the broken state is never committed").
 
+### D-18 Required-check topology (v1.9): one gate over the shards
+
+The v1.8 ruleset edit required the three leg names. It could not work for a PR the `changes` job leaves uninteresting: GitHub expands a matrix only when the job runs, so a job-level-`if` skip emits a single check named `Test suites (console — e2e)` — no `(1)`/`(2)`/`(3)` — and the required contexts stay pending forever. PR #225 (Dependabot, four workflow files, none in the client filter) is the evidence: 13 runs, all finished, merge blocked.
+
+| Before (v1.8) | After (v1.9) |
+| --- | --- |
+| `Test suites (console — e2e) (1)` | — (reported when the legs run; no longer required) |
+| `Test suites (console — e2e) (2)` | — (same) |
+| `Test suites (console — e2e) (3)` | — (same) |
+| — | `E2E shards gate (console)` |
+
+`e2e-gate` is a plain job: `needs: [console-e2e]`, `if: always()`, one step that passes on `success` or `skipped` and fails on anything else. A plain job always reports, so the context is satisfied whether the legs ran or were skipped, and the ruleset stops encoding the shard count — a future count change is a workflow edit, not a settings edit. The cost is one job start (~5 s) after the legs, inside NFR-012's ±10 s tolerance.
+
+**Maintainer action — post-merge, one edit.** Remove the three leg contexts and add `E2E shards gate (console)` in the same save. Not before the merge: a PR branched off `main` without this change runs a `client-ci.yml` that has no gate job, so making the gate required first would block every open PR. After the edit, an open PR needs one re-run (or its next push) to report the gate.
+
+**Sequencing note.** The change that introduces the gate edits `client-ci.yml`, which the filter watches, so its own run sets `changed == true` and the legs report normally under the old ruleset — the fix PR merges before the settings change, not after.
+
 ## 6. Job and check inventory for `client-ci.yml`: before → after (AC-040)
 
 | | Before | After |
@@ -311,6 +328,8 @@ The per-job maxima of P2b, P3 and P4 feed D-7. Drills run on a scratch branch (`
 | `console-browser` | — | Test suites (console — browser: component/a11y/perf) |
 | `console-coverage` | Coverage gate (console ≥ 80%) | unchanged name; now in the image |
 | **checks** | **8** | **11** (one removed, four added) |
+
+v1.9 adds a twelfth check, `E2E shards gate (console)` — the required context that replaced the three leg names (§D-18).
 
 The other eight package workflows: **no** job added, removed or renamed; `manual-ci.yml`'s `Build + link verification` keeps its name and gains the image plus `runtime: none`. Their `ubuntu-latest` labels become `ubuntu-24.04` (38 occurrences across the nine files).
 
