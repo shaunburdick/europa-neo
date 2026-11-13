@@ -188,13 +188,13 @@ phase records or change any approved scope, constraint, or non-goal.
   completed HTTP/WS smoke successfully. The local logs and source manifest were
   temporary and are not retained, so this is historical summarized evidence,
   not independently reproducible or current-head evidence.
-- **Last completed PR-head CI:** GitHub Actions [Client CI run
-  41665457096](https://github.com/shaunburdick/europa-neo/actions/runs/41665457096)
-  passed on PR #210 head `584a17fc1b11aea41963818f463c2b62c2880814`, including
-  console lint/typecheck, Node and browser/E2E suites, and coverage. The E2E
-  workflow includes the self-host scan and HTTP/WS smoke. This exact-head CI
-  result is not a claim that full `pnpm verify` ran on that commit; it predates
-  the current base-merge and documentation updates, which need fresh CI.
+- **Current PR-head CI:** GitHub Actions [Client CI run
+  43358875663](https://github.com/shaunburdick/europa-neo/actions/runs/43358875663)
+  passed on PR #210 head `797b5889048c69d51c1e3a9a8ab12818ae19bff6`, including
+  console lint/typecheck, Node tests, all three E2E shards, browser/performance
+  tests, and coverage. The E2E workflow includes the self-host scan and HTTP/WS
+  smoke. This exact-head CI result is not a claim that full `pnpm verify` ran
+  on that commit.
 - **Historical failure and limits:** the first local `pnpm verify` attempt
   failed only Phase 5b because explicit `127.0.0.1` host bindings did not match
   the test's `http://localhost`; the corrected run above passed. Earlier strict

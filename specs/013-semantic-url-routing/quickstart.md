@@ -127,16 +127,16 @@ follow-on execution record for current verification evidence.
 | FR-027 | Loader caching does not change route-entry authority | Unit deferred-resolution tests (snapshot authority preserved) | PASS |
 | FR-028 | Deep-link / unnamed-identity / welcome / not-found preserved | E2E deep-link interstitial tests, a11y notice tests | PASS |
 | FR-029 | Browser-visible URL shapes identical | E2E reload / Back-Forward tests, determinism tests | PASS |
-| FR-030 | Report all browser-delivered JS/CSS gzip sizes against the reference defined by [Feature 005's Q-P03 policy](../005-client-console/spec.md#q-p03-policy); warn at/above and still run the host smoke | `test:selfhost` via the selfhost E2E spec | PASS at previous PR head `584a17f` — [Client CI run 41665457096](https://github.com/shaunburdick/europa-neo/actions/runs/41665457096); current revision needs fresh CI |
+| FR-030 | Report all browser-delivered JS/CSS gzip sizes against the reference defined by [Feature 005's Q-P03 policy](../005-client-console/spec.md#q-p03-policy); warn at/above and still run the host smoke | `test:selfhost` via the selfhost E2E spec | PASS at PR head `797b588` — [Client CI run 43358875663](https://github.com/shaunburdick/europa-neo/actions/runs/43358875663); no full `pnpm verify` claim |
 
-**Last completed exact-head CI provenance:** GitHub Actions Client CI run
-[41665457096](https://github.com/shaunburdick/europa-neo/actions/runs/41665457096)
-passed on the previous PR #210 head `584a17fc1b11aea41963818f463c2b62c2880814`. The workflow
-runs the console's Node and browser/E2E suites, including
+**Current exact-head CI provenance:** GitHub Actions Client CI run
+[43358875663](https://github.com/shaunburdick/europa-neo/actions/runs/43358875663)
+passed on PR #210 head `797b5889048c69d51c1e3a9a8ab12818ae19bff6`. The workflow
+runs the console's Node, browser/performance, and E2E suites, including
 `tests/e2e/selfhost.spec.ts` and `scripts/test-selfhost.sh`; this is exact-head
-evidence for that earlier head's self-host scan and HTTP/WS smoke, not a full
-`pnpm verify` claim. The current base-merge and documentation updates are not
-covered; fresh CI is needed. Earlier local full-verification records are summarized in
+evidence for the self-host scan and HTTP/WS smoke, not a full `pnpm verify`
+claim. The same run passed all three E2E shards and the console coverage gate.
+Earlier local full-verification records are summarized in
 [`specs/005-client-console/issue-201-lobby-controls-tasks.md`](../005-client-console/issue-201-lobby-controls-tasks.md);
 their temporary logs and source manifest are not retained.
 

@@ -457,11 +457,9 @@ advisory interpretation are recorded in spec 005 v1.23. A historical local
 source-manifest record is not retained.
 `test:selfhost` measured 155,540/155,648 bytes under the prior strict numeric
 implementation. Its temporary log is not retained. Later readiness-document
-edits were not included in that historical run. The last completed PR-head CI
-evidence before the current base-merge and documentation updates is the
-[Client CI run 41665457096](https://github.com/shaunburdick/europa-neo/actions/runs/41665457096)
-on `584a17f`; it is not a full `pnpm verify` claim. Fresh CI is needed for the
-current revision. See the
+edits were not included in that historical run. Current PR-head CI evidence is
+the [Client CI run 43358875663](https://github.com/shaunburdick/europa-neo/actions/runs/43358875663)
+on `797b588`; it is not a full `pnpm verify` claim. See the
 [follow-on acceptance record](./issue-201-lobby-controls-tasks.md) for scope and
 limitations.
 
