@@ -35,10 +35,13 @@
  */
 
 import type { JSX } from 'react';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { CONSOLE_CONSTANTS, DEFAULT_CAMERA } from '../config';
+import { matchKeyboardBinding } from '../input/control-mapping';
+import { useControlMappingSession, useGamepadController } from '../input/control-mapping-context';
+import { shouldIgnoreKeyEvent } from '../input/order-draft';
 import { RegionSelectController } from '../input/region-select';
 import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
@@ -50,10 +53,18 @@ import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-st
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
-import type { CameraState, ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
+import type {
+    CameraState,
+    ConsoleState,
+    ControlMapping,
+    CursorTarget,
+    MapView,
+    MapViewId,
+    ReservesPct,
+} from '../state/types';
 import { SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
-import { isHelpToggleKey } from '../ui/help-hotkey';
+import { useControlsEditor } from '../ui/controls-editor-host';
 import { Sidebar } from '../ui/sidebar';
 import { TargetingOverlay } from '../ui/targeting-overlay';
 import { WaitingOverlay } from '../ui/waiting-overlay';
@@ -64,8 +75,8 @@ import { liveLabels, nextLabelExpiryMs } from './label-overlay';
 import { SurrenderModal } from './SurrenderModal';
 import { computeViewportOffset } from './viewport-offset';
 
-/** Lazy-loaded help overlay (Feature 018 FR-021 — zero initial bundle impact). */
-const HelpOverlay = lazy(() => import('../ui/help-overlay').then((m) => ({ default: m.HelpOverlay })));
+/** Lazy-loaded Help modal (opened from the in-match Help actions). */
+const LazyHelpOverlay = lazy(() => import('../ui/help-overlay').then((m) => ({ default: m.HelpOverlay })));
 
 /** Props for {@link App}. */
 export interface AppProps {
@@ -123,6 +134,7 @@ function noopSubscribe(): () => void {
 interface CursorSample {
     readonly target: CursorTarget;
     readonly atMs: number;
+    readonly mapping: ControlMapping;
 }
 
 /** Compare the public camera values without relying on object identity. */
@@ -150,6 +162,11 @@ export function App({
     waitingCapacity,
     onReturnToLobby,
 }: AppProps): JSX.Element {
+    const inputMappingSession = useControlMappingSession();
+    const controlsEditor = useControlsEditor();
+    const { controller: gamepadController, providerManaged: gamepadProviderManaged } =
+        useGamepadController(inputMappingSession);
+    const controlMapping = useSyncExternalStore(inputMappingSession.subscribe, inputMappingSession.getSnapshot);
     const fallbackState = state ?? peekInjectedConsoleState() ?? INITIAL_CONSOLE_STATE;
     const resolvedState = useSyncExternalStore(
         store ? store.subscribe : noopSubscribe,
@@ -429,9 +446,25 @@ export function App({
     // pan gesture as an exclusive-pipe click.
 
     const [cursorSample, setCursorSample] = useState<CursorSample | null>(null);
+    useEffect(() => {
+        if (controlsEditor.open) setCursorSample(null);
+    }, [controlsEditor.open]);
+    useEffect(() => {
+        const clearCursorSample = (): void => setCursorSample(null);
+        const stopMapping = inputMappingSession.subscribe(clearCursorSample);
+        window.addEventListener('blur', clearCursorSample);
+        const stopState = store?.subscribe((next, previous) => {
+            if (previous.inputEnabled && !next.inputEnabled) clearCursorSample();
+        });
+        return () => {
+            stopMapping();
+            window.removeEventListener('blur', clearCursorSample);
+            stopState?.();
+        };
+    }, [inputMappingSession, store]);
     const hotkeyControllerRef = useRef<HotkeyController | null>(null);
     useEffect(() => {
-        if (store === undefined) {
+        if (store === undefined || controlsEditor.open) {
             return undefined;
         }
         const boardArea = boardAreaRef.current;
@@ -442,12 +475,20 @@ export function App({
         // stopImmediatePropagation on middle-button pan start shields the
         // later-registered pipe handlers from the pan gesture.
         const zoomPan = new ZoomPanController(boardArea, store).attach();
-        const hotkeys = new HotkeyController(store);
+        const hotkeys = new HotkeyController(store, { mappingSession: inputMappingSession });
+        if (!gamepadProviderManaged) gamepadController.attach();
+        gamepadController.attachStore(store);
         hotkeyControllerRef.current = hotkeys;
         const region = new RegionSelectController(boardArea, store, {
+            mappingSession: inputMappingSession,
             onCursor: (target, atMs) => {
+                if (!store.getState().inputEnabled) {
+                    setCursorSample(null);
+                    return;
+                }
                 hotkeys.notePointer(target, atMs);
-                setCursorSample({ target, atMs });
+                gamepadController.notePointer(target, atMs);
+                setCursorSample({ target, atMs, mapping: inputMappingSession.getSnapshot() });
             },
         });
         const regionHandle = region.attach();
@@ -456,9 +497,11 @@ export function App({
             hotkeyControllerRef.current = null;
             regionHandle.dispose();
             hotkeys.dispose();
+            gamepadController.detachStore(store);
+            if (!gamepadProviderManaged) gamepadController.dispose();
             zoomPan.dispose();
         };
-    }, [store]);
+    }, [controlsEditor.open, gamepadController, gamepadProviderManaged, inputMappingSession, store]);
 
     // Keep the hotkey controller's viewport offset in sync so
     // keyboard zoom shortcuts use the correct board-center anchor
@@ -482,35 +525,47 @@ export function App({
     const [activeModal, setActiveModal] = useState<'surrender' | 'help' | null>(null);
     useEffect(() => {
         if ((surrenderRequestEpoch ?? 0) > 0) {
+            controlsEditor.closeEditor(false);
             setActiveModal('surrender');
         }
-    }, [surrenderRequestEpoch]);
+    }, [surrenderRequestEpoch, controlsEditor.closeEditor]);
 
     // Help overlay state (Feature 018 FR-008): toggled by the ? key
     // or the help button. Registered as a document-level keydown
     // handler separate from the HotkeyController — the ? key is a
     // UI-only concern, not an order-producing binding (plan §2
-    // Decision 1). The shouldIgnoreKeyEvent guard prevents toggle
-    // when focus is inside buttons/inputs/modal.
+    // Decision 1).
     const helpButtonRef = useRef<HTMLButtonElement | null>(null);
-    useEffect(() => {
-        const handleHelpToggle = (e: KeyboardEvent): void => {
-            if (!isHelpToggleKey(e)) {
-                return;
-            }
-            e.preventDefault();
-            setActiveModal((prev) => (prev === 'help' ? null : 'help'));
-        };
-        document.addEventListener('keydown', handleHelpToggle);
-        return () => {
-            document.removeEventListener('keydown', handleHelpToggle);
-        };
-    }, []);
 
     const { selection } = resolvedState;
     const gameOverOpen =
         resolvedState.status === 'game_over' && resolvedState.matchResult !== null && onReturnToLobby !== undefined;
     const activeModalResolved = gameOverOpen ? null : activeModal;
+    useLayoutEffect(() => {
+        if (gameOverOpen) controlsEditor.closeEditor(false);
+    }, [gameOverOpen, controlsEditor.closeEditor]);
+    useEffect(() => {
+        const handleHelpToggle = (event: KeyboardEvent): void => {
+            if (matchKeyboardBinding(inputMappingSession.getSnapshot(), event) !== 'helpToggle') return;
+            if (event.defaultPrevented || event.repeat) return;
+            if (activeModalResolved === 'help') {
+                event.preventDefault();
+                setActiveModal(null);
+                return;
+            }
+            if (activeModalResolved !== null || gameOverOpen || shouldIgnoreKeyEvent(event)) return;
+            event.preventDefault();
+            controlsEditor.closeEditor(false);
+            setActiveModal('help');
+        };
+        document.addEventListener('keydown', handleHelpToggle);
+        return () => {
+            document.removeEventListener('keydown', handleHelpToggle);
+        };
+    }, [activeModalResolved, gameOverOpen, inputMappingSession, controlsEditor.closeEditor]);
+    useEffect(() => {
+        gamepadController.setGameplayEnabled(activeModalResolved === null && !gameOverOpen && !controlsEditor.open);
+    }, [activeModalResolved, gameOverOpen, controlsEditor.open, gamepadController]);
 
     // Waiting-for-opponent overlay (post-playtest fix): joined but the
     // match has not yet delivered its first tick broadcast (still
@@ -545,9 +600,13 @@ export function App({
     // cell center ("no launch" posture). The age check reads the UI
     // clock at render time — the sanctioned boundary (same as the
     // store's dispatch default), never inside logic modules.
+    const currentCursorSample =
+        cursorSample !== null && cursorSample.mapping === controlMapping && resolvedState.inputEnabled
+            ? cursorSample
+            : null;
     const aimSubcell =
-        cursorSample !== null && performance.now() - cursorSample.atMs <= CURSOR_STALE_MS
-            ? (cursorSample.target.subcell ?? { x: 0.5, y: 0.5 })
+        currentCursorSample !== null && performance.now() - currentCursorSample.atMs <= CURSOR_STALE_MS
+            ? (currentCursorSample.target.subcell ?? { x: 0.5, y: 0.5 })
             : { x: 0.5, y: 0.5 };
 
     return (
@@ -643,6 +702,7 @@ export function App({
                             : (percent) => store.dispatch({ kind: 'setReserves', cell: selection, percent })
                     }
                     onSurrenderRequest={() => {
+                        controlsEditor.closeEditor(false);
                         if (onSurrenderRequest !== undefined) {
                             onSurrenderRequest();
                             return;
@@ -650,6 +710,7 @@ export function App({
                         setActiveModal('surrender');
                     }}
                     onHelpToggle={() => {
+                        controlsEditor.closeEditor(false);
                         setActiveModal((prev) => (prev === 'help' ? null : 'help'));
                     }}
                     helpButtonRef={helpButtonRef}
@@ -709,7 +770,7 @@ export function App({
             {/* Help overlay (Feature 018): lazy-loaded on first open,
                 reads game status from the resolved state for FR-007. */}
             <Suspense fallback={null}>
-                <HelpOverlay
+                <LazyHelpOverlay
                     open={activeModalResolved === 'help'}
                     onClose={() => {
                         setActiveModal(null);
@@ -728,6 +789,7 @@ export function App({
                     }
                     matchStatus={resolvedState.status}
                     playerCount={resolvedState.session.participants.length}
+                    controlMapping={controlMapping}
                 />
             </Suspense>
             {/* Branded footer (spec 012 addendum T-031, FR-023): the single

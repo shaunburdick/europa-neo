@@ -68,6 +68,8 @@ export interface LobbyLandingProps {
     readonly onRetry: () => void;
     /** Acknowledge the "session moved elsewhere" notice. */
     readonly onAcknowledgeSuperseded: () => void;
+    /** Open the runtime-owned Controls editor before any match action. */
+    readonly onConfigureControls?: ((trigger?: HTMLElement) => void) | undefined;
 }
 
 /**
@@ -82,6 +84,7 @@ export function LobbyLanding({
     onSpectate,
     onRetry,
     onAcknowledgeSuperseded,
+    onConfigureControls,
 }: LobbyLandingProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
     const supersededRef = useRef<HTMLDivElement | null>(null);
@@ -219,6 +222,16 @@ export function LobbyLanding({
                         Europa Neo Lobby
                     </h1>
                     <p className="europa-lobby__subtitle">Create or join a match to begin your campaign</p>
+                    {onConfigureControls !== undefined ? (
+                        <EuropaButton
+                            variant="secondary"
+                            className="europa-lobby__button europa-focus-ring"
+                            data-europa-lobby-controls="true"
+                            onClick={(event) => onConfigureControls(event.currentTarget)}
+                        >
+                            Configure controls…
+                        </EuropaButton>
+                    ) : null}
                 </div>
                 {/* SUPERSESSION (US4/security invariant): the session's
             claim was taken over or evicted elsewhere. Distinct visual

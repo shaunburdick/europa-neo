@@ -14,17 +14,20 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ConsoleConfig, ConsoleDeps } from '../../src/contracts/console-api';
 import { createConsole } from '../../src/create-console';
+import { matchKeyboardBinding } from '../../src/input/control-mapping';
 import { createConsoleClient } from '../../src/net/client';
 import { ConsoleRuntime } from '../../src/runtime';
 import type {
     ActionId,
     ConsoleState,
+    InputMapping,
     NetworkPayload,
     Order,
     ProtocolEnvelope,
     QoLSettings,
     SessionToken,
-} from '../../state/types';
+} from '../../src/state/types';
+import { DEFAULT_INPUT_MAPPING } from '../../src/state/types';
 import { buildCellView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
@@ -156,6 +159,7 @@ function makeConfig(overrides?: {
     readonly persist?: (settings: QoLSettings) => void;
     readonly onSurrenderRequest?: () => void;
     readonly matchId?: string;
+    readonly inputMapping?: InputMapping;
 }): ConsoleConfig {
     const client: ConsoleConfig['client'] = {
         url: 'ws://localhost:8080',
@@ -167,6 +171,7 @@ function makeConfig(overrides?: {
         ...(overrides?.qolSettings !== undefined ? { qolSettings: overrides.qolSettings } : {}),
         ...(overrides?.persist !== undefined ? { persist: overrides.persist } : {}),
         ...(overrides?.onSurrenderRequest !== undefined ? { onSurrenderRequest: overrides.onSurrenderRequest } : {}),
+        ...(overrides?.inputMapping !== undefined ? { inputMapping: overrides.inputMapping } : {}),
     };
 }
 
@@ -186,6 +191,30 @@ describe('ConsoleRuntime (T086)', () => {
         });
         expect(runtime.getState().session.displayName).toBe('Bob');
         expect(runtime.getState().qol.ownerColorRing).toBe(true);
+    });
+
+    it('adapts the legacy ConsoleConfig inputMapping into its runtime-owned session', () => {
+        const inputMapping = { ...DEFAULT_INPUT_MAPPING, paratroopPrimary: 'q' };
+        const runtime = new ConsoleRuntime({
+            config: makeConfig({ inputMapping }),
+            deps: makeDeps(new FakeMatchClientLike(), NOOP_LOG),
+        });
+        const event = {
+            key: 'q',
+            code: 'KeyQ',
+            altKey: false,
+            ctrlKey: false,
+            metaKey: false,
+            shiftKey: false,
+        };
+        expect(matchKeyboardBinding(runtime.inputMappingSession.getSnapshot(), event)).toBe('paratroop');
+        expect(matchKeyboardBinding(runtime.inputMappingSession.getSnapshot(), { ...event, key: 'p' })).toBeNull();
+
+        const otherRuntime = new ConsoleRuntime({
+            config: makeConfig(),
+            deps: makeDeps(new FakeMatchClientLike(), NOOP_LOG),
+        });
+        expect(matchKeyboardBinding(otherRuntime.inputMappingSession.getSnapshot(), event)).toBeNull();
     });
 
     it('apply() advances state and subscribe() observes each publish', () => {

@@ -14,7 +14,7 @@
  *   6. Overview — minimap with live viewport rectangle
  *   7. Zoom     — percentage level indicator + in/out/reset controls
  *   8. Surrender — forfeit trigger
- *   9. Help     — help overlay toggle
+ *   9. Help     — in-match help overlay
  *
  * Spectator parity (FR-021): when `interactive` is false (no store),
  * order-producing controls (Orders, Reserve, Surrender) render
@@ -295,7 +295,7 @@ export function Sidebar({
                 </Tooltip>
             </section>
 
-            {/* 8. Help — help overlay toggle (? key). */}
+            {/* 8. Help — in-match help overlay. */}
             <section id="help" aria-label="Help" className="europa-sidebar__section">
                 <h2 className="europa-sidebar__heading">Help</h2>
                 <Tooltip content="Open help overlay (? key)">
