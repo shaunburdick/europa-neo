@@ -452,15 +452,18 @@ not 15 per-FR specs), the mapping notes the consolidation.
 
 The Q-P03 row above is historical validation under the original 153,600-byte
 (150 KiB) threshold. The current 155,648-byte (152 KiB) reference target and
-advisory interpretation are recorded in spec 005 v1.23. The issue #201
-`pnpm verify` run passed all 13 phases at exit 0 on 2026-10-22
-19:33:10Z–19:38:47Z against source
-manifest `611a34068b036a4b43fcf0853df5e39320d5a5d7a6831911e910e0189fb4741a`;
+advisory interpretation are recorded in spec 005 v1.23. A historical local
+`pnpm verify` for issue #201 passed all 13 phases at exit 0 on 2026-10-22; its
+source-manifest record is not retained.
 `test:selfhost` measured 155,540/155,648 bytes under the prior strict numeric
-implementation. The run log is
-`/tmp/opencode/issue-201-budget-fullverify-20261022.log`; full provenance is in
-`issue-201-plan.md`. Later readiness-document-only edits are not in the tested
-manifest, so this is not a full-gate claim for the post-reconciliation tree.
+implementation. Its temporary log is not retained. Later readiness-document
+edits were not included in that historical run. The last completed PR-head CI
+evidence before the current base-merge and documentation updates is the
+[Client CI run 41665457096](https://github.com/shaunburdick/europa-neo/actions/runs/41665457096)
+on `584a17f`; it is not a full `pnpm verify` claim. Fresh CI is needed for the
+current revision. See the
+[follow-on acceptance record](./issue-201-lobby-controls-tasks.md) for scope and
+limitations.
 
 §13 checklist status: every automated row green; the only manual
 item remaining is the 30-minute two-player smoke (needs the feature

@@ -8,11 +8,12 @@ the existing `contracts/input-mapping.md`.
 `816bcd487dce253985808c4320e164ddb3eb53f4`.  
 **Current scope:** Runtime-owner foundation and the authorized lobby/pre-entry
 UI/manual implementation are complete. Final acceptance is recorded below:
-LC-015 and LC-017 are complete; independent read-only reviews, Playwright,
-corrected full `pnpm verify`, and self-host HTTP/WS smoke passed. The
-155,648-byte metric remains an advisory reference, not a blocking threshold;
-all other verification gates remain blocking. A separate rematch-specific E2E
-and physical Gamepad hardware smoke were not performed and are not claimed.
+LC-015 and LC-017 are complete; Playwright, corrected full `pnpm verify`, and
+self-host HTTP/WS smoke passed on the historical implementation worktree. The
+155,648-byte Q-P03 value is an advisory reference, not a blocker. Other
+verification obligations follow their specific contracts; do not infer
+blockers from a generic “gate” label. A separate rematch-specific E2E and
+physical Gamepad hardware smoke were not performed and are not claimed.
 
 **Approval:** The user approved choices A and B and implementation as
 described; do not reopen those choices or invent an additional Shaun-only gate.
@@ -176,43 +177,30 @@ This record supersedes the pending-status statements above and the Phase 2
 checkpoint's then-current results. It does not replace the dated historical
 phase records or change any approved scope, constraint, or non-goal.
 
-- **Source provenance/freshness:** repository root was
-  `/home/openchamber/.local/share/opencode/worktree/5aec40325b8f83d8729dec58cf3711194ad68133/issue-201-control-mapping`,
-  origin `https://github.com/shaunburdick/europa-neo`, branch
-  `005-dynamic-control-mapping-201`, HEAD
-  `816bcd487dce253985808c4320e164ddb3eb53f4`. The pre-doc manifest at
-  `/tmp/opencode/issue201-final-source-manifest.json` has SHA-256
-  `8932ca5fd91bd8f0bf679c42e4ca9c34d45ab260118ab2a2bf48ac1f4c557a1e`,
-  46 entries, and its recorded paths, statuses, and file hashes matched the
-  worktree before this documentation reconciliation. The manifest was
-  unchanged before/after the corrected final verify. This is an uncommitted
-  worktree based on the stated HEAD, not a clean/committed 46-file claim.
-- **Final verification:** corrected `pnpm verify` exited 0 across all 13
-  phases; log: `/tmp/opencode/issue201-final-verify-corrected.log`. The
-  corrected run had host bindings unset and `EUROPA_E2E_PORT=5174`. Playwright
-  passed 62/62. The focused selfhost-budget suite passed 1 file / 13 tests;
-  browser mapping/modal passed 2 files / 14 tests. Targeted Biome,
-  `git diff --check`, and `bash -n` checks passed. The final self-host measure
-  was 156,686 bytes gzipped against the unchanged 155,648-byte advisory
-  reference (+1,038); it emitted the warning and then completed HTTP/WS smoke
-  successfully. Numeric excess remains advisory; build, asset, URL-scan/tooling,
-  and host-smoke gates remain blocking.
-- **Historical failure retained:** the first `pnpm verify` attempt with
-  explicit `127.0.0.1` host bindings failed only Phase 5b because the test
-  awaited `http://localhost`; log:
-  `/tmp/opencode/issue201-final-verify.log`. This was an environment setup
-  mismatch, not a source failure; the corrected run above passed. Earlier strict
-  Q-P03 failures (156,282 and 156,654 bytes, with the then-current selfhost
-  script stopping before smoke) remain historical and are not erased by the
-  advisory-policy result.
-- **Reviews and limits:** independent read-only Gamepad/runtime-embedding review
-  (`ses_e95a4aef5ffe5yhimu2zeinQgG`) and advisory-budget/selfhost-smoke review
-  (`ses_e959b95d9ffez3GyAvAX32k64b`) reported no findings. A separate
-  rematch-specific E2E was not run; runtime/store-handoff evidence exists, and
-  no rematch-E2E claim is made. No physical Gamepad hardware smoke was
-  performed. Exact-session runtime/version attestation was unavailable; the
-  executor verified Git root/origin/session project, and Development Mode was
-  inactive. No commit, push, publication, or PR update occurred.
+- **Historical local verification:** the implementation worktree was based on
+  `816bcd487dce253985808c4320e164ddb3eb53f4`; it was not a committed or clean
+  46-file snapshot. The corrected local `pnpm verify` passed all 13 phases
+  with host bindings unset and `EUROPA_E2E_PORT=5174`. Playwright passed 62/62;
+  the focused selfhost-budget suite passed 1 file / 13 tests and browser
+  mapping/modal passed 2 files / 14 tests. Targeted Biome, `git diff --check`,
+  and `bash -n` checks passed. The final self-host measure was 156,686 bytes
+  gzipped against the 155,648-byte advisory reference (+1,038); it warned and
+  completed HTTP/WS smoke successfully. The local logs and source manifest were
+  temporary and are not retained, so this is historical summarized evidence,
+  not independently reproducible or current-head evidence.
+- **Last completed PR-head CI:** GitHub Actions [Client CI run
+  41665457096](https://github.com/shaunburdick/europa-neo/actions/runs/41665457096)
+  passed on PR #210 head `584a17fc1b11aea41963818f463c2b62c2880814`, including
+  console lint/typecheck, Node and browser/E2E suites, and coverage. The E2E
+  workflow includes the self-host scan and HTTP/WS smoke. This exact-head CI
+  result is not a claim that full `pnpm verify` ran on that commit; it predates
+  the current base-merge and documentation updates, which need fresh CI.
+- **Historical failure and limits:** the first local `pnpm verify` attempt
+  failed only Phase 5b because explicit `127.0.0.1` host bindings did not match
+  the test's `http://localhost`; the corrected run above passed. Earlier strict
+  Q-P03 failures (156,282 and 156,654 bytes, with the then-current script
+  stopping before smoke) remain historical. No separate rematch-specific E2E
+  or physical Gamepad hardware smoke was performed, and neither is claimed.
 
 ---
 

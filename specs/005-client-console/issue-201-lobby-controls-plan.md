@@ -3,7 +3,7 @@
 **Feature:** 005 — Client Console  
 **Related routing contract:** 013 — Semantic URL Routing  
 **Date:** 2026-10-23  
-**Status:** User-approved implementation plan. The runtime-owner foundation, lobby/pre-join/embedding-host UI, and manual updates are implemented, and final acceptance is reconciled in [`issue-201-lobby-controls-tasks.md`](issue-201-lobby-controls-tasks.md). Independent read-only reviews, Playwright (62/62), corrected full `pnpm verify` (13/13 phases), and final self-host HTTP/WS smoke passed. Q-P03 remains advisory at 155,648 bytes; the final measured 156,686 bytes (+1,038) produced a warning and smoke passed. The earlier strict-budget failure and skipped smoke remain historical. Separate rematch-specific E2E and physical Gamepad hardware smoke were not performed and are not claimed.
+**Status:** User-approved implementation plan. The runtime-owner foundation, lobby/pre-join/embedding-host UI, and manual updates are implemented, and final acceptance is reconciled in [`issue-201-lobby-controls-tasks.md`](issue-201-lobby-controls-tasks.md). The historical worktree recorded Playwright (62/62), corrected full `pnpm verify` (13/13 phases), and a successful self-host HTTP/WS smoke. Q-P03 is an advisory reference; the final measured 156,686 bytes (+1,038) produced a warning and smoke passed. The earlier strict-budget failure and skipped smoke remain historical. Separate rematch-specific E2E and physical Gamepad hardware smoke were not performed and are not claimed.
 **Approval source:** Saved plan `1792769828093-issue-201-configure-controls-in-the-lobby-before-play.md`, knowledge id `cc595ad9-b84f-4b8a-9020-6f28cee9bcfd`; the user explicitly approved implementation as described and both choices A and B.  
 **Baseline:** `005-dynamic-control-mapping-201`, HEAD `816bcd487dce253985808c4320e164ddb3eb53f4`, clean before this follow-on. The pre-edit source fingerprints below match the approved plan's inspected files.
 
@@ -103,7 +103,7 @@ rebuild the action registry, mapping validation, profiles, or editor.
 ### UI implementation — complete; final acceptance reconciled
 
 6. The lobby editor is optional and available before create/join/public match;
-   the production active-match sidebar no longer owns its launcher.
+   its launcher is not placed in the production active-match sidebar.
 7. The same editor is available before Play on the existing deep-link screen,
    and `ConsoleRuntime` embeds preserve a host-shell launcher.
 8. Create/Join/Play still enters immediately under current matchmaking behavior.
@@ -141,10 +141,9 @@ failure, plus the UI checkpoint's 156,654-byte strict failure and skipped
 HTTP/WS smoke, remain historical phase evidence in the task record. The approved
 spec 005 v1.23 policy keeps 155,648 bytes unchanged as an advisory reference.
 Final acceptance measured 156,686 bytes (+1,038), warned, and completed the
-HTTP/WS smoke. Corrected `pnpm verify` passed all 13 phases; Playwright passed
-62/62, and independent read-only reviews found no issues. The final acceptance
-execution record, exact manifest/log paths, targeted check counts, environment
-setup failure and correction, and limitations are in
+HTTP/WS smoke. Corrected `pnpm verify` passed all 13 phases and Playwright
+passed 62/62 on the historical implementation worktree. The last completed
+PR-head CI evidence and verification limitations are recorded in
 [`issue-201-lobby-controls-tasks.md`](issue-201-lobby-controls-tasks.md).
 
 Separate rematch-specific E2E and physical Gamepad hardware smoke were not
