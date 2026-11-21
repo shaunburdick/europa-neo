@@ -16,7 +16,7 @@
  * through `nextEnd`, so no per-end object is created. Each trapezoid is
  * emitted as an axis-aligned body plus its taper wedges, because the
  * canvas' rect fast path is about ten times cheaper than a path per
- * band (Q-P05's 6 ms relief bound leaves little room).
+ * band (Q-P05's 9 ms relief bound leaves little room).
  */
 
 import type { ReliefSide } from './relief';

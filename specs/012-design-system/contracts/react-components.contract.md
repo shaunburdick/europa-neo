@@ -104,7 +104,7 @@ The `check-component-catalog.ts` script (G-10) asserts that every React componen
 
 ## 4. Bundle budget (Q5)
 
-`check-bundle-size.ts` enforces `BUNDLE_BUDGET_BYTES = 20_480` (≤20 KB gzip) on `dist/components/index.js`. React is a peer dependency and is **not** bundled. The console's `< 153,600 B` bundle budget is preserved.
+`check-bundle-size.ts` enforces `BUNDLE_BUDGET_BYTES = 20_480` (≤20 KB gzip) on `dist/components/index.js`. React is a peer dependency and is **not** bundled. The console's separate browser-payload policy is defined by the [spec 005 Q-P03 policy](../../005-client-console/spec.md#q-p03-policy); its build, URL scan, and host smoke failures remain blocking.
 
 ---
 

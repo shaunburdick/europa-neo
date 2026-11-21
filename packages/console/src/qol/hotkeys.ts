@@ -1,11 +1,10 @@
 /**
  * Configurable hotkey dispatcher — Feature 005 (T079).
  *
- * The US5 QoL layer over the keyboard pipeline (research.md §7
- * "Hotkey mapping table"): every binding lives in a declarative
- * `InputMapping` table (contracts/console-types.ts), the host can
- * replace it wholesale via `ConsoleConfig.inputMapping`, and this
- * module routes each keydown to its semantic action.
+ * The runtime reads the current action binding lists from its
+ * `ControlMappingSession` for each keydown. Legacy
+ * `ConsoleConfig.inputMapping` is adapted when the session is created;
+ * the pure legacy table helpers below remain available for compatibility.
  *
  * Layering (single source of truth):
  *   1. {@link buildHotkeyTable} — pure projection of an `InputMapping`
@@ -15,14 +14,12 @@
  *   2. {@link findHotkeyCollisions} — pure duplicate-key detector used
  *      by tests and by {@link buildHotkeyTable} (a colliding table is
  *      rejected loudly rather than silently shadowing a binding).
- *   3. {@link resolveInputMapping} — `config.inputMapping ??
- *      DEFAULT_INPUT_MAPPING` (the contract's override mechanism: the
- *      host supplies a complete replacement table).
+ *   3. {@link resolveInputMapping} — legacy `inputMapping` resolution
+ *      for hosts that still provide the original table.
  *   4. {@link HotkeyController} — the document-level listener. It
- *      delegates translation to `translateKey(args, mapping)`
- *      (order-draft.ts), so configurable bindings flow through the
- *      EXACT same semantics as the default set — one implementation,
- *      zero drift.
+ *      resolves a stable action id and delegates action construction to
+ *      `translateControlAction` / `translateKey` (order-draft.ts), so
+ *      targeting and local preflight remain shared.
  *
  * Pointer bindings (`pipeToggle` / `pipeExclusive`) are consumed by
  * the region-select layer and intentionally absent from the key
@@ -32,15 +29,18 @@
  * deviation; surrender ships as a visible HUD control instead).
  *
  * Gating: order-producing keys respect `state.inputEnabled` via
- * translateKey; local-only keys (arrows, Escape) stay usable.
+ * `translateKey`; focus, repeat, and browser-modifier guards remain in
+ * force. Camera and help bindings stay client-local.
  *
  * JSDoc references: FR-004 + research.md §7 + Q-U10.
  */
 
-import { isOrderProducingAction, shouldIgnoreKeyEvent, translateKey } from '../input/order-draft';
+import type { ControlMappingReader } from '../input/control-mapping';
+import { ControlMappingSession, matchKeyboardBinding } from '../input/control-mapping';
+import { isOrderProducingAction, shouldIgnoreKeyEvent, translateControlAction } from '../input/order-draft';
 import { boardCenterScreen, clampCamera, zoomedCamera } from '../qol/zoom';
 import type { ConsoleStore } from '../state/store';
-import type { CameraState, CursorTarget, InputMapping } from '../state/types';
+import type { CameraState, ControlActionId, CursorTarget, InputMapping } from '../state/types';
 import { DEFAULT_INPUT_MAPPING } from '../state/types';
 
 /**
@@ -172,23 +172,30 @@ interface CursorSample {
 export interface HotkeyControllerOptions {
     /** Replacement control table; defaults to the original mapping. */
     readonly mapping?: InputMapping | undefined;
+    /** Runtime-owned mapping session; updates are read without reattaching. */
+    readonly mappingSession?: ControlMappingReader | undefined;
 }
 
 /**
  * Document-level configurable hotkey dispatcher. Behaviorally a
  * superset of {@link OrderDraftController}: identical gating
- * (repeats, interactive chrome) and identical translation semantics
- * (delegates to `translateKey` with the resolved mapping), plus
- * per-host configurability.
+ * (repeats, interactive chrome) and existing action translation
+ * semantics, plus runtime-updatable per-instance bindings.
  */
 export class HotkeyController {
     private readonly store: ConsoleStore;
 
-    private readonly mapping: InputMapping;
+    private readonly mappingSession: ControlMappingReader;
 
     private sample: CursorSample | null = null;
 
     private handler: ((event: KeyboardEvent) => void) | null = null;
+
+    private blurHandler: (() => void) | null = null;
+
+    private mappingUnsubscribe: (() => void) | null = null;
+
+    private stateUnsubscribe: (() => void) | null = null;
 
     /**
      * Current viewport offset (issue #76). Set by the host (App.tsx)
@@ -206,7 +213,8 @@ export class HotkeyController {
      */
     constructor(store: ConsoleStore, options?: HotkeyControllerOptions) {
         this.store = store;
-        this.mapping = resolveInputMapping(options?.mapping);
+        this.mappingSession =
+            options?.mappingSession ?? new ControlMappingSession(resolveInputMapping(options?.mapping));
         this.fitZoom = store.getState().camera.zoom;
     }
 
@@ -226,6 +234,17 @@ export class HotkeyController {
         if (this.handler !== null) {
             return;
         }
+        this.mappingUnsubscribe =
+            this.mappingSession.subscribe?.(() => {
+                this.sample = null;
+            }) ?? null;
+        this.stateUnsubscribe = this.store.subscribe((state) => {
+            if (!state.inputEnabled) this.sample = null;
+        });
+        this.blurHandler = () => {
+            this.sample = null;
+        };
+        window.addEventListener('blur', this.blurHandler);
         this.handler = (event: KeyboardEvent) => {
             this.handleKeyDown(event);
         };
@@ -238,6 +257,14 @@ export class HotkeyController {
             document.removeEventListener('keydown', this.handler);
             this.handler = null;
         }
+        if (this.blurHandler !== null) {
+            window.removeEventListener('blur', this.blurHandler);
+            this.blurHandler = null;
+        }
+        this.mappingUnsubscribe?.();
+        this.mappingUnsubscribe = null;
+        this.stateUnsubscribe?.();
+        this.stateUnsubscribe = null;
         this.sample = null;
     }
 
@@ -246,23 +273,19 @@ export class HotkeyController {
         if (shouldIgnoreKeyEvent(event)) {
             return;
         }
-        // UI-zoom layer (FR-018) runs BEFORE the order table: these
-        // keys are not InputMapping bindings, and `Home` deliberately
-        // avoids the `0` reserve key (PM ruling). Same focus guard.
-        if (this.tryZoomShortcut(event)) {
+        const action = matchKeyboardBinding(this.mappingSession.getSnapshot(), event);
+        if (action === null || action === 'helpToggle') {
             return;
         }
+        if (this.applyCameraShortcut(action, event)) return;
+
         const nowMs = performance.now();
         const ageMs = this.sample === null ? null : nowMs - this.sample.atMs;
-        const outcome = translateKey({
-            key: event.key,
-            altKey: event.altKey,
-            ctrlKey: event.ctrlKey,
-            metaKey: event.metaKey,
+        const outcome = translateControlAction({
+            action,
             state: this.store.getState(),
             cursor: this.sample?.target ?? null,
             cursorAgeMs: ageMs,
-            mapping: this.mapping,
         });
         if (outcome.kind === 'action') {
             if (this.sample !== null && this.sample.target.cell === null && isOrderProducingAction(outcome.action)) {
@@ -286,15 +309,8 @@ export class HotkeyController {
      * @param event The keydown being handled.
      * @returns `true` when the event was consumed as a zoom shortcut.
      */
-    private tryZoomShortcut(event: KeyboardEvent): boolean {
-        const key = event.key;
-        const zoomIn = key === '+' || key === '=';
-        const zoomOut = key === '-' || key === '_';
-        const reset = key === 'Home';
-        if (!zoomIn && !zoomOut && !reset) {
-            return false;
-        }
-        if (event.ctrlKey || event.metaKey || event.altKey) {
+    private applyCameraShortcut(action: ControlActionId, event: KeyboardEvent): boolean {
+        if (action !== 'zoomIn' && action !== 'zoomOut' && action !== 'zoomReset') {
             return false;
         }
         const state = this.store.getState();
@@ -305,12 +321,12 @@ export class HotkeyController {
         const board = { width: size, height: size };
         const camera = state.camera;
         let next: CameraState;
-        if (reset) {
+        if (action === 'zoomReset') {
             next = clampCamera({ ...camera, zoom: this.fitZoom }, board);
         } else {
             next = zoomedCamera(
                 camera,
-                zoomIn ? -100 : 100,
+                action === 'zoomIn' ? -100 : 100,
                 boardCenterScreen(camera, board, this.viewportOffset),
                 board,
                 this.viewportOffset,

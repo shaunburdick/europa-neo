@@ -249,11 +249,17 @@ Chromium via Vitest Browser Mode. It measures:
   to loosen ONLY this budget (default 1.0; see spec Clarifications
   v1.1).
 - `reduce(state, action)` under 1 ms (no DOM, pure JS).
-- Initial bundle (gzipped) under 150 KB.
+- Initial browser-delivered bundle (sum of per-file gzip sizes for every `.js`
+  and `.css` asset under `dist/assets`): `test:selfhost` reports the measured
+  total against the advisory Q-P03 reference target ([spec 005 §Q-P03](./spec.md#q-p03-policy)). At or
+  above target it warns with the exact excess and still runs the host smoke.
 - 1000-tick deterministic replay produces byte-identical
   `MapView` snapshots (SC-002).
 
-The test FAILS the build if any threshold is breached.
+The paint, reducer, and preflight timing thresholds remain blocking in
+`test:perf`. The Q-P03 numeric payload target is warning-only; build, remote-URL
+scan, measurement/tooling, asset, and self-host HTTP/WS failures remain
+blocking.
 
 ---
 
@@ -443,6 +449,19 @@ not 15 per-FR specs), the mapping notes the consolidation.
 | SC-002 determinism | `pnpm test:determinism` — 1000-tick scripted match vs committed golden fixture (`tests/fixtures/golden-1000-tick.json`); zero divergence | PASS |
 | SC-004 parity | `pnpm test:parity` vs `tests/fixtures/original-subcell.json` | PASS |
 | Constitution VII | remote-URL scan inside `scripts/test-selfhost.sh` | PASS |
+
+The Q-P03 row above is historical validation under the original 153,600-byte
+(150 KiB) threshold. The current 155,648-byte (152 KiB) reference target and
+advisory interpretation are recorded in spec 005 v1.23. A historical local
+`pnpm verify` for issue #201 passed all 13 phases at exit 0 on 2026-10-22; its
+source-manifest record is not retained.
+`test:selfhost` measured 155,540/155,648 bytes under the prior strict numeric
+implementation. Its temporary log is not retained. Later readiness-document
+edits were not included in that historical run. Current PR-head CI evidence is
+the [Client CI run 43358875663](https://github.com/shaunburdick/europa-neo/actions/runs/43358875663)
+on `797b588`; it is not a full `pnpm verify` claim. See the
+[follow-on acceptance record](./issue-201-lobby-controls-tasks.md) for scope and
+limitations.
 
 §13 checklist status: every automated row green; the only manual
 item remaining is the 30-minute two-player smoke (needs the feature

@@ -1,6 +1,6 @@
 # Tasks: Terrain Relief Shading (Delta-Based Edge Bevels)
 
-**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.13) · **Plan**: `plan.md`
+**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.15) · **Plan**: `plan.md`
 **Branch**: `issue-182-tile-shading`
 **Tasks**: 17 (T001–T017; T017 replaces the occupancy cap rule with the four corner cases). `[P]` marks tasks safe to run in parallel with the immediately
 preceding task (different files, no shared edit). One engineer pass; no orchestration.
@@ -159,7 +159,7 @@ figure with `relief: false`, both through the existing `benchmark()` harness (wa
 rounds 5, samples 40) on the identical `MapView`; assert the fixture's variety against the
 pinned floors (`distinct |Δ| ≥ 200`, `distinct band colours ≥ 500` — the retired
 `(x*7 + y*13) % 256` yielded 4 and 20), so a degenerate fixture that flatters the addition
-cannot pass. Bound the addition at `RELIEF_ADDITION_BUDGET_MS = 6` with the same
+cannot pass. Bound the addition at `RELIEF_ADDITION_BUDGET_MS = 9` with the same
 `readPaintBudgetFactor()` treatment `PAINT_BUDGET_MS` gets; the absolute frame is not
 gated. Keep the painter's whole-sub-pass colour batch in sub-pass 1d — every band of the
 sub-pass collected into one map keyed by colour, one `fill()` per distinct colour over one
@@ -167,7 +167,7 @@ path of `rect`s, colours iterated in sorted key order — rather than buying the
 down by quantising the mapping, which FR-003 forbids. Also run `test:determinism` to
 confirm the golden hash is unchanged.
 **Traces**: NFR-001, FR-010 · AC-008, AC-010.
-**Done when**: `test:perf` green with Q-P01 unchanged, Q-P05's addition under its 6 ms
+**Done when**: `test:perf` green with Q-P01 unchanged, Q-P05's addition under its 9 ms
 bound, and both variety floors met, with the `[perf]` line captured for the PR body;
 `test:determinism` green, hash unchanged.
 
@@ -338,6 +338,8 @@ independent of T009–T011; T013 is last.
 
 Status record for T001–T013 on `issue-182-tile-shading`, with the commit each task landed in.
 
+Completed-task measurements and budget comparisons below are historical records tied to the gate in force when recorded; v1.15 does not retroactively compare them against 9 ms.
+
 - **T001** — done (`9f9f35a`).
 - **T002** — done (`037ea21`).
 - **T003** — done (`565f7b9`).
@@ -345,8 +347,8 @@ Status record for T001–T013 on `issue-182-tile-shading`, with the commit each 
 - **T005** — done (`5f82b87`, landed with T006).
 - **T006** — done (`5f82b87`).
 - **T007** — done (`208790f`).
-- **T008** — complete (`0a4eb44`, `2ddbe0b`; D7 recorded in `7f6730c`; re-pinned in this change set). Q-P05 gates relief's **attributable addition** on the representative 48×48 fixture (`(x*97 + y*193 + x*x*29 + y*y*61 + x*y*113) % 256`; 250 distinct non-zero `|Δ|`, 822 band colours): over ten runs the addition (relief-on ≈7.1–7.7 ms minus relief-off ≈3.4–3.5 ms) measured **3.6–4.3 ms** — worst **4.30 ms** — against the **pinned 6.0 ms** bound. The fixture's variety is asserted against the pinned floors (`distinct |Δ| ≥ 200`, `distinct band colours ≥ 500`; the retired `(x*7 + y*13) % 256` yielded 4 and 20). The absolute frame is not gated; Q-P01 is unchanged at 8 ms (32×32). The win is the whole-sub-pass batch in sub-pass 1d (one `fill()` per distinct colour over one path of `rect`s; the D7 memo was not used). Batching moves only the bounded same-tile `t × t` corner overlaps; the suite's committed guarantee is general confinement against the relief-free control plus repeat/reversed-`Map` byte identity (`test:unit` / `test:component` / `test:determinism` green).
-- **T008 closure** — the pinned **6.0 ms** addition bound together with the **fixture-variety** floors (`distinct |Δ| ≥ 200`, `distinct band colours ≥ 500`) is what closes T008: the gate measures relief's own cost, and the variety guard blocks a future fix from reintroducing the degenerate fixture that flattered the old number.
+- **T008 original measurement record (pre-amendment, historical)** — complete (`0a4eb44`, `2ddbe0b`; D7 recorded in `7f6730c`; re-pinned in this change set). Q-P05 gates relief's **attributable addition** on the representative 48×48 fixture (`(x*97 + y*193 + x*x*29 + y*y*61 + x*y*113) % 256`; 250 distinct non-zero `|Δ|`, 822 band colours): over ten runs the addition (relief-on ≈7.1–7.7 ms minus relief-off ≈3.4–3.5 ms) measured **3.6–4.3 ms** — worst **4.30 ms** — against the **then-current 6.0 ms** bound. The fixture's variety is asserted against the pinned floors (`distinct |Δ| ≥ 200`, `distinct band colours ≥ 500`; the retired `(x*7 + y*13) % 256` yielded 4 and 20). The absolute frame is not gated; Q-P01 is unchanged at 8 ms (32×32). The win is the whole-sub-pass batch in sub-pass 1d (one `fill()` per distinct colour over one path of `rect`s; the D7 memo was not used). Batching moves only the bounded same-tile `t × t` corner overlaps; the suite's committed guarantee is general confinement against the relief-free control plus repeat/reversed-`Map` byte identity (`test:unit` / `test:component` / `test:determinism` green).
+- **T008 closure / current gate** — T008 originally closed against its then-current **6.0 ms** bound together with the **fixture-variety** floors (`distinct |Δ| ≥ 200`, `distinct band colours ≥ 500`). Under the approved v1.15 amendment, the current Q-P05 closure gate is the **9 ms** addition bound with those same floors; the old measurements above remain historical evidence against 6.0 ms and are not retroactively treated as measurements against 9 ms.
 - **T009** — done (`9de4dbc`); the A-05 module doc-comment (`palette.ts:12–15`) was missed there and is fixed (`5c8f5d7`), spec v1.6 having extended A-05 to cover its retired hue families.
 - **T010** — done (`3319399`).
 - **T011** — done (`5c9bfe4`).

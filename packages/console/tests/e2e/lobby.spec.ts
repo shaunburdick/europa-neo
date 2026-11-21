@@ -47,7 +47,7 @@
 
 import type { Matchmaker } from '@europa/matchmaking';
 import type { Server } from '@europa/networking';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 import { optInLobbyTestHandle, preserveWsQueryInHistory } from './helpers/history-patch';
 import { assertHandleInBdi, readLobbyOrThrow, WAIT_TIMEOUT, waitUntilLobby } from './helpers/lobby-page';
@@ -63,6 +63,95 @@ import { setHandleViaProfile } from './helpers/profile';
 // ---------------------------------------------------------------------------
 // The proofs
 // ---------------------------------------------------------------------------
+
+/** Return whether an unknown JSON value is a plain record suitable for frame inspection. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+interface MatchWireEvidence {
+    readonly orders: Record<string, unknown>[];
+    readonly joinedPlayerIds: string[];
+}
+
+/** Capture order frames and server-assigned player IDs from real browser WebSockets. */
+function captureMatchWire(page: Page): MatchWireEvidence {
+    const orders: Record<string, unknown>[] = [];
+    const joinedPlayerIds: string[] = [];
+    page.on('websocket', (socket) => {
+        socket.on('framesent', ({ payload }) => {
+            const frame: unknown = JSON.parse(String(payload));
+            if (isRecord(frame) && frame.type === 'order') orders.push(frame);
+        });
+        socket.on('framereceived', ({ payload }) => {
+            const frame: unknown = JSON.parse(String(payload));
+            if (
+                isRecord(frame) &&
+                frame.type === 'joinAck' &&
+                isRecord(frame.payload) &&
+                typeof frame.payload.playerId === 'string'
+            ) {
+                joinedPlayerIds.push(frame.payload.playerId);
+            }
+        });
+    });
+    return { orders, joinedPlayerIds };
+}
+
+/** Configure the existing reserves action from the optional lobby editor. */
+async function configureReserveBinding(page: Page, key: string): Promise<void> {
+    await page.getByRole('button', { name: /Configure controls/ }).click();
+    await page.getByRole('button', { name: 'Change Primary binding for Set reserves to 70%' }).click();
+    await page.keyboard.press(key);
+    await expect(page.getByText(`Captured ${key} for Set reserves to 70%. Apply changes to use it.`)).toBeVisible();
+    await page.getByRole('button', { name: 'Apply changes' }).click();
+    await expect(page.locator('.europa-controls-overlay')).toHaveCount(0);
+}
+
+/** Select a rendered cell without dispatching the region-select pointerdown order gesture. */
+async function selectCellForKeyboardOrder(target: Locator): Promise<void> {
+    await target.evaluate((element) => {
+        if (!(element instanceof HTMLElement)) throw new Error('Expected a rendered HTML grid cell.');
+        // The production cell click callback updates selection; using its
+        // click event directly avoids also simulating the pointerdown pipe
+        // gesture. The order under test is still a real browser key event.
+        element.click();
+    });
+}
+
+/** Confirm the key event will reach gameplay instead of interactive chrome. */
+async function expectGameplayKeyFocus(page: Page): Promise<void> {
+    const insideInteractiveChrome = await page.evaluate(
+        () =>
+            document.activeElement instanceof Element &&
+            document.activeElement.closest('button, a, input, textarea, select, [role="toolbar"], [role="dialog"]') !==
+                null,
+    );
+    expect(insideInteractiveChrome).toBe(false);
+}
+
+/** Assert the unmodified protocol envelope and existing semantic order payload. */
+function expectSetReservesWireOrder(wire: MatchWireEvidence, cell: { readonly x: number; readonly y: number }): void {
+    expect(wire.orders).toHaveLength(1);
+    expect(wire.joinedPlayerIds).toHaveLength(1);
+    const frame = wire.orders[0];
+    expect(frame).toBeDefined();
+    if (frame === undefined) throw new Error('Expected the configured key to send one order envelope.');
+    expect(Object.keys(frame).sort()).toEqual(['payload', 'seq', 'type', 'version']);
+    expect(frame.type).toBe('order');
+    expect(typeof frame.version).toBe('string');
+    expect(typeof frame.seq).toBe('number');
+    expect(isRecord(frame.payload)).toBe(true);
+    if (!isRecord(frame.payload)) throw new Error('Order envelope is missing its protocol payload.');
+    expect(Object.keys(frame.payload).sort()).toEqual(['order']);
+    // ReservesPct uses the engine/wire digit domain: 7 means 70%, not 70.
+    expect(frame.payload.order).toEqual({
+        kind: 'setReserves',
+        cell,
+        percent: 7,
+        player: wire.joinedPlayerIds[0],
+    });
+}
 
 test.describe('lobby E2E — full lifecycle through the real stack (feature 010 T-019)', () => {
     // Shared server for all tests in this describe block: the Vite dev
@@ -199,6 +288,222 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await observer.context().close();
         await bob.context().close();
         await alice.context().close();
+    });
+
+    test('lobby mappings drive both players’ first live order over the unchanged wire protocol', async ({
+        browser,
+    }) => {
+        test.setTimeout(120_000);
+
+        const errors: string[] = [];
+        const openLobbyTab = async (
+            name: string,
+        ): Promise<{ readonly page: Page; readonly wire: MatchWireEvidence }> => {
+            const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            await context.addInitScript(preserveWsQueryInHistory);
+            await context.addInitScript(optInLobbyTestHandle);
+            const page = await context.newPage();
+            const wire = captureMatchWire(page);
+            page.on('pageerror', (error) => errors.push(`${name}: ${String(error)}`));
+            await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
+            return { page, wire };
+        };
+
+        const players: Array<{ readonly page: Page; readonly wire: MatchWireEvidence }> = [];
+        try {
+            // Player A configures before Create. The control remains optional;
+            // the default Create action is enabled before opening the editor.
+            const alice = await openLobbyTab('Alice');
+            players.push(alice);
+            await waitUntilLobby(alice.page, (lobby) => lobby.connection === 'ready', 'Alice lobby connected');
+            await setHandleViaProfile(alice.page, 'Alice');
+            await waitUntilLobby(alice.page, (lobby) => lobby.handle === 'Alice', 'Alice handle accepted');
+            await expect(alice.page.getByRole('button', { name: 'Create match' })).toBeEnabled();
+            await configureReserveBinding(alice.page, 'F8');
+            await expect(alice.page.getByRole('button', { name: 'Create match' })).toBeEnabled();
+
+            await alice.page.getByRole('button', { name: 'Create match' }).click();
+            await waitUntilLobby(alice.page, (lobby) => lobby.viewMode === 'match', 'Alice creates the waiting match');
+            const matchId = (await readLobbyOrThrow(alice.page)).entries[0]?.matchId;
+            expect(matchId).toMatch(/^[0-9a-f-]{36}$/i);
+            if (matchId === undefined) throw new Error('Alice-created match is absent from the lobby snapshot.');
+
+            // Player B configures before Join. No editor-completion gate is
+            // required to expose the enabled Join action.
+            const bob = await openLobbyTab('Bob');
+            players.push(bob);
+            await waitUntilLobby(bob.page, (lobby) => lobby.connection === 'ready', 'Bob lobby connected');
+            await setHandleViaProfile(bob.page, 'Bob');
+            await waitUntilLobby(bob.page, (lobby) => lobby.handle === 'Bob', 'Bob handle accepted');
+            await waitUntilLobby(
+                bob.page,
+                (lobby) => lobby.entries.some((entry) => entry.matchId === matchId && entry.status === 'waiting'),
+                'Bob sees the waiting match',
+            );
+            const joinButton = bob.page.locator(`[data-match-id="${matchId}"]`).getByRole('button', { name: /^Join/ });
+            await expect(joinButton).toBeEnabled();
+            await configureReserveBinding(bob.page, 'F8');
+            await expect(joinButton).toBeEnabled();
+            await joinButton.click();
+
+            await waitUntilLobby(alice.page, (lobby) => lobby.viewMode === 'match', 'Alice remains in the match');
+            await waitUntilLobby(bob.page, (lobby) => lobby.viewMode === 'match', 'Bob joins the match');
+            await waitUntilLobby(
+                alice.page,
+                (lobby) => lobby.entries.some((entry) => entry.matchId === matchId && entry.status === 'in_progress'),
+                'the second seat immediately auto-starts the match',
+            );
+            expect(server.stats().activeMatches).toBe(1);
+
+            const checkFirstOrder = async (
+                player: (typeof players)[number],
+                name: string,
+                label: string,
+            ): Promise<void> => {
+                await expect(player.page.locator('.europa-sidebar')).toContainText(/Match live/);
+                const ownCity = player.page.locator(`[role="gridcell"][aria-label*="${name}, city"]`).first();
+                await expect(ownCity).toBeVisible();
+                await selectCellForKeyboardOrder(ownCity);
+                const cell = {
+                    x: Number(await ownCity.getAttribute('aria-colindex')) - 1,
+                    y: Number(await ownCity.getAttribute('aria-rowindex')) - 1,
+                };
+
+                const reservesLabel = player.page.locator('#reserves-panel .europa-reserves__label');
+                await expect(reservesLabel).toHaveText(`Reserves at (${cell.x}, ${cell.y}): 0%`);
+                await expectGameplayKeyFocus(player.page);
+
+                // Test the replaced binding first, before any command can set
+                // 70% and make a same-value request a potentially weaker
+                // negative proof. The 0% baseline makes a stale binding
+                // eligible to produce a genuinely changing live order.
+                await player.page.keyboard.press('7');
+                expect(player.wire.orders).toHaveLength(0);
+
+                // This positive custom binding under the same focus and live
+                // state proves the keyboard dispatch path is active.
+                await player.page.keyboard.press('F8');
+                await expect(player.page.locator('#feedback .europa-feedback__item--success')).toContainText(
+                    'Order acknowledged',
+                );
+                await expect(reservesLabel).toHaveText(`Reserves at (${cell.x}, ${cell.y}): 70%`);
+                expectSetReservesWireOrder(player.wire, cell);
+                await expect(player.page.locator('.europa-sidebar')).toContainText(/Match live/);
+                expect(errors, `${label} page errors`).toEqual([]);
+            };
+
+            // The same pre-entry session must survive each player's route
+            // handoff and feed the first live input through the real stack.
+            await checkFirstOrder(alice, 'Alice', 'Alice');
+            await checkFirstOrder(bob, 'Bob', 'Bob');
+
+            // A separate production lobby runtime proves that a full reload
+            // starts a fresh Original mapping instead of persisting F8.
+            const reloadProbe = await openLobbyTab('Reload probe');
+            players.push(reloadProbe);
+            await waitUntilLobby(
+                reloadProbe.page,
+                (lobby) => lobby.connection === 'ready',
+                'reload probe lobby connected',
+            );
+            await setHandleViaProfile(reloadProbe.page, 'ReloadProbe');
+            await waitUntilLobby(reloadProbe.page, (lobby) => lobby.handle === 'ReloadProbe', 'reload probe named');
+            await configureReserveBinding(reloadProbe.page, 'F8');
+            await reloadProbe.page.reload({ waitUntil: 'domcontentloaded' });
+            await waitUntilLobby(
+                reloadProbe.page,
+                (lobby) => lobby.connection === 'ready' && lobby.handle === 'ReloadProbe',
+                'reload probe restores identity with a new mapping session',
+            );
+            await reloadProbe.page.getByRole('button', { name: /Configure controls/ }).click();
+            const reserveRow = reloadProbe.page
+                .locator('.europa-controls-overlay__row')
+                .filter({ has: reloadProbe.page.getByRole('heading', { name: 'Set reserves to 70%' }) });
+            await expect(reserveRow.locator('kbd').first()).toHaveText('7');
+            expect(errors).toEqual([]);
+        } finally {
+            await Promise.all(players.map(({ page }) => page.context().close()));
+        }
+    });
+
+    test('direct-link pre-join Controls carry into Play and the first live order', async ({ browser }) => {
+        test.setTimeout(120_000);
+
+        const errors: string[] = [];
+        const wsUrl = `ws://127.0.0.1:${String(wsPort)}`;
+        const openLobbyPage = async (
+            name: string,
+        ): Promise<{ readonly page: Page; readonly wire: MatchWireEvidence }> => {
+            const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            await context.addInitScript(preserveWsQueryInHistory);
+            await context.addInitScript(optInLobbyTestHandle);
+            const page = await context.newPage();
+            const wire = captureMatchWire(page);
+            page.on('pageerror', (error) => errors.push(`${name}: ${String(error)}`));
+            await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
+            return { page, wire };
+        };
+
+        const players: Array<{ readonly page: Page; readonly wire: MatchWireEvidence }> = [];
+        try {
+            const alice = await openLobbyPage('Alice');
+            players.push(alice);
+            await waitUntilLobby(alice.page, (lobby) => lobby.connection === 'ready', 'Alice lobby connected');
+            await setHandleViaProfile(alice.page, 'Alice');
+            await waitUntilLobby(alice.page, (lobby) => lobby.handle === 'Alice', 'Alice handle accepted');
+            await alice.page.getByRole('button', { name: 'Create match' }).click();
+            await waitUntilLobby(alice.page, (lobby) => lobby.viewMode === 'match', 'Alice creates the match');
+            const matchId = (await readLobbyOrThrow(alice.page)).entries[0]?.matchId;
+            expect(matchId).toMatch(/^[0-9a-f-]{36}$/i);
+            if (matchId === undefined) throw new Error('Alice-created match is absent from the lobby snapshot.');
+
+            const bob = await openLobbyPage('Bob');
+            players.push(bob);
+            await waitUntilLobby(bob.page, (lobby) => lobby.connection === 'ready', 'Bob lobby connected');
+            await setHandleViaProfile(bob.page, 'Bob');
+            await waitUntilLobby(bob.page, (lobby) => lobby.handle === 'Bob', 'Bob handle accepted');
+
+            // Enter via the existing semantic match URL; the editor is on the
+            // pre-join screen, and Play remains an immediate optional action.
+            await bob.page.goto(`/match/${encodeURIComponent(matchId)}?ws=${encodeURIComponent(wsUrl)}`);
+            const play = bob.page.getByRole('button', { name: 'Play' });
+            await expect(play).toBeEnabled();
+            await configureReserveBinding(bob.page, 'F8');
+            await expect(play).toBeEnabled();
+            await play.click();
+
+            await waitUntilLobby(bob.page, (lobby) => lobby.viewMode === 'match', 'Bob plays into the match');
+            await waitUntilLobby(
+                alice.page,
+                (lobby) => lobby.entries.some((entry) => entry.matchId === matchId && entry.status === 'in_progress'),
+                'Play fills the final seat and immediately auto-starts',
+            );
+            expect(server.stats().activeMatches).toBe(1);
+            await expect(bob.page.locator('.europa-sidebar')).toContainText(/Match live/);
+
+            const ownCity = bob.page.locator('[role="gridcell"][aria-label*="Bob, city"]').first();
+            await expect(ownCity).toBeVisible();
+            await selectCellForKeyboardOrder(ownCity);
+            const cell = {
+                x: Number(await ownCity.getAttribute('aria-colindex')) - 1,
+                y: Number(await ownCity.getAttribute('aria-rowindex')) - 1,
+            };
+            const reservesLabel = bob.page.locator('#reserves-panel .europa-reserves__label');
+            await expect(reservesLabel).toHaveText(`Reserves at (${cell.x}, ${cell.y}): 0%`);
+            await expectGameplayKeyFocus(bob.page);
+
+            await bob.page.keyboard.press('7');
+            expect(bob.wire.orders).toHaveLength(0);
+            await bob.page.keyboard.press('F8');
+            await expect(bob.page.locator('#feedback .europa-feedback__item--success')).toContainText(
+                'Order acknowledged',
+            );
+            await expect(reservesLabel).toHaveText(`Reserves at (${cell.x}, ${cell.y}): 70%`);
+            expectSetReservesWireOrder(bob.wire, cell);
+            expect(errors).toEqual([]);
+        } finally {
+            await Promise.all(players.map(({ page }) => page.context().close()));
+        }
     });
 
     // -----------------------------------------------------------------------

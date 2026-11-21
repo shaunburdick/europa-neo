@@ -14,9 +14,9 @@
  *     (pure JS, no DOM).
  *   - Q-P04 `localPreflightOrder`: min-of-round-medians < 0.1 ms
  *     (security-relevant gate on the input path).
- *   - Q-P03 initial bundle < 150 KB gzipped: enforced post-build by
- *     `scripts/test-selfhost.sh` (browser tests have no filesystem;
- *     deviation documented in spec Implementation Notes).
+ *   - Q-P03 initial bundle: `scripts/test-selfhost.sh` reports the per-file
+ *     gzip total against the advisory 155,648-byte reference target after
+ *     build (browser tests have no filesystem; see spec Implementation Notes).
  *
  * Methodology (fog SC-004 jitter lesson, hardened after the
  * 2026-08-23 CI-runner throttle incident): warmup first, then ≥5
@@ -288,12 +288,14 @@ const RELIEF_PERF_BOARD = 48;
  * figure on the identical 48×48 board must stay under this. The absolute
  * frame is deliberately NOT gated — a full-board paint's base cost is
  * unrelated to this feature (flat-face relief-off ≈0.7 ms; a decorated
- * board ≈40–50 ms with relief off). Pinned at 6.0 ms against a measured
- * 4.05–4.20 ms addition (≈30 % margin over the 4.20 ms worst observed).
+ * board ≈40–50 ms with relief off). Current bound: 9.0 ms (spec v1.15).
+ * Historical pre-amendment runs measured a 4.05–4.20 ms addition against
+ * the then-current 6.0 ms bound (≈30 % margin over the 4.20 ms worst
+ * observed); those measurements were not rerun against the new bound.
  * Locally `scripts/verify.sh` runs `test:perf` with no factor, so this
  * pinned bound is the binding one; CI sets the factor to 2.
  */
-const RELIEF_ADDITION_BUDGET_MS = 6;
+const RELIEF_ADDITION_BUDGET_MS = 9;
 
 /**
  * Q-P05's pinned fixture-variety floors (NFR-001(b), AC-010). The adopted

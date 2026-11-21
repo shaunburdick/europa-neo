@@ -473,7 +473,8 @@ export class MapCanvas {
             }
             // Neighbours come from a dense index: four lookups per cell
             // through `coordKey` allocated a key string each and measured
-            // a fifth of Q-P05's relief budget on its own. The index spans
+            // a fifth of the then-current 6 ms Q-P05 budget on its own
+            // (historical ratio; the current v1.15 gate is 9 ms). The index spans
             // the visible cells' own coordinates, so it assumes nothing
             // about the board's declared size.
             let columns = 0;

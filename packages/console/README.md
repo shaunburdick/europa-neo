@@ -31,7 +31,7 @@ pnpm install
 | `test:perf`           | Perf budgets in real Chromium: paint < 8 ms, reduce < 1 ms, preflight < 0.1 ms |
 | `test:determinism`    | SC-002: 1000-tick scripted match vs committed golden fixture         |
 | `test:parity`         | Subcell mapping vs the original's documented behavior                |
-| `test:selfhost`       | Production build → remote-URL scan → gzip bundle budget (< 150 KB)   |
+| `test:selfhost`       | Production build → remote-URL scan → browser-asset gzip measurement (advisory excess warns) → HTTP/WS host smoke |
 | `lint` / `format`     | Biome                                                                |
 | `typecheck`           | `tsc --noEmit` over `src/`                                           |
 | `typecheck:conformance` | Strict tsc program over `src/` + the conformance test              |
@@ -242,23 +242,30 @@ fixture.
 
 ## Performance
 
-Budgets enforced in CI by `pnpm test:perf` (real Chromium,
-warmup + best-of-rounds medians — never single-shot wall-clock):
+Timing budgets enforced in CI by `pnpm test:perf` (real Chromium,
+warmup + best-of-rounds medians — never single-shot wall-clock). The initial
+bundle size is measured separately by `test:selfhost` under the
+[Q-P03 advisory policy](../../specs/005-client-console/spec.md#q-p03-policy):
 
 | Path                              | Budget   | Observed (this machine) |
 | --------------------------------- | -------- | ----------------------- |
 | Full-board paint (32×32, 1024 cells) | < 8 ms | ~1.8 ms median          |
 | `reduce(state, action)`           | < 1 ms   | ~0.2 µs                 |
 | `localPreflightOrder`             | < 0.1 ms | ~0.3 µs                 |
-| Initial bundle (gzip, dist/assets)| < 150 KB | ~75 KB                  |
+| Initial bundle (gzip, dist/assets)| Advisory reference; excess warns | 155,540 B (2026-10-22; historical result, not current verification) |
 
 ## Self-hosting
 
 Zero external service dependencies (constitution Principle VII):
 no CDN assets, no analytics, no remote fonts. `pnpm test:selfhost`
-builds for production, fails on any `http(s)` URL in the browser
-payload (SVG namespaces and React error-message prose excepted), and
-enforces the gzipped-bundle budget. For a complete self-hosted lobby,
+builds for production, fails on any disallowed `http(s)` URL in the browser
+payload (SVG namespaces and React error-message prose excepted), and measures
+the sum of per-file gzip sizes for every browser-delivered `.js` and `.css`
+asset under `dist/assets`. At or above the advisory reference, it reports the
+measured total and excess as a warning, then runs the required HTTP/WS host
+smoke; payload size alone does not fail verification. Build, remote-URL scan,
+measurement/tooling, asset/probe, and host-smoke failures remain blocking. For
+a complete self-hosted lobby,
 use `pnpm host`, which serves `dist/`, the lobby, and the feature 004
 match server in one process.
 

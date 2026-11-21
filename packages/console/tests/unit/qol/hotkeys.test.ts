@@ -15,6 +15,7 @@
  */
 
 import { describe, expect, test, vi } from 'vitest';
+import { ControlMappingSession } from '../../../src/input/control-mapping';
 import { FakeMatchClient } from '../../../src/internal/fake-match-client';
 import {
     buildHotkeyTable,
@@ -120,6 +121,7 @@ function makeStore(selection: { x: number; y: number } | null): {
                 owner: 1,
                 pipes: new Set<Direction>(['N']),
             }),
+            buildCellView({ coord: { x: 6, y: 2 }, elevation: 30 }),
         ],
     });
     const client = new FakeMatchClient();
@@ -138,6 +140,17 @@ function pressKey(key: string, init: KeyboardEventInit = {}): void {
 }
 
 describe('HotkeyController (integration)', () => {
+    test('the Original north-pipe binding still emits the established wire order', async () => {
+        const { store, client } = makeStore({ x: 4, y: 4 });
+        const controller = new HotkeyController(store);
+        controller.attach();
+        pressKey('i');
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(1);
+        expect(client.orders[0]?.order).toMatchObject({ kind: 'clearPipe', cell: { x: 4, y: 4 }, direction: 'N' });
+        controller.dispose();
+    });
+
     test('routes digits through the configured table into orders', async () => {
         const { store, client } = makeStore({ x: 4, y: 4 });
         const controller = new HotkeyController(store);
@@ -164,6 +177,74 @@ describe('HotkeyController (integration)', () => {
 
         pressKey('7');
         expect(client.orders).toHaveLength(1); // digits still work
+        controller.dispose();
+    });
+
+    test('a validated runtime replacement takes effect without reattaching the controller', async () => {
+        const { store, client } = makeStore({ x: 4, y: 4 });
+        const mappingSession = new ControlMappingSession();
+        const controller = new HotkeyController(store, { mappingSession });
+        controller.attach();
+
+        const original = mappingSession.getSnapshot();
+        const replacement = {
+            ...original,
+            reserve7: [
+                {
+                    kind: 'keyboard',
+                    event: 'key',
+                    value: 'q',
+                    modifiers: [],
+                    caseSensitive: false,
+                    modifierMatch: 'exact',
+                } as const,
+            ],
+        };
+        expect(mappingSession.replace(replacement).valid).toBe(true);
+        pressKey('7');
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(0);
+
+        pressKey('q');
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(1);
+        expect(client.orders[0]?.order).toMatchObject({ kind: 'setReserves', percent: 7 });
+        controller.dispose();
+    });
+
+    test('mapping replacement flushes a sampled weapon aim', async () => {
+        const { store, client } = makeStore({ x: 4, y: 4 });
+        const mappingSession = new ControlMappingSession();
+        const controller = new HotkeyController(store, { mappingSession });
+        controller.attach();
+        controller.notePointer(
+            { screen: { x: 0, y: 0 }, cell: { x: 4, y: 4 }, region: 'N', subcell: { x: 0.85, y: 0.15 } },
+            performance.now(),
+        );
+        pressKey('p');
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(1);
+
+        const current = mappingSession.getSnapshot();
+        expect(mappingSession.replace(current).valid).toBe(true);
+        pressKey('p');
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(1);
+        controller.dispose();
+    });
+
+    test('window blur flushes a sampled weapon aim', async () => {
+        const { store, client } = makeStore({ x: 4, y: 4 });
+        const controller = new HotkeyController(store);
+        controller.attach();
+        controller.notePointer(
+            { screen: { x: 0, y: 0 }, cell: { x: 4, y: 4 }, region: 'N', subcell: { x: 0.85, y: 0.15 } },
+            performance.now(),
+        );
+        window.dispatchEvent(new Event('blur'));
+        pressKey('p');
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(0);
         controller.dispose();
     });
 

@@ -749,3 +749,33 @@ ordering guarantee also lives (spec 010 v1.15):
 Lobby state is otherwise not modelled in this document (it belongs to
 spec 010 / feature 023); this subsection exists only to record the
 shape change so §17-style invariants stay honest.
+
+## 20. Runtime `ControlMapping` (issue #201)
+
+`ControlMapping` is a per-runtime configuration object, not part of
+`ConsoleState` or `PlayerAction`. It maps stable `ControlActionId`s to ordered
+lists of typed source bindings. Each binding dispatches the same existing
+semantic action regardless of source; the mapping does not carry coordinates,
+order payloads, or authoritative game state.
+
+`ControlMappingSession` owns the current snapshot and the session's reset
+baseline. Production creates one at page lifetime and shares it across route
+changes/rematches. Each `ConsoleRuntime` embedding creates its own. The adapter
+converts legacy `ConsoleConfig.inputMapping` into this representation. Updates
+are in-memory only; reload constructs a new session, and no mapping value is
+persisted or sent over the network.
+
+M1–M3 are implemented (spec 005 FR-052–FR-055). M1 routes the current keyboard
+and pointer defaults through the runtime mapping seam; M2 accepts feature-detected
+standard-mapped Gamepad button and signed-axis bindings; M3 provides Original,
+MMO/WASD, and Custom keyboard profiles. The default Gamepad D-pad buttons 12–15
+and left-stick axes 0/1 move selection only; compatible custom bindings may map
+discrete Gamepad controls to existing actions. One runtime-owned poller is shared
+by capture and match input. Unsupported Gamepad APIs leave keyboard and pointer
+controls available. No physical controller smoke has been performed, so hardware
+validation is not claimed. Physical keyboard `event.code` remains unsupported,
+and Ctrl/Meta keyboard chords remain reserved for browser shortcuts. Middle
+pointer input remains owned by the zoom/pan controller; the pipe mappings keep
+left/right and Alt+left behavior.
+Atomic validation rejects overlapping conflicts and leaves the prior snapshot
+unchanged; controller consumers read the current snapshot without remounting.

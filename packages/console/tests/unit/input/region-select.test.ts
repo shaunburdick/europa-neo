@@ -15,6 +15,7 @@
 
 import { describe, expect, test, vi } from 'vitest';
 import { DEFAULT_CAMERA } from '../../../src/config';
+import { ControlMappingSession } from '../../../src/input/control-mapping';
 import { hitTest, regionFromSubcell } from '../../../src/input/hit-test';
 import { decideRegionClick, pipePresentInDirection, RegionSelectController } from '../../../src/input/region-select';
 import { FakeMatchClient } from '../../../src/internal/fake-match-client';
@@ -345,6 +346,43 @@ describe('region click → wire order pipeline (T049 seam)', () => {
             await Promise.resolve();
             expect(client.orders).toHaveLength(0);
             expect(store.getState().selection).toBeNull();
+        } finally {
+            handle.dispose();
+            element.remove();
+        }
+    });
+
+    test('runtime pointer remapping updates without replacing the controller', async () => {
+        const { store, client } = makePipeline();
+        const mappingSession = new ControlMappingSession();
+        const original = mappingSession.getSnapshot();
+        const replacement = {
+            ...original,
+            pointerPipeToggle: [{ kind: 'pointer', button: 'right', modifiers: [] } as const],
+            pointerPipeExclusive: original.pointerPipeExclusive.filter(
+                (binding) => binding.kind !== 'pointer' || binding.button !== 'right',
+            ),
+        };
+        const element = document.createElement('div');
+        Object.defineProperty(element, 'getBoundingClientRect', {
+            value: () => ({ left: 0, top: 0, right: 512, bottom: 512, width: 512, height: 512 }),
+        });
+        document.body.append(element);
+        const controller = new RegionSelectController(element, store, { mappingSession });
+        const handle = controller.attach();
+        try {
+            expect(mappingSession.replace(replacement).valid).toBe(true);
+            element.dispatchEvent(
+                new PointerEvent('pointerdown', {
+                    clientX: (5 + 0.75) * DEFAULT_CAMERA.zoom,
+                    clientY: (5 + 0.5) * DEFAULT_CAMERA.zoom,
+                    button: 2,
+                    bubbles: true,
+                }),
+            );
+            await Promise.resolve();
+            expect(client.orders).toHaveLength(1);
+            expect(client.orders[0]?.order).toMatchObject({ kind: 'clearPipe', direction: 'E' });
         } finally {
             handle.dispose();
             element.remove();

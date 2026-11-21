@@ -10,6 +10,9 @@
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
+import { ControlMappingSession, controlMappingFromLegacy } from '../../../src/input/control-mapping';
+import { controlMappingForProfile } from '../../../src/input/control-profiles';
+import { DEFAULT_INPUT_MAPPING } from '../../../src/state/types';
 import { HelpOverlay } from '../../../src/ui/help-overlay';
 import '../../../src/styles/index.css';
 
@@ -81,6 +84,44 @@ describe('HelpOverlay component', () => {
             await render(<HelpOverlay {...DEFAULT_PROPS} />);
             expect(document.body.textContent).toContain('?');
             expect(document.body.textContent).toContain('Toggle this help');
+        });
+
+        test('shows active runtime bindings instead of hard-coded defaults', async () => {
+            const original = controlMappingFromLegacy(DEFAULT_INPUT_MAPPING);
+            const mapping = {
+                ...original,
+                pipeNorth: [
+                    ...original.pipeNorth,
+                    {
+                        kind: 'keyboard',
+                        event: 'key',
+                        value: 'q',
+                        modifiers: [],
+                        caseSensitive: false,
+                        modifierMatch: 'exact',
+                    } as const,
+                ],
+            };
+            await render(<HelpOverlay {...DEFAULT_PROPS} controlMapping={mapping} />);
+            const northRow = [...document.querySelectorAll('.europa-help-overlay__shortcuts tbody tr')].find(
+                (row) => row.querySelector('td:nth-child(2)')?.textContent === 'Toggle pipe North',
+            );
+            expect(northRow?.querySelector('td:first-child')?.textContent).toBe('i / q');
+            const westRow = [...document.querySelectorAll('.europa-help-overlay__shortcuts tbody tr')].find(
+                (row) => row.querySelector('td:nth-child(2)')?.textContent === 'Toggle pipe West',
+            );
+            expect(westRow?.querySelector('td:first-child')?.textContent).toBe('j');
+        });
+
+        test('shows the active MMO/WASD selection keys accurately', async () => {
+            const session = new ControlMappingSession();
+            const mapping = controlMappingForProfile(session.getSnapshot(), session.getResetSnapshot(), 'mmo-wasd');
+            await render(<HelpOverlay {...DEFAULT_PROPS} controlMapping={mapping} />);
+            const northRow = [...document.querySelectorAll('.europa-help-overlay__shortcuts tbody tr')].find(
+                (row) => row.querySelector('td:nth-child(2)')?.textContent === 'Move selection North',
+            );
+            expect(northRow?.querySelector('td:first-child')?.textContent).toBe('w');
+            expect(document.body.textContent).toContain('Move selection West');
         });
     });
 

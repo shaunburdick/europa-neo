@@ -42,6 +42,8 @@ export interface DeepLinkInterstitialProps {
     readonly onSpectate: () => void;
     /** Called when the user chooses to return to the lobby. */
     readonly onReturnToLobby: () => void;
+    /** Open the runtime-owned Controls editor without entering the match. */
+    readonly onConfigureControls?: ((trigger?: HTMLElement) => void) | undefined;
     /** Shared live-region announcer (optional — tests may omit). */
     readonly announcer?: LiveRegionAnnouncer | undefined;
 }
@@ -74,6 +76,7 @@ export function DeepLinkInterstitial({
     onPlay,
     onSpectate,
     onReturnToLobby,
+    onConfigureControls,
     announcer,
 }: DeepLinkInterstitialProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
@@ -119,6 +122,16 @@ export function DeepLinkInterstitial({
                     Match <bdi>{matchIdDisplay}…</bdi>
                 </p>
                 <div className="europa-deep-link-interstitial__actions">
+                    {onConfigureControls !== undefined ? (
+                        <EuropaButton
+                            variant="secondary"
+                            className="europa-lobby__button europa-focus-ring"
+                            data-europa-deep-link-controls="true"
+                            onClick={(event) => onConfigureControls(event.currentTarget)}
+                        >
+                            Configure controls…
+                        </EuropaButton>
+                    ) : null}
                     {isPlayer ? (
                         <EuropaButton
                             variant="primary"

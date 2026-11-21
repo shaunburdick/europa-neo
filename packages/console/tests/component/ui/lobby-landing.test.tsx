@@ -70,6 +70,44 @@ const noopCallbacks = {
 // ----------------------------------------------------------------------------
 
 describe('LobbyLanding (smoke)', () => {
+    test('offers optional control configuration before match actions', async () => {
+        const onConfigureControls = vi.fn();
+        const state = stateOf({
+            connection: 'ready',
+            identityStatus: 'named',
+            handle: 'Nova',
+            snapshot: snapshotOf([]),
+        });
+        const screen = await render(
+            <LobbyLanding
+                state={state}
+                focusHeading={false}
+                {...noopCallbacks}
+                onConfigureControls={onConfigureControls}
+            />,
+        );
+
+        const configure = screen.getByRole('button', { name: 'Configure controls…' }).element();
+        const create = screen.getByRole('button', { name: 'Create match' }).element();
+        expect(Boolean(configure.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+        const subtitle = screen.container.querySelector('.europa-lobby__subtitle');
+        const hero = screen.container.querySelector('.europa-lobby__hero');
+        expect(subtitle).not.toBeNull();
+        expect(hero).not.toBeNull();
+        const configureRect = configure.getBoundingClientRect();
+        const subtitleRect = subtitle?.getBoundingClientRect();
+        const heroRect = hero?.getBoundingClientRect();
+        expect(configureRect.top).toBeGreaterThanOrEqual(subtitleRect?.bottom ?? Number.POSITIVE_INFINITY);
+        expect(
+            Math.abs(
+                configureRect.left + configureRect.width / 2 - ((heroRect?.left ?? 0) + (heroRect?.width ?? 0) / 2),
+            ),
+        ).toBeLessThanOrEqual(1);
+        await screen.getByRole('button', { name: 'Configure controls…' }).click();
+        expect(onConfigureControls).toHaveBeenCalledTimes(1);
+        await expect.element(create).toBeEnabled();
+    });
+
     test('unnamed visitor sees the compact identity display and a disabled create form', async () => {
         const state = stateOf({ connection: 'ready', identityStatus: 'unnamed', handle: null });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
@@ -442,6 +480,27 @@ class SmokeTransport implements LobbyTransport {
 }
 
 describe('LobbyRoot view gate (smoke)', () => {
+    test('the production-style lobby route opens the shared Controls editor without requiring it', async () => {
+        window.history.pushState(window.history.state, '', '/test-lobby-controls');
+        const transport = new SmokeTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        const screen = await render(
+            <LobbyRoot controller={controller} wsUrl="ws://localhost:8080" withControlsEditor />,
+        );
+
+        await expect.element(screen.getByText('Europa Neo lobby')).toBeVisible();
+        const configure = screen.getByRole('button', { name: 'Configure controls…' }).element();
+        expect(configure.classList.contains('europa-button')).toBe(true);
+        await screen.getByRole('button', { name: 'Configure controls…' }).click();
+        await vi.waitFor(() => {
+            expect(document.querySelector('[aria-label="Toggle pipe North bindings"]')).not.toBeNull();
+        });
+        await screen.getByRole('button', { name: 'Cancel', exact: true }).click();
+        expect(document.activeElement).toBe(configure);
+        await expect.element(screen.getByRole('button', { name: 'Create match' })).toBeDisabled();
+        controller.disconnect();
+    });
+
     test('lobby first; a seat grant shows the waiting room; auto-start attaches the console', async () => {
         // The profile route view gate (feature 015) renders ProfileView when
         // window.location.pathname === '/profile'. In Vitest browser mode the

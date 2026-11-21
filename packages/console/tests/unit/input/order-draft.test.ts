@@ -260,10 +260,15 @@ describe('shouldIgnoreKeyEvent (typing-surface + chord guards)', () => {
         expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: input })).toBe(true);
     });
 
-    test('ignores contentEditable hosts; plain containers pass', () => {
+    test('ignores contentEditable hosts and modal content; plain containers pass', () => {
         const editable = document.createElement('div');
         editable.contentEditable = 'true';
         expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: editable })).toBe(true);
+        const dialog = document.createElement('div');
+        dialog.setAttribute('role', 'dialog');
+        const dialogBody = document.createElement('p');
+        dialog.append(dialogBody);
+        expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: dialogBody })).toBe(true);
         const plain = document.createElement('div');
         expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: plain })).toBe(false);
         expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: null })).toBe(false);
